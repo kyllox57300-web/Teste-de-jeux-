@@ -1,0 +1,21 @@
+export default async (page, shot) => {
+  const st = () => page.evaluate(() => JSON.stringify({ state: __DR.state, lock: document.pointerLockElement ? document.pointerLockElement.id : null, yaw: +__DR.player.yaw.toFixed(3), pitch: +__DR.player.pitch.toFixed(3), x: +__DR.player.x.toFixed(2), z: +__DR.player.z.toFixed(2), mag: __DR.player.weapons[0].mag, shots: __DR.player.shots, t: +__DR.time.toFixed(2) }));
+  await page.click('#play');
+  await page.waitForTimeout(600);
+  console.log('after play', await st());
+  await page.mouse.move(500, 300); await page.mouse.move(560, 290, { steps: 5 });
+  await page.waitForTimeout(300);
+  console.log('after mouse', await st());
+  await page.keyboard.down('KeyW'); await page.waitForTimeout(1200); await page.keyboard.up('KeyW');
+  console.log('after W', await st());
+  await page.mouse.down(); await page.waitForTimeout(200); await page.mouse.up(); await page.waitForTimeout(200);
+  console.log('after click', await st());
+  await page.keyboard.press('KeyR'); await page.waitForTimeout(400);
+  await page.keyboard.press('Escape'); await page.waitForTimeout(500);
+  console.log('after esc', await st());
+  await shot('60-pause');
+  await page.click('#resume'); await page.waitForTimeout(1500);
+  console.log('after resume', await st());
+  await page.click('#resume').catch(() => {}); await page.waitForTimeout(800);
+  console.log('after resume2', await st());
+};
