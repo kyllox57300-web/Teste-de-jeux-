@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>L'Empire du Croissant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#24140c;--bg2:#3d2416;--panel:#311c11;--line:#5a3826;--text:#fff4e0;--muted:#d9b998;--butter:#f7c55a;--gold:#ffd86b;--ok:#9be38a;--tint:#5e3219}
+body[data-s="printemps"]{--tint:#6a3446}
+body[data-s="ete"]{--tint:#74501a}
+body[data-s="automne"]{--tint:#6a3216}
+body[data-s="hiver"]{--tint:#363c62}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Fredoka',system-ui,sans-serif;color:var(--text);background:radial-gradient(120% 70% at 50% 0%,var(--tint) 0%,var(--bg) 62%) fixed;background-color:var(--bg);-webkit-tap-highlight-color:transparent;overflow-x:hidden;min-height:100vh}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;touch-action:manipulation}
+button:disabled{cursor:default}
+#bg{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.app{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:12px 14px 40px;display:grid;gap:14px}
+@media(min-width:820px){.app{grid-template-columns:1fr 1fr;align-items:start;padding-top:20px}.bakery{position:sticky;top:16px}}
+.top{grid-column:1/-1;display:grid;gap:8px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px}
+h1{font-size:14px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--butter)}
+.iconbtn{width:38px;height:38px;border-radius:12px;background:rgba(61,36,22,.9);font-size:18px;flex:none}
+.ticker{background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:13.5px;color:var(--muted);min-height:36px;transition:opacity .4s;line-height:1.35}
+.bakery{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px}
+.count{font-size:clamp(36px,10vw,54px);font-weight:700;line-height:1.05;font-variant-numeric:tabular-nums}
+.count small{display:block;font-size:15px;font-weight:500;color:var(--muted)}
+.cps{font-size:15px;color:var(--muted);margin-top:2px}
+.cps b{color:var(--text);font-weight:600}
+.meta{font-size:13px;color:var(--muted);margin-top:4px;opacity:.9}
+.meta b{color:var(--butter);font-weight:600}
+.buff{min-height:30px;margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center}
+.chip{background:linear-gradient(90deg,#ff9a3c,#ffd25e);color:#3b1d06;border-radius:99px;padding:3px 12px;font-size:13.5px;font-weight:600;animation:glow 1s ease-in-out infinite alternate}
+@keyframes glow{to{box-shadow:0 0 16px #ffb64d}}
+.stage{position:relative;width:min(72vw,290px);aspect-ratio:1;display:grid;place-items:center}
+.rays{position:absolute;inset:-4%;border-radius:50%;background:repeating-conic-gradient(rgba(255,214,120,.14) 0 10deg,transparent 10deg 20deg);animation:spin 40s linear infinite;-webkit-mask:radial-gradient(circle,#000 25%,transparent 70%);mask:radial-gradient(circle,#000 25%,transparent 70%)}
+.frenzy .rays{background:repeating-conic-gradient(rgba(255,160,50,.45) 0 10deg,transparent 10deg 20deg);animation-duration:6s}
+@keyframes spin{to{transform:rotate(360deg)}}
+#croissant{position:relative;width:88%;filter:drop-shadow(0 14px 18px rgba(0,0,0,.45));transition:transform .1s;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+@media(hover:hover){#croissant:hover{transform:scale(1.04)}}
+#croissant.pop{animation:pop .13s ease-out}
+@keyframes pop{0%{transform:scale(.9)}100%{transform:scale(1.02)}}
+#croissant svg{width:100%;height:auto;display:block;pointer-events:none}
+.hint{font-size:13px;color:var(--muted);opacity:.75;min-height:18px}
+.ev{width:100%;max-width:340px;background:linear-gradient(135deg,#fff4e0,#ffe0a0);color:#3b1d06;border-radius:16px;padding:12px 14px;text-align:left;margin:6px 0 2px;box-shadow:0 8px 24px rgba(0,0,0,.35);animation:tin .3s ease-out}
+.ev .t{font-weight:700;font-size:16px}
+.ev .d{font-size:14px;margin-top:2px;line-height:1.35}
+.ev .n{font-size:14px;font-weight:600;margin-top:6px}
+.ev .bar{height:6px;background:rgba(59,29,6,.15);border-radius:3px;overflow:hidden;margin-top:8px}
+.ev .bar i{display:block;height:100%;width:100%;background:#e0702a;transition:width .15s linear}
+.ev .row2{display:flex;gap:8px;margin-top:8px}
+.ev button{background:#3b1d06;color:#fff4e0;border-radius:10px;padding:8px 14px;font-weight:600;font-size:14px}
+.ev button.ghost{background:transparent;color:#3b1d06;border:1.5px solid #3b1d06}
+.panel{background:rgba(49,28,17,.9);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.tabs{display:grid;grid-template-columns:repeat(6,1fr);border-bottom:1px solid var(--line)}
+.tab{padding:8px 0 9px;font-size:11.5px;font-weight:500;color:var(--muted);position:relative;display:flex;flex-direction:column;align-items:center;gap:1px}
+.tab .ti{font-size:19px;line-height:1.2;filter:grayscale(.6);opacity:.8}
+.tab.on{color:var(--text)}
+.tab.on .ti{filter:none;opacity:1}
+.tab.on::after{content:'';position:absolute;left:20%;right:20%;bottom:-1px;height:3px;border-radius:3px;background:var(--butter)}
+.dot{position:absolute;top:3px;right:calc(50% - 22px);min-width:17px;padding:0 4px;border-radius:9px;background:var(--butter);color:#3b1d06;font-size:11px;line-height:17px;font-weight:700}
+.dot:empty{display:none}
+.view{padding:10px;display:none}
+.view.on{display:block}
+.buybar{display:flex;gap:6px;align-items:center;justify-content:flex-end;padding:2px 2px 8px;font-size:13px;color:var(--muted)}
+.seg{padding:4px 11px;border-radius:99px;border:1px solid var(--line);font-size:13px}
+.seg.on{background:var(--butter);color:#3b1d06;border-color:var(--butter);font-weight:600}
+.item{width:100%;display:flex;align-items:center;gap:12px;padding:10px;border-radius:14px;text-align:left;transition:background .15s,opacity .15s}
+.item+.item{margin-top:3px}
+@media(hover:hover){.item:hover{background:rgba(255,255,255,.06)}}
+.item:active{background:rgba(255,255,255,.1)}
+.item.no{opacity:.5}
+.item.done{opacity:.75}
+.item.done .cost{color:var(--ok)}
+.item.flash{animation:flash .35s}
+@keyframes flash{0%{background:rgba(247,197,90,.35)}}
+.ic{font-size:26px;width:46px;height:46px;display:grid;place-items:center;background:var(--bg2);border-radius:12px;flex:none}
+.info{flex:1;min-width:0}
+.info b{display:block;font-weight:600;font-size:16px;line-height:1.2}
+.info small{display:block;color:var(--muted);font-size:13px;line-height:1.3;margin-top:1px}
+.cost{display:block;font-weight:600;color:var(--butter);font-size:14px;margin-top:2px}
+.item.no .cost{color:#ee8f72}
+.own{font-size:28px;font-weight:700;opacity:.4;min-width:34px;text-align:right;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:99px;background:var(--bg2);color:var(--muted);margin-left:6px;vertical-align:2px}
+.empty{padding:28px 10px;text-align:center;color:var(--muted);font-size:14px;line-height:1.5}
+.sub{font-size:13px;color:var(--muted);padding:0 4px 8px;line-height:1.4}
+.ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.a{padding:10px;border-radius:12px;background:var(--bg2);font-size:13px;color:var(--muted);line-height:1.3}
+.a b{display:block;color:var(--text);font-size:14px;font-weight:600;margin-bottom:2px}
+.a.off{opacity:.36}
+.row{display:flex;justify-content:space-between;gap:10px;padding:10px 6px;border-bottom:1px dashed var(--line);font-size:15px}
+.row span{color:var(--muted)}
+.row b{font-weight:600;text-align:right}
+.danger{margin-top:18px;width:100%;padding:11px;border-radius:12px;border:1px solid #8a3b2a;color:#ffb39f;font-size:14px}
+.card{background:var(--bg2);border-radius:14px;padding:14px;margin-bottom:10px;font-size:14px;color:var(--muted);line-height:1.45}
+.card h3{color:var(--text);font-size:16px;font-weight:600;margin-bottom:4px}
+.bign{font-size:30px;font-weight:700;color:var(--gold);line-height:1.1}
+.prog{height:8px;background:rgba(0,0,0,.3);border-radius:4px;overflow:hidden;margin:8px 0 4px}
+.prog i{display:block;height:100%;background:var(--gold);transition:width .3s}
+.big{width:100%;padding:13px;border-radius:12px;background:var(--butter);color:#3b1d06;font-weight:700;font-size:16px;margin-top:10px}
+.big:disabled{opacity:.4}
+.vrow{padding:9px 4px;border-bottom:1px dashed var(--line)}
+.vlab{font-size:13px;color:var(--muted);display:flex;justify-content:space-between}
+.vic{display:flex;flex-wrap:wrap;gap:1px;margin-top:4px;font-size:21px;line-height:1.15}
+.vic span{display:inline-block;animation:bob 2.4s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-3px)}}
+.float{position:fixed;pointer-events:none;font-weight:700;font-size:21px;color:var(--gold);text-shadow:0 2px 0 #6b3510;animation:up .9s ease-out forwards;z-index:30;transform:translate(-50%,-50%);white-space:nowrap}
+@keyframes up{to{transform:translate(-50%,-160%);opacity:0}}
+.crumb{position:fixed;width:7px;height:7px;border-radius:2px;background:#e1953f;pointer-events:none;z-index:29;animation:crumb .7s ease-out forwards}
+@keyframes crumb{to{transform:translate(var(--dx),var(--dy)) rotate(220deg);opacity:0}}
+#golden{position:fixed;z-index:40;width:78px;height:78px;display:none;animation:gold 1.4s ease-in-out infinite;filter:drop-shadow(0 0 14px #ffd86b)}
+#golden svg,.drop svg{width:100%;height:100%;pointer-events:none}
+@keyframes gold{50%{transform:rotate(14deg) scale(1.14)}}
+.drop{position:fixed;top:-70px;width:58px;height:58px;z-index:35;animation:fall 3.4s linear forwards;filter:drop-shadow(0 4px 6px rgba(0,0,0,.4))}
+@keyframes fall{to{transform:translateY(calc(100vh + 150px)) rotate(300deg)}}
+.toasts{position:fixed;top:12px;left:50%;transform:translateX(-50%);display:grid;gap:8px;z-index:70;width:min(92vw,380px);pointer-events:none}
+.toast{background:rgba(255,244,224,.96);color:#3b1d06;border-radius:12px;padding:7px 12px;font-size:13px;line-height:1.3;box-shadow:0 8px 24px rgba(0,0,0,.35);animation:tin .3s ease-out;transition:opacity .4s}
+.toast b{display:block;font-size:14px}
+@keyframes tin{from{transform:translateY(-12px);opacity:0}}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;place-items:center;z-index:60;padding:20px}
+.modal.on{display:grid}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px;width:min(100%,360px);text-align:center}
+.box h3{font-weight:600;font-size:19px}
+.box p{color:var(--muted);margin:8px 0 18px;font-size:15px;line-height:1.4}
+.btns{display:flex;gap:8px}
+.btns button{flex:1;padding:11px;border-radius:12px;background:var(--bg2);font-weight:600}
+.btns .red{background:#b84a33}
+.btns .yel{background:var(--butter);color:#3b1d06}
+.gauge{position:relative;height:40px;border-radius:12px;background:linear-gradient(90deg,#f5dca8,#e9a24e 55%,#8a3214 85%,#2b0f06);margin:6px 0 6px;overflow:hidden}
+.zg{position:absolute;top:0;bottom:0;background:rgba(140,230,120,.55)}
+.zp{position:absolute;top:0;bottom:0;background:#ffd86b;box-shadow:0 0 12px #ffd86b}
+.cur{position:absolute;top:-2px;bottom:-2px;width:5px;margin-left:-2px;background:#fff;border-radius:3px;box-shadow:0 0 6px #000}
+.legend{font-size:12px;color:var(--muted);display:flex;justify-content:space-between}
+.flashscreen{position:fixed;inset:0;background:#fff4c8;z-index:80;pointer-events:none;animation:fl 1.2s ease-out forwards}
+@keyframes fl{from{opacity:.9}to{opacity:0}}
+
+.town{width:100%;max-width:420px;margin-top:10px;border-radius:16px;overflow:hidden;border:1px solid var(--line);box-shadow:0 6px 18px rgba(0,0,0,.3);line-height:0}
+.town svg{width:100%;height:auto;display:block}
+.town .spin{animation:spin 5s linear infinite;transform-box:fill-box;transform-origin:center}
+.town .slow{animation-duration:30s}
+.town .flick{animation:flick .35s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:50% 100%}
+@keyframes flick{to{transform:scaleY(1.3) scaleX(.9)}}
+.town .smk{animation:smk 2.6s ease-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes smk{0%{transform:translate(0,0) scale(.6);opacity:.8}100%{transform:translate(8px,-20px) scale(2);opacity:0}}
+.town .drive{animation:drive 13s linear infinite}
+@keyframes drive{from{transform:translateX(-60px)}to{transform:translateX(460px)}}
+.town .bobs{animation:bobs 1.4s ease-in-out infinite;transform-box:fill-box}
+@keyframes bobs{50%{transform:translateY(-2px)}}
+.town .puls{animation:puls 1.8s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes puls{50%{transform:scale(1.25);opacity:.7}}
+.town .bub{animation:bub 1.6s ease-in infinite;transform-box:fill-box}
+@keyframes bub{0%{transform:translateY(0);opacity:1}100%{transform:translateY(-12px);opacity:0}}
+.town .flag{animation:flag 1s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:0 50%}
+@keyframes flag{to{transform:skewY(10deg) scaleX(.85)}}
+.town .tw{animation:tw 1.6s ease-in-out infinite alternate}
+@keyframes tw{to{opacity:.15}}
+.mk-price{font-size:26px;font-weight:700;color:var(--text);margin-top:8px}
+.up{color:#8fe388}.down{color:#ff8f73}
+.chart{width:100%;height:110px;display:block;background:rgba(0,0,0,.25);border-radius:12px;margin:10px 0}
+.mk-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+.mk-btns button{padding:10px 4px;border-radius:12px;background:var(--bg);border:1px solid var(--line);font-weight:600;font-size:14px}
+.mk-btns button.sell{border-color:#8a3b2a;color:#ffb39f}
+.q{display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:var(--bg);margin-top:6px}
+.q .qi{font-size:22px}.q .qt{flex:1;font-size:14px;color:var(--text);line-height:1.3}.q .qp{font-size:13px;color:var(--muted);white-space:nowrap}
+.q.ok{outline:1.5px solid var(--ok)}.q.ok .qp{color:var(--ok)}
+.chap{padding:10px 12px;border-radius:12px;background:var(--bg);margin-top:6px;font-size:14px;color:var(--text);text-align:left;width:100%;display:block}
+.chap.off{opacity:.4}
+.chap small{display:block;color:var(--muted);font-size:12px}
+textarea{width:100%;min-height:70px;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:10px;font:12px monospace;margin-top:8px;resize:vertical}
+.sbtn{padding:10px 14px;border-radius:12px;background:var(--bg);border:1px solid var(--line);font-weight:600;font-size:14px;margin-top:8px;color:var(--text)}
+#story .box{text-align:left}
+#story .box h3{text-align:center}
+#story .kicker{text-align:center;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--butter)}
+@media(prefers-reduced-motion:reduce){.town *{animation:none!important}.rays,#golden,.chip,.vic span{animation:none}}
+</style>
+</head>
+<body data-s="printemps">
+<canvas id="bg"></canvas>
+<div class="app">
+  <header class="top">
+    <div class="topbar">
+      <h1>🥐 L'Empire du Croissant</h1>
+      <button class="iconbtn" id="snd" aria-label="Son">🔊</button>
+    </div>
+    <div class="ticker" id="ticker">📰 Chargement des nouvelles du fournil…</div>
+  </header>
+
+  <section class="bakery" id="bakery">
+    <div class="count"><span id="count">0</span><small>croissants</small></div>
+    <div class="cps">par seconde : <b id="cps">0</b></div>
+    <div class="meta" id="meta"></div>
+    <div class="buff" id="buff"></div>
+    <div id="event"></div>
+    <div class="stage">
+      <div class="rays"></div>
+      <button id="croissant" aria-label="Cuire un croissant"></button>
+    </div>
+    <div class="hint" id="hint"></div>
+    <div class="town" id="town" aria-label="Ta ville"></div>
+  </section>
+
+  <section class="panel">
+    <nav class="tabs">
+      <button class="tab on" data-v="b"><span class="ti">🏗️</span>Bâtir</button>
+      <button class="tab" data-v="u"><span class="ti">⬆️</span>Bonus<span class="dot" id="udot"></span></button>
+      <button class="tab" data-v="v"><span class="ti">🏙️</span>Vitrine</button>
+      <button class="tab" data-v="m"><span class="ti">🧈</span>Marché</button>
+      <button class="tab" data-v="a"><span class="ti">🏆</span>Succès</button>
+      <button class="tab" data-v="c"><span class="ti">⭐</span>Chef<span class="dot" id="cdot"></span></button>
+    </nav>
+    <div class="view on" id="v-b">
+      <div class="buybar">Acheter <button class="seg on" data-n="1">×1</button><button class="seg" data-n="10">×10</button><button class="seg" data-n="100">×100</button></div>
+      <div id="blist"></div>
+      <div class="empty" id="bmore" style="padding:12px">🔒 D'autres bâtiments apparaîtront bientôt…</div>
+    </div>
+    <div class="view" id="v-u"><div class="sub" id="usub"></div><div id="ulist"></div></div>
+    <div class="view" id="v-v"><div class="sub">Ton empire grandit sous tes yeux. Chaque bâtiment acheté apparaît ici.</div><div id="vlist"></div></div>
+    <div class="view" id="v-m">
+      <div id="mklock" class="empty">🔒 Achète une Boulangerie pour ouvrir le marché du beurre.</div>
+      <div class="card" id="mkcard" style="display:none">
+        <h3>🧈 Marché du beurre</h3>
+        Achète bas, revends haut ! Le cours change toutes les 4 secondes.
+        <div class="mk-price" id="mkp"></div>
+        <div id="mkd"></div>
+        <svg class="chart" id="mkc" viewBox="0 0 300 100" preserveAspectRatio="none"></svg>
+        <div id="mkinfo"></div>
+        <div class="mk-btns">
+          <button data-mk="1">Acheter 1</button><button data-mk="10">Acheter 10</button><button data-mk="max">Acheter max</button>
+          <button class="sell" data-mk="-1">Vendre 1</button><button class="sell" data-mk="-10">Vendre 10</button><button class="sell" data-mk="-all">Tout vendre</button>
+        </div>
+      </div>
+    </div>
+    <div class="view" id="v-a">
+      <div class="sub" id="asub"></div><div class="ach" id="alist"></div>
+      <div class="sub" style="margin-top:18px">📊 Statistiques</div>
+      <div id="slist"></div>
+      <div class="card" style="margin-top:14px">
+        <h3>💾 Code de sauvegarde</h3>
+        Copie ce code pour transférer ta partie sur un autre appareil, puis colle-le là-bas.<br>
+        <button class="sbtn" id="exp">📋 Copier mon code</button>
+        <textarea id="code" placeholder="Colle un code ici pour charger une partie…"></textarea>
+        <button class="sbtn" id="imp">📥 Charger ce code</button>
+      </div>
+      <button class="danger" id="reset">Tout effacer et recommencer</button>
+    </div>
+    <div class="view" id="v-c">
+      <div class="card" id="dailycard"></div>
+      <div class="card"><div id="chefcard"></div>
+        <button class="big" id="rebirthBtn">🌅 Renaître</button>
+        <div style="font-size:12px;margin-top:8px">La renaissance remet à zéro tes croissants, bâtiments et bonus. Tu gardes tes étoiles, talents et succès.</div>
+      </div>
+      <div class="sub">Talents du Chef : dépense tes étoiles, ils sont gardés pour toujours.</div>
+      <div id="tlist"></div>
+      <div class="sub" style="margin-top:16px">📖 Histoire : les chapitres se débloquent avec le total de croissants cuits.</div>
+      <div id="storylist"></div>
+    </div>
+  </section>
+</div>
+
+<button id="golden" aria-label="Croissant doré"></button>
+<div class="toasts" id="toasts"></div>
+
+<div class="modal" id="modal">
+  <div class="box">
+    <h3 id="mt"></h3>
+    <p id="mp"></p>
+    <div class="btns"><button id="mno">Annuler</button><button class="red" id="myes">OK</button></div>
+  </div>
+</div>
+
+<div class="modal" id="story">
+  <div class="box">
+    <div class="kicker" id="sk"></div>
+    <h3 id="st"></h3>
+    <p id="sp"></p>
+    <button class="big" id="sok">Continuer</button>
+  </div>
+</div>
+
+<div class="modal" id="oven">
+  <div class="box">
+    <h3>🔥 Le four capricieux</h3>
+    <p>Appuie quand le curseur est dans la <b style="color:var(--gold)">zone dorée</b>. Le vert, c'est correct. Ailleurs… c'est cramé !</p>
+    <div class="gauge"><div class="zg" id="zg"></div><div class="zp" id="zp"></div><div class="cur" id="cur"></div></div>
+    <div class="legend"><span>pas cuit</span><span>carbonisé</span></div>
+    <button class="big" id="ovenBtn">Sortir la fournée !</button>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const KEY = 'empire-croissant-v2', OLDKEY = 'empire-croissant-v1';
+
+/* ================= SVG ================= */
+function croissantSVG(id, c1, c2, line) {
+  const lobes = [[24,104,11,15,-62],[176,104,11,15,62],[44,90,19,25,-45],[156,90,19,25,45],[70,76,26,34,-24],[130,76,26,34,24],[100,70,33,44,0]];
+  let s = `<svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="${id}" cx="45%" cy="30%" r="75%"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></radialGradient></defs>`;
+  for (const [x,y,rx,ry,r] of lobes) s += `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(${r} ${x} ${y})" fill="url(#${id})" stroke="${line}" stroke-width="2.5"/>`;
+  s += `<ellipse cx="90" cy="48" rx="8" ry="15" transform="rotate(-15 90 48)" fill="#fff" opacity=".35"/><ellipse cx="64" cy="66" rx="4" ry="9" transform="rotate(-30 64 66)" fill="#fff" opacity=".25"/>`;
+  return s + '</svg>';
+}
+const SVG_NORMAL = croissantSVG('cg', '#ffd27a', '#c2621a', '#8a3f10');
+$('#croissant').innerHTML = SVG_NORMAL;
+$('#golden').innerHTML = croissantSVG('gg', '#fffbe0', '#f0b400', '#b07800');
+
+/* ================= DATA ================= */
+const B = [
+  {id:'apprenti', name:'Apprenti', icon:'🧑‍🍳', desc:'Façonne un croissant de temps en temps.', base:15, cps:0.1, ach:'Brigade complète'},
+  {id:'four', name:'Four à bois', icon:'🔥', desc:'Cuit sans jamais prendre de pause café.', base:100, cps:1, ach:'Fournaise'},
+  {id:'boutique', name:'Boulangerie', icon:'🏪', desc:'Une vraie boutique de quartier.', base:1100, cps:8, ach:'Franchise'},
+  {id:'moulin', name:'Moulin', icon:'🌾', desc:'De la farine fraîche à volonté.', base:12000, cps:47, ach:'Moulin à gains'},
+  {id:'camion', name:'Camion de livraison', icon:'🚚', desc:'Des croissants chauds livrés partout.', base:130000, cps:260, ach:'Embouteillage'},
+  {id:'usine', name:'Usine', icon:'🏭', desc:'Production à la chaîne.', base:1.4e6, cps:1400, ach:'Zone industrielle'},
+  {id:'ferme', name:'Ferme à beurre', icon:'🐄', desc:'Le secret, c’est le beurre.', base:2e7, cps:7800, ach:'Vaches heureuses'},
+  {id:'labo', name:'Labo de pâtisserie', icon:'🧪', desc:'Feuilletage moléculaire.', base:3.3e8, cps:44000, ach:'Docteur Feuilleté'},
+  {id:'ecole', name:'École de pâtisserie', icon:'🎓', desc:'Forme des légions de boulangers.', base:5.1e9, cps:260000, ach:'Promotion d’excellence'},
+  {id:'portail', name:'Portail temporel', icon:'🌀', desc:'Rapporte les croissants de demain.', base:7.5e10, cps:1.6e6, ach:'Paradoxe temporel'},
+  {id:'lune', name:'Fournil lunaire', icon:'🌙', desc:'En faible gravité, ça feuillette mieux.', base:1e12, cps:1e7, ach:'Mer de la Tranquillité'},
+  {id:'galaxie', name:'Galaxie feuilletée', icon:'🌌', desc:'Des étoiles faites de pâte levée.', base:1.4e13, cps:6.5e7, ach:'Voie lactée feuilletée'},
+  {id:'multivers', name:'Multivers beurré', icon:'🪐', desc:'Une infinité de boulangeries parallèles.', base:1.7e14, cps:4.3e8, ach:'Infinité de croissants'},
+  {id:'bigbang', name:'Big Bang levé', icon:'💥', desc:'Crée des univers entiers… de pâte.', base:2.1e15, cps:2.9e9, ach:'Au commencement était la pâte'},
+];
+const BI = Object.fromEntries(B.map(b => [b.id, b]));
+
+const TIERS = [
+  {n:1, c:10, name:'Formation express'},
+  {n:5, c:50, name:'Outils en cuivre'},
+  {n:25, c:500, name:'Savoir-faire ancestral'},
+  {n:50, c:5e4, name:'Label d’excellence'},
+  {n:100, c:5e6, name:'Légende vivante'},
+  {n:150, c:5e8, name:'Perfection absolue'},
+];
+
+const U = [
+  {id:'c1', name:'Rouleau à pâtisserie', icon:'🪵', desc:'Chaque clic rapporte 2× plus.', cost:100, unlock:()=>S.clicks>=10, click:2},
+  {id:'c2', name:'Doigts beurrés', icon:'🧈', desc:'Chaque clic rapporte 2× plus.', cost:500, unlock:()=>S.clicks>=60, click:2},
+  {id:'c3', name:'Pinceau à dorure', icon:'🖌️', desc:'Chaque clic gagne +1 % de ta production/s.', cost:1e4, unlock:()=>S.total>=4000, pct:.01},
+  {id:'c4', name:'Main de maître', icon:'✋', desc:'Chaque clic gagne +1 % de ta production/s.', cost:1e6, unlock:()=>S.total>=4e5, pct:.01},
+  {id:'c5', name:'Geste parfait', icon:'💫', desc:'Chaque clic gagne +2 % de ta production/s.', cost:1e8, unlock:()=>S.total>=4e7, pct:.02},
+  {id:'c6', name:'Clic divin', icon:'👑', desc:'Chaque clic gagne +3 % de ta production/s.', cost:1e10, unlock:()=>S.total>=4e9, pct:.03},
+  {id:'c7', name:'Clic cosmique', icon:'☄️', desc:'Chaque clic gagne +4 % de ta production/s.', cost:1e12, unlock:()=>S.total>=4e11, pct:.04},
+  {id:'g1', name:'Beurre AOP', icon:'🧈', desc:'+10 % de production totale.', cost:5e4, unlock:()=>S.total>=2e4, g:1.1},
+  {id:'g2', name:'Farine de meule', icon:'🌾', desc:'+15 % de production totale.', cost:5e6, unlock:()=>S.total>=2e6, g:1.15},
+  {id:'g3', name:'Levain centenaire', icon:'🫙', desc:'+20 % de production totale.', cost:5e8, unlock:()=>S.total>=2e8, g:1.2},
+  {id:'g4', name:'Croissant étoilé', icon:'⭐', desc:'+25 % de production totale.', cost:5e10, unlock:()=>S.total>=2e10, g:1.25},
+  {id:'g5', name:'Pétrin cosmique', icon:'🌠', desc:'+30 % de production totale.', cost:5e12, unlock:()=>S.total>=2e12, g:1.3},
+  {id:'f1', name:'Croissant aux amandes', icon:'🌰', desc:'Nouvelle recette ! +5 % de production.', cost:1e5, unlock:()=>S.total>=5e4, g:1.05, fl:1},
+  {id:'f2', name:'Pain au chocolat (ou chocolatine ?)', icon:'🍫', desc:'Le débat éternel. +5 % de production.', cost:1e6, unlock:()=>S.total>=5e5, g:1.05, fl:1},
+  {id:'f3', name:'Kouign-amann', icon:'🧈', desc:'Du beurre, du sucre, du bonheur. +5 %.', cost:1e7, unlock:()=>S.total>=5e6, g:1.05, fl:1},
+  {id:'f4', name:'Croissant au jambon', icon:'🍖', desc:'Version salée. +5 % de production.', cost:1e8, unlock:()=>S.total>=5e7, g:1.05, fl:1},
+  {id:'f5', name:'Croissant matcha', icon:'🍵', desc:'Vert et zen. +7 % de production.', cost:1e9, unlock:()=>S.total>=5e8, g:1.07, fl:1},
+  {id:'f6', name:'Croissant arc-en-ciel', icon:'🌈', desc:'Sept couches, sept couleurs. +7 %.', cost:1e10, unlock:()=>S.total>=5e9, g:1.07, fl:1},
+  {id:'f7', name:'Croissant à la truffe', icon:'🍄', desc:'Le luxe absolu. +8 % de production.', cost:1e11, unlock:()=>S.total>=5e10, g:1.08, fl:1},
+  {id:'f8', name:'Croissant feuille d’or', icon:'🏅', desc:'Comestible, paraît-il. +10 %.', cost:1e12, unlock:()=>S.total>=5e11, g:1.1, fl:1},
+  {id:'f9', name:'Croissant quantique', icon:'⚛️', desc:'Cuit et pas cuit à la fois. +10 %.', cost:1e13, unlock:()=>S.total>=5e12, g:1.1, fl:1},
+  {id:'o1', name:'Four à reflets d’or', icon:'✨', desc:'Croissants dorés 30 % plus fréquents.', cost:2e5, unlock:()=>S.golden>=3, luck:.7},
+  {id:'o2', name:'Croissant porte-bonheur', icon:'🍀', desc:'Croissants dorés encore 30 % plus fréquents.', cost:2e7, unlock:()=>S.golden>=10, luck:.7},
+  {id:'o3', name:'Frénésie dorée', icon:'⚡', desc:'Les bonus dorés durent 50 % plus longtemps.', cost:2e9, unlock:()=>S.golden>=25, bd:1.5},
+  {id:'s1', name:'Livraison express', icon:'📦', desc:'Boulangeries +5 % par Camion possédé.', cost:5e5, unlock:()=>own('camion')>=5&&own('boutique')>=5, syn:['boutique','camion',.05]},
+  {id:'s2', name:'Blé maison', icon:'🌾', desc:'Fours +3 % par Moulin possédé.', cost:5e6, unlock:()=>own('moulin')>=10, syn:['four','moulin',.03]},
+  {id:'s3', name:'Beurre en direct', icon:'🥛', desc:'Usines +2 % par Ferme possédée.', cost:5e8, unlock:()=>own('ferme')>=10, syn:['usine','ferme',.02]},
+  {id:'s4', name:'Stagiaires motivés', icon:'📚', desc:'Apprentis +10 % par École possédée.', cost:5e10, unlock:()=>own('ecole')>=10, syn:['apprenti','ecole',.1]},
+  {id:'s5', name:'Logistique spatiale', icon:'🛰️', desc:'Fournils lunaires +2 % par Portail.', cost:5e13, unlock:()=>own('lune')>=10&&own('portail')>=10, syn:['lune','portail',.02]},
+];
+B.forEach(b => TIERS.forEach((t,i) => U.push({
+  id:`${b.id}-${i}`, name:t.name, icon:b.icon, desc:`${b.name} : production ×2.`,
+  cost:b.base*t.c, unlock:()=>own(b.id)>=t.n, b:b.id
+})));
+
+const T = [
+  {id:'rapide', name:'Départ rapide', icon:'🚀', desc:'Commence chaque partie avec 10 Apprentis et 5 Fours.', cost:2},
+  {id:'dore', name:'Instinct doré', icon:'🔍', desc:'Croissants dorés 30 % plus fréquents.', cost:3},
+  {id:'patience', name:'Patience', icon:'⏳', desc:'Les croissants dorés restent 2× plus longtemps.', cost:3},
+  {id:'nuit', name:'Cuisson nocturne', icon:'🌙', desc:'Hors-ligne : 100 % de la production au lieu de 50 %.', cost:5},
+  {id:'frenzy', name:'Frénésie prolongée', icon:'🔥', desc:'Tous les bonus temporaires durent 2× plus longtemps.', cost:6},
+  {id:'main', name:'Main d’or', icon:'🖐️', desc:'Clic ×3, pour toujours.', cost:8},
+  {id:'clients', name:'Clients fidèles', icon:'🤝', desc:'Événements 2× plus fréquents, récompenses +50 %.', cost:10},
+  {id:'eco', name:'Négociateur', icon:'💼', desc:'Bâtiments 10 % moins chers.', cost:15},
+  {id:'maitre', name:'Maître pâtissier', icon:'👨‍🍳', desc:'+25 % de production.', cost:25},
+  {id:'filante', name:'Étoile filante', icon:'🌠', desc:'Chaque étoile donne +3 % au lieu de +2 %.', cost:40},
+  {id:'eternel', name:'Fournée éternelle', icon:'♾️', desc:'Production ×2.', cost:100},
+];
+
+const SEASONS = [
+  {id:'printemps', name:'Printemps', icon:'🌸', p:'🌸', fx:'clics +25 %'},
+  {id:'ete', name:'Été', icon:'☀️', p:'✨', fx:'dorés plus fréquents'},
+  {id:'automne', name:'Automne', icon:'🍂', p:'🍂', fx:'production +10 %'},
+  {id:'hiver', name:'Hiver', icon:'❄️', p:'❄️', fx:'événements +, bonus plus longs'},
+];
+const SEASON_LEN = 480;
+const season = () => SEASONS[Math.floor(S.play / SEASON_LEN) % 4];
+
+const RANKS = [[0,'Petite échoppe'],[1e3,'Boulangerie de village'],[1e5,'Boulangerie de quartier'],[1e7,'Chaîne régionale'],[1e9,'Empire national'],[1e11,'Empire mondial'],[1e13,'Empire lunaire'],[1e15,'Empire galactique'],[1e17,'Empire multiversel']];
+
+const A = [];
+[[1,'Première fournée','Cuire 1 croissant'],[100,'Petit-déjeuner','Cuire 100 croissants'],[1e3,'Brunch du dimanche','Cuire 1 000 croissants'],[1e4,'Tournée du quartier','Cuire 10 000 croissants'],[1e5,'Fournisseur officiel','Cuire 100 000 croissants'],[1e6,'Empire naissant','Cuire 1 million'],[1e7,'Dix millions de miettes','Cuire 10 millions'],[1e8,'Croissanocratie','Cuire 100 millions'],[1e9,'Milliardaire du beurre','Cuire 1 milliard'],[1e10,'Viennoiserie cosmique','Cuire 10 milliards'],[1e12,'Fin de la faim','Cuire 1 billion'],[1e14,'Océan de pâte','Cuire 100 billions'],[1e16,'Au-delà du four','Cuire 10 billiards']]
+  .forEach(([v,n,d],i) => A.push({id:'t'+i, name:n, desc:d+' (au total)', test:()=>S.lifetime>=v}));
+[[100,'Dix doigts'],[1000,'Tendinite'],[5000,'Clic infini'],[20000,'Machine à cliquer']]
+  .forEach(([v,n],i) => A.push({id:'k'+i, name:n, desc:`Cliquer ${v.toLocaleString('fr-FR')} fois`, test:()=>S.clicksAll>=v}));
+[[1,'Premier employé'],[50,'Grande famille'],[100,'Entreprise florissante'],[250,'Conglomérat'],[500,'Multinationale'],[1000,'Monopole du croissant']]
+  .forEach(([v,n],i) => A.push({id:'b'+i, name:n, desc:`Posséder ${v} bâtiment${v>1?'s':''}`, test:()=>nb()>=v}));
+A.push({id:'all', name:'Un de chaque', desc:'Posséder les 14 types de bâtiments', test:()=>B.every(b=>own(b.id)>0)});
+B.forEach(b => A.push({id:'x'+b.id, name:b.ach, desc:`Posséder 50 × ${b.name}`, test:()=>own(b.id)>=50}));
+[[100,'Vitesse de croisière'],[1e4,'Turbo-four'],[1e6,'Hyperfournée'],[1e8,'Vitesse lumière'],[1e10,'Singularité beurrée']]
+  .forEach(([v,n],i) => A.push({id:'p'+i, name:n, desc:`Atteindre ${fmt(v)} croissants/s`, test:()=>C.cps>=v}));
+[[1,'Chanceux'],[10,'Trèfle à quatre feuilles'],[50,'Chasseur d’or'],[150,'Roi Midas']]
+  .forEach(([v,n],i) => A.push({id:'o'+i, name:n, desc:`Attraper ${v} croissant${v>1?'s':''} doré${v>1?'s':''}`, test:()=>S.golden>=v}));
+A.push(
+  {id:'e1', name:'Service rapide', desc:'Satisfaire un client pressé', test:()=>S.ev.client>=1},
+  {id:'e2', name:'Employé du mois', desc:'Satisfaire 10 clients pressés', test:()=>S.ev.client>=10},
+  {id:'e3', name:'Cuisson parfaite', desc:'Réussir le four capricieux en zone dorée', test:()=>S.ev.perfect>=1},
+  {id:'e4', name:'Œil de lynx', desc:'5 cuissons parfaites', test:()=>S.ev.perfect>=5},
+  {id:'e5', name:'Il pleut des croissants', desc:'Attraper 15 croissants dans une même pluie', test:()=>S.ev.bestRain>=15},
+  {id:'e6', name:'Homme d’affaires', desc:'Livrer une grosse commande', test:()=>S.ev.cmd>=1},
+  {id:'r1', name:'Renaissance', desc:'Renaître une première fois', test:()=>S.runs>=1},
+  {id:'r2', name:'Constellation', desc:'Gagner 10 étoiles du Chef', test:()=>S.starsEarned>=10},
+  {id:'r3', name:'Galaxie de talents', desc:'Gagner 100 étoiles du Chef', test:()=>S.starsEarned>=100},
+  {id:'r4', name:'Grand Chef', desc:'Débloquer tous les talents', test:()=>T.every(t=>S.talents[t.id])},
+  {id:'m1', name:'Quatre saisons', desc:'Vivre les 4 saisons', test:()=>Object.keys(S.seen).length>=4},
+  {id:'m2', name:'Collectionneur', desc:'Débloquer toutes les recettes de croissants', test:()=>U.filter(u=>u.fl).every(u=>S.up[u.id])},
+  {id:'m3', name:'Insomniaque', desc:'Jouer 1 heure au total', test:()=>S.play>=3600},
+  {id:'m4', name:'Fidèle au poste', desc:'Revenir et récolter la production hors-ligne', test:()=>S.flags.back},
+  {id:'m5', name:'Chut !', desc:'Couper le son', test:()=>S.flags.mute},
+  {id:'mk1', name:'Premier pain de beurre', desc:'Acheter du beurre au marché', test:()=>S.mk.bought>=1},
+  {id:'mk2', name:'Trader en herbe', desc:'Faire un bénéfice au marché', test:()=>S.mk.profit>0},
+  {id:'mk3', name:'Baron du beurre', desc:'Vendre 500 pains de beurre', test:()=>S.mk.sold>=500},
+  {id:'q1', name:'Défi relevé', desc:'Terminer un défi du jour', test:()=>S.dailyDone>=1},
+  {id:'q2', name:'Assidu', desc:'Terminer les 3 défis d\u2019une journée', test:()=>S.dailyAll>=1},
+  {id:'q3', name:'Routine de champion', desc:'Terminer 7 journées de défis', test:()=>S.dailyAll>=7},
+  {id:'h1', name:'Fin de l\u2019histoire', desc:'Lire l\u2019épilogue', test:()=>S.story[7]},
+);
+
+const NEWS = [
+  [0,'Un nouveau boulanger s’installe en ville. Les voisins sont sceptiques.'],
+  [0,'Ta grand-mère affirme que ses croissants étaient meilleurs. Personne n’ose la contredire.'],
+  [0,'Météo : risque de miettes sur l’ensemble du territoire.'],
+  [0,'Un pigeon a été vu en train de lorgner ta vitrine. La situation est sous contrôle.'],
+  [1e3,'Les habitants du quartier font la queue dès 6 h du matin.'],
+  [1e3,'Un critique gastronomique local qualifie tes croissants de « dangereusement croustillants ».'],
+  [1e4,'Le débat « pain au chocolat ou chocolatine » éclate à nouveau dans ta boutique.'],
+  [1e4,'Un chat aurait volé un croissant. Il nie toute implication.'],
+  [1e5,'Pénurie de beurre dans la région : les vaches font des heures sup.'],
+  [1e5,'Les apprentis réclament des tabliers plus stylés.'],
+  [1e6,'Un million de croissants : le maire envisage une statue à ton effigie.'],
+  [1e6,'L’odeur de ta boutique se sentirait jusqu’à la ville voisine.'],
+  [1e7,'Les boulangeries concurrentes se reconvertissent dans la baguette.'],
+  [1e7,'Les camions de livraison provoquent des bouchons au parfum de beurre.'],
+  [1e8,'Une agence propose des « circuits croissant » dans tes usines.'],
+  [1e8,'Le croissant devient monnaie officielle dans trois villages.'],
+  [1e9,'Les écoles de pâtisserie affichent complet jusqu’en 2090.'],
+  [1e10,'Les astronautes demandent officiellement des croissants en apesanteur.'],
+  [1e11,'Des miettes détectées dans les anneaux de Saturne.'],
+  [1e12,'Un portail temporel livre par erreur des croissants au Moyen Âge. Les historiens sont perplexes.'],
+  [1e13,'Une civilisation extraterrestre envoie un message : « encore ».'],
+  [1e14,'Les physiciens pensent que l’univers s’étend parce que la pâte lève.'],
+  [1e15,'Il ne reste qu’une seule unité de mesure dans l’univers : le croissant.'],
+];
+
+/* ================= STATE ================= */
+function fresh(){
+  return {c:0,total:0,lifetime:0,clicks:0,clicksAll:0,owned:{},up:{},ach:{},golden:0,start:Date.now(),born:Date.now(),last:Date.now(),
+    buyN:1,stars:0,starsEarned:0,bonusStars:0,talents:{},runs:0,play:0,seen:{},flags:{},sound:true,order:null,
+    bought:0,upsBought:0,dailyDone:0,dailyAll:0,daily:null,story:{},
+    mk:{v:100,hist:[],held:0,avgC:0,profit:0,sold:0,bought:0,mode:0,modeT:0},
+    ev:{client:0,perfect:0,four:0,rain:0,bestRain:0,cmd:0,caught:0}};
+}
+let S = fresh();
+let buffs = {frenzy:0, click:0, rush:null};
+let C = {cps:0, base:0, per:{}, click:1, achN:0, starPct:0};
+const own = id => S.owned[id] || 0;
+const nb = () => B.reduce((s,b)=>s+own(b.id),0);
+const rnd = (a,b) => a + Math.random()*(b-a);
+
+function fmt(n){
+  if (!isFinite(n)) return '∞';
+  if (n < 1e6) {
+    if (n < 100 && n % 1 !== 0) return n.toLocaleString('fr-FR',{maximumFractionDigits:1});
+    return Math.floor(n).toLocaleString('fr-FR');
+  }
+  const u = [[1e21,'trilliard'],[1e18,'trillion'],[1e15,'billiard'],[1e12,'billion'],[1e9,'Md'],[1e6,'M']];
+  for (const [v,s] of u) if (n >= v) return (n/v).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' ' + s;
+}
+function fmtTime(sec){
+  sec = Math.floor(sec); const h = Math.floor(sec/3600), m = Math.floor(sec%3600/60), s = sec%60;
+  return h ? `${h} h ${m} min` : m ? `${m} min ${s} s` : `${s} s`;
+}
+
+/* ================= ECONOMY ================= */
+function calc(){
+  let click = 1, pct = 0, g = 1; const bm = {};
+  B.forEach(b => bm[b.id] = 1);
+  for (const u of U) if (S.up[u.id]) {
+    if (u.click) click *= u.click;
+    if (u.pct) pct += u.pct;
+    if (u.g) g *= u.g;
+    if (u.b) bm[u.b] *= 2;
+    if (u.syn) bm[u.syn[0]] *= 1 + u.syn[2] * own(u.syn[1]);
+  }
+  if (S.talents.main) click *= 3;
+  if (S.talents.maitre) g *= 1.25;
+  if (S.talents.eternel) g *= 2;
+  const starPct = (S.starsEarned + S.bonusStars) * (S.talents.filante ? 3 : 2);
+  g *= 1 + starPct / 100;
+  const achN = Object.keys(S.ach).length;
+  g *= 1 + achN * 0.01;
+  const se = season().id;
+  if (se === 'automne') g *= 1.1;
+  if (se === 'printemps') click *= 1.25;
+  const now = Date.now();
+  let base = 0; const per = {};
+  for (const b of B) { per[b.id] = b.cps * bm[b.id] * g; base += own(b.id) * per[b.id]; }
+  let cps = base;
+  if (buffs.frenzy > now) cps *= 7;
+  if (buffs.rush && buffs.rush.until > now) cps *= buffs.rush.mult;
+  let cp = click + cps * pct;
+  if (buffs.click > now) cp *= 77;
+  return {cps, base, per, click:cp, achN, starPct};
+}
+function costOf(b, n){
+  return Math.ceil(b.base * Math.pow(1.15, own(b.id)) * (Math.pow(1.15, n) - 1) / 0.15 * (S.talents.eco ? .9 : 1));
+}
+function earn(v){ S.c += v; S.total += v; S.lifetime += v; }
+const rewardMult = () => S.talents.clients ? 1.5 : 1;
+function buffDur(ms){
+  let m = 1;
+  if (S.talents.frenzy) m *= 2;
+  if (S.up.o3) m *= 1.5;
+  if (season().id === 'hiver') m *= 1.2;
+  return ms * m;
+}
+
+/* ================= SOUND ================= */
+let AC = null;
+document.addEventListener('pointerdown', () => {
+  if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {} }
+  else if (AC.state === 'suspended') AC.resume();
+}, true);
+function tone(f, d=.08, type='sine', vol=.12, delay=0, slide=0){
+  if (!S.sound || !AC) return;
+  try {
+    const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(f*slide, t+d);
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t+.01); g.gain.exponentialRampToValueAtTime(.0001, t+d);
+    o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t+d+.03);
+  } catch(e) {}
+}
+const SFX = {
+  click: () => tone(500+Math.random()*140, .07, 'triangle', .1, 0, 1.6),
+  buy: () => { tone(660,.07,'square',.045); tone(990,.11,'square',.045,.06); },
+  gold: () => [784,988,1175,1568].forEach((f,i) => tone(f,.16,'triangle',.11,i*.06)),
+  ach: () => [523,659,784,1047].forEach((f,i) => tone(f,.24,'sine',.12,i*.09)),
+  fail: () => tone(320,.3,'sawtooth',.05,0,.5),
+  coin: () => tone(1100+Math.random()*400,.09,'sine',.09,0,1.3),
+  event: () => { tone(880,.1,'triangle',.1); tone(1175,.12,'triangle',.1,.13); },
+  rebirth: () => [262,330,392,523,659,784,1047].forEach((f,i) => tone(f,.4,'sine',.1,i*.08)),
+};
+function syncSound(){ $('#snd').textContent = S.sound ? '🔊' : '🔇'; }
+$('#snd').addEventListener('click', () => { S.sound = !S.sound; if (!S.sound) S.flags.mute = 1; syncSound(); SFX.coin(); });
+
+/* ================= FX ================= */
+function floatText(x, y, t){
+  if (document.querySelectorAll('.float').length > 30) return;
+  const d = document.createElement('div');
+  d.className = 'float'; d.textContent = t;
+  d.style.left = (x + rnd(-15,15)) + 'px'; d.style.top = y + 'px';
+  document.body.appendChild(d);
+  d.addEventListener('animationend', () => d.remove());
+}
+function crumbs(x, y, n=4){
+  if (document.querySelectorAll('.crumb').length > 40) return;
+  for (let i = 0; i < n; i++) {
+    const d = document.createElement('div');
+    d.className = 'crumb';
+    d.style.left = x + 'px'; d.style.top = y + 'px';
+    const a = Math.random()*Math.PI*2, r = rnd(40,90);
+    d.style.setProperty('--dx', Math.cos(a)*r + 'px');
+    d.style.setProperty('--dy', (Math.sin(a)*r + 40) + 'px');
+    document.body.appendChild(d);
+    d.addEventListener('animationend', () => d.remove());
+  }
+}
+function toast(title, text){
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerHTML = '<b></b><span></span>';
+  t.querySelector('b').textContent = title;
+  t.querySelector('span').textContent = text;
+  const box = $('#toasts'); box.appendChild(t);
+  while (box.children.length > 2) box.firstChild.remove();
+  setTimeout(() => { t.style.opacity = 0; setTimeout(() => t.remove(), 400); }, 2800);
+}
+
+/* ================= CLICK ================= */
+const cr = $('#croissant');
+function bake(x, y){
+  const v = C.click;
+  earn(v); S.clicks++; S.clicksAll++;
+  floatText(x, y, '+' + fmt(v)); crumbs(x, y); SFX.click();
+  cr.classList.remove('pop'); void cr.offsetWidth; cr.classList.add('pop');
+  if (EV && EV.type === 'client') { EV.n++; updateEvent(); if (EV.n >= EV.goal) clientWin(); }
+}
+cr.addEventListener('pointerdown', e => { e.preventDefault(); bake(e.clientX, e.clientY); });
+cr.addEventListener('click', e => { if (e.detail === 0) { const r = cr.getBoundingClientRect(); bake(r.left+r.width/2, r.top+r.height/3); } });
+cr.addEventListener('contextmenu', e => e.preventDefault());
+
+/* ================= BUILDINGS ================= */
+B.forEach(b => {
+  const el = document.createElement('button');
+  el.className = 'item';
+  el.innerHTML = `<span class="ic">${b.icon}</span><span class="info"><b>${b.name}</b><small></small><span class="cost"></span></span><span class="own"></span>`;
+  el.addEventListener('click', () => buyB(b));
+  b.el = el; b.sm = el.querySelector('small'); b.co = el.querySelector('.cost'); b.ow = el.querySelector('.own');
+  $('#blist').appendChild(el);
+});
+function buyB(b){
+  const n = S.buyN, cost = costOf(b, n);
+  if (S.c < cost) { SFX.fail(); return; }
+  S.c -= cost; S.owned[b.id] = own(b.id) + n; S.bought += n;
+  b.el.classList.remove('flash'); void b.el.offsetWidth; b.el.classList.add('flash');
+  SFX.buy(); C = calc(); render();
+}
+document.querySelectorAll('.seg').forEach(s => s.addEventListener('click', () => { S.buyN = +s.dataset.n; syncSeg(); render(); }));
+function syncSeg(){ document.querySelectorAll('.seg').forEach(s => s.classList.toggle('on', +s.dataset.n === S.buyN)); }
+
+/* ================= UPGRADES ================= */
+let upKey = '';
+function buyU(u){
+  if (S.up[u.id]) return;
+  if (S.c < u.cost) { SFX.fail(); return; }
+  S.c -= u.cost; S.up[u.id] = 1; S.upsBought++;
+  toast(u.icon + ' ' + u.name, u.desc); SFX.buy();
+  C = calc(); render();
+}
+function renderUps(){
+  const vis = U.filter(u => !S.up[u.id] && u.unlock()).sort((a,b) => a.cost - b.cost);
+  const key = vis.map(u => u.id).join();
+  const list = $('#ulist');
+  if (key !== upKey) {
+    upKey = key; list.innerHTML = '';
+    if (!vis.length) list.innerHTML = '<div class="empty">Aucun bonus disponible pour l’instant.<br>Continue à cuire et à construire !</div>';
+    vis.forEach(u => {
+      const el = document.createElement('button');
+      el.className = 'item';
+      const tag = u.b ? BI[u.b].name : u.fl ? 'Recette' : u.syn ? 'Synergie' : u.luck || u.bd ? 'Doré' : u.click || u.pct ? 'Clic' : 'Global';
+      el.innerHTML = `<span class="ic">${u.icon}</span><span class="info"><b></b><small></small><span class="cost"></span></span>`;
+      el.querySelector('b').textContent = u.name;
+      const tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = tag; el.querySelector('b').appendChild(tg);
+      el.querySelector('small').textContent = u.desc;
+      el.querySelector('.cost').textContent = '🥐 ' + fmt(u.cost);
+      el.addEventListener('click', () => buyU(u));
+      u.el = el; list.appendChild(el);
+    });
+  }
+  let can = 0;
+  vis.forEach(u => { const ok = S.c >= u.cost; if (ok) can++; u.el.classList.toggle('no', !ok); });
+  $('#udot').textContent = can || '';
+  $('#usub').textContent = `${Object.keys(S.up).length} / ${U.length} bonus achetés dans cette partie`;
+}
+
+/* ================= ACHIEVEMENTS ================= */
+A.forEach(a => {
+  const el = document.createElement('div');
+  el.className = 'a off'; el.innerHTML = '<b></b><span></span>';
+  el.querySelector('b').textContent = a.name; el.querySelector('span').textContent = a.desc;
+  a.el = el; $('#alist').appendChild(el);
+});
+function checkAch(){
+  let got = 0; const fresh = [];
+  for (const a of A) {
+    if (!S.ach[a.id] && a.test()) { S.ach[a.id] = 1; fresh.push(a.name); }
+    if (S.ach[a.id]) got++;
+    a.el.classList.toggle('off', !S.ach[a.id]);
+  }
+  if (fresh.length) {
+    toast(fresh.length > 1 ? `🏆 ${fresh.length} succès débloqués` : '🏆 Succès débloqué', fresh.join(' · ') + ` (+${fresh.length} % de production)`);
+    SFX.ach();
+  }
+  $('#asub').textContent = `${got} / ${A.length} succès · chaque succès donne +1 % de production pour toujours`;
+}
+
+/* ================= GOLDEN ================= */
+const gold = $('#golden');
+let nextGold = Date.now() + rnd(20000, 35000), goldHide = 0;
+function scheduleGold(){
+  let m = 1;
+  if (S.up.o1) m *= .7; if (S.up.o2) m *= .7; if (S.talents.dore) m *= .7;
+  if (season().id === 'ete') m *= .75;
+  nextGold = Date.now() + rnd(40000, 110000) * m;
+}
+function showGold(){
+  gold.style.left = rnd(10, Math.max(20, innerWidth - 100)) + 'px';
+  gold.style.top = rnd(80, Math.max(90, innerHeight - 170)) + 'px';
+  gold.style.display = 'block';
+  goldHide = Date.now() + 13000 * (S.talents.patience ? 2 : 1);
+}
+function hideGold(){ gold.style.display = 'none'; goldHide = 0; scheduleGold(); }
+gold.addEventListener('click', e => {
+  const x = e.clientX || innerWidth/2, y = e.clientY || innerHeight/2;
+  hideGold(); S.golden++; SFX.gold(); crumbs(x, y, 10);
+  const r = Math.random(), now = Date.now();
+  const owned = B.filter(b => own(b.id) > 0);
+  if (r < .4) { buffs.frenzy = now + buffDur(30000); toast('🔥 Frénésie !', `Production ×7 pendant ${Math.round(buffDur(30000)/1000)} s.`); }
+  else if (r < .85 && r >= .72 || (r >= .85 && !owned.length)) { buffs.click = now + buffDur(13000); toast('✨ Clic doré !', `Chaque clic vaut ×77 pendant ${Math.round(buffDur(13000)/1000)} s.`); }
+  else if (r >= .85) {
+    const b = owned[Math.floor(Math.random()*owned.length)];
+    buffs.rush = {until: now + buffDur(30000), mult: 1 + own(b.id)*.1, name: b.name, icon: b.icon};
+    toast(`${b.icon} Ruée des ${b.name} !`, `Production ×${fmt(buffs.rush.mult)} pendant ${Math.round(buffDur(30000)/1000)} s.`);
+  } else {
+    const g = Math.min(S.c * .15, C.cps * 900) + 13;
+    earn(g); floatText(x, y, '+' + fmt(g));
+    toast('🍀 Fournée chanceuse !', '+' + fmt(g) + ' croissants.');
+  }
+  C = calc(); render();
+});
+
+/* ================= EVENTS ================= */
+let EV = null, nextEv = Date.now() + rnd(40000, 60000);
+function evInterval(){
+  let m = 1; if (S.talents.clients) m *= .5; if (season().id === 'hiver') m *= .75;
+  return rnd(70000, 150000) * m;
+}
+function startEvent(type){
+  const now = Date.now();
+  if (!type) {
+    const opts = ['client','client','four','pluie'];
+    if (S.c >= 200 && !S.order) opts.push('commande');
+    type = opts[Math.floor(Math.random()*opts.length)];
+  }
+  if (type === 'client') EV = {type, goal: 20 + Math.floor(Math.random()*16), n:0, start:now, dur:9000};
+  if (type === 'four') EV = {type, start:now, dur:15000};
+  if (type === 'pluie') EV = {type, start:now, dur:9500, caught:0, nextSpawn:now};
+  if (type === 'commande') {
+    const x = Math.max(100, Math.floor(Math.min(S.c * .3, Math.max(C.base * 600, 100))));
+    EV = {type, x, pay: Math.floor(x + x * .6 * rewardMult()), start:now, dur:20000};
+  }
+  SFX.event(); drawEvent();
+}
+function drawEvent(){
+  const box = $('#event');
+  if (!EV) { box.innerHTML = ''; return; }
+  let h = '';
+  if (EV.type === 'client') h = `<div class="t">🧑‍💼 Client pressé !</div><div class="d">Fais <b>${EV.goal} clics</b> sur le croissant avant qu'il s'impatiente !</div><div class="n" id="evn">0 / ${EV.goal}</div>`;
+  if (EV.type === 'four') h = `<div class="t">🔥 Le four s'emballe !</div><div class="d">Sors la fournée au bon moment pour un gros bonus.</div><div class="row2"><button id="evgo">J'y vais !</button></div>`;
+  if (EV.type === 'pluie') h = `<div class="t">🌧️ Pluie de croissants !</div><div class="d">Attrape-les avant qu'ils touchent le sol !</div><div class="n" id="evn">Attrapés : 0</div>`;
+  if (EV.type === 'commande') h = `<div class="t">🏨 Grosse commande</div><div class="d">Un grand hôtel veut <b>${fmt(EV.x)}</b> croissants. Il te paiera <b>${fmt(EV.pay)}</b> dans 45 s.</div><div class="row2"><button id="evok">Accepter</button><button class="ghost" id="evno">Refuser</button></div>`;
+  box.innerHTML = `<div class="ev">${h}<div class="bar"><i id="evbar"></i></div></div>`;
+  const go = $('#evgo'); if (go) go.addEventListener('click', openOven);
+  const ok = $('#evok'); if (ok) ok.addEventListener('click', acceptOrder);
+  const no = $('#evno'); if (no) no.addEventListener('click', () => endEvent());
+}
+function updateEvent(){
+  if (!EV) return;
+  const now = Date.now(), left = Math.max(0, 1 - (now - EV.start) / EV.dur);
+  const bar = $('#evbar'); if (bar) bar.style.width = (left*100) + '%';
+  const n = $('#evn');
+  if (n && EV.type === 'client') n.textContent = `${EV.n} / ${EV.goal}`;
+  if (n && EV.type === 'pluie') n.textContent = `Attrapés : ${EV.caught}`;
+}
+function endEvent(){ EV = null; drawEvent(); nextEv = Date.now() + evInterval(); }
+function tickEvent(){
+  const now = Date.now();
+  if (!EV) { if (now > nextEv && !$('#oven').classList.contains('on')) startEvent(); return; }
+  if (EV.type === 'pluie' && now >= EV.nextSpawn && now < EV.start + EV.dur - 3500) { spawnDrop(); EV.nextSpawn += 430; }
+  if (EV.opened) return;
+  updateEvent();
+  if (now > EV.start + EV.dur) {
+    if (EV.type === 'client') { toast('😤 Le client est parti…', `Il ne manquait que ${EV.goal - EV.n} clics !`); SFX.fail(); }
+    if (EV.type === 'pluie') {
+      S.ev.rain++; S.ev.bestRain = Math.max(S.ev.bestRain, EV.caught);
+      toast('🌧️ Fin de l’averse', `Tu as attrapé ${EV.caught} croissant${EV.caught>1?'s':''} !`);
+    }
+    endEvent();
+  }
+}
+function clientWin(){
+  const g = Math.max(C.cps * 90, C.click * 40) * rewardMult();
+  earn(g); S.ev.client++;
+  const r = cr.getBoundingClientRect(); floatText(r.left + r.width/2, r.top, '+' + fmt(g));
+  toast('😋 Client ravi !', `Il te laisse un gros pourboire : +${fmt(g)} croissants.`);
+  SFX.gold(); endEvent();
+}
+function spawnDrop(){
+  const d = document.createElement('button');
+  d.className = 'drop'; d.setAttribute('aria-label', 'Croissant qui tombe');
+  d.innerHTML = SVG_NORMAL.replace(/id="cg"/, 'id="dg"').replace(/url\(#cg\)/g, 'url(#dg)');
+  d.style.left = rnd(8, Math.max(20, innerWidth - 70)) + 'px';
+  d.style.animationDuration = rnd(2.8, 3.8) + 's';
+  d.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    const g = Math.max(C.cps * 6, C.click * 4) * rewardMult();
+    earn(g); floatText(e.clientX, e.clientY, '+' + fmt(g)); crumbs(e.clientX, e.clientY, 5); SFX.coin();
+    S.ev.caught++;
+    if (EV && EV.type === 'pluie') { EV.caught++; updateEvent(); }
+    d.remove();
+  });
+  d.addEventListener('animationend', () => d.remove());
+  document.body.appendChild(d);
+}
+function acceptOrder(){
+  if (!EV || EV.type !== 'commande') return;
+  if (S.c < EV.x) { toast('😕 Pas assez de croissants', 'Il t’en faut ' + fmt(EV.x) + '.'); SFX.fail(); return; }
+  S.c -= EV.x;
+  S.order = {pay: EV.pay, cost: EV.x, at: Date.now() + 45000};
+  toast('🚚 Commande en préparation', `Paiement de ${fmt(EV.pay)} dans 45 s.`); SFX.buy();
+  endEvent();
+}
+/* --- oven mini-game --- */
+let oven = null;
+function openOven(){
+  if (!EV || EV.type !== 'four') return;
+  EV.opened = true;
+  const w = 9, l = rnd(30, 70);
+  oven = {pos: 0, dir: 1, speed: rnd(95, 130), l, w, last: performance.now(), done:false};
+  $('#zp').style.left = l + '%'; $('#zp').style.width = w + '%';
+  $('#zg').style.left = (l - 11) + '%'; $('#zg').style.width = (w + 22) + '%';
+  $('#oven').classList.add('on');
+  requestAnimationFrame(ovenLoop);
+}
+function ovenLoop(t){
+  if (!oven || oven.done) return;
+  const dt = Math.min((t - oven.last) / 1000, .05); oven.last = t;
+  oven.pos += oven.dir * oven.speed * dt;
+  if (oven.pos >= 100) { oven.pos = 100; oven.dir = -1; }
+  if (oven.pos <= 0) { oven.pos = 0; oven.dir = 1; }
+  $('#cur').style.left = oven.pos + '%';
+  requestAnimationFrame(ovenLoop);
+}
+$('#ovenBtn').addEventListener('click', () => {
+  if (!oven || oven.done) return;
+  oven.done = true;
+  const p = oven.pos, rm = rewardMult();
+  S.ev.four++;
+  if (p >= oven.l && p <= oven.l + oven.w) {
+    const g = Math.max(C.cps * 300, C.click * 150) * rm; earn(g); S.ev.perfect++;
+    toast('🌟 Cuisson PARFAITE !', `Dorés à souhait : +${fmt(g)} croissants.`); SFX.gold();
+  } else if (p >= oven.l - 11 && p <= oven.l + oven.w + 11) {
+    const g = Math.max(C.cps * 90, C.click * 50) * rm; earn(g);
+    toast('👍 Bien cuits !', `+${fmt(g)} croissants.`); SFX.coin();
+  } else {
+    toast(p > oven.l ? '💨 Carbonisé…' : '😬 Pas assez cuits…', 'La fournée est ratée. Ce sera pour la prochaine fois !'); SFX.fail();
+  }
+  setTimeout(() => { $('#oven').classList.remove('on'); oven = null; endEvent(); }, 650);
+});
+
+/* ================= PRESTIGE ================= */
+const starsFor = l => Math.floor(Math.cbrt(l / 1e6));
+const pendingStars = () => Math.max(0, starsFor(S.lifetime) - S.starsEarned);
+let modalCb = null;
+function ask(title, text, okLabel, cls, cb){
+  $('#mt').textContent = title; $('#mp').textContent = text;
+  const y = $('#myes'); y.textContent = okLabel; y.className = cls; modalCb = cb;
+  $('#modal').classList.add('on');
+}
+$('#mno').addEventListener('click', () => $('#modal').classList.remove('on'));
+$('#myes').addEventListener('click', () => { $('#modal').classList.remove('on'); if (modalCb) modalCb(); });
+
+function rebirth(){
+  const p = pendingStars(); if (p < 1) return;
+  S.starsEarned += p; S.stars += p; S.runs++;
+  S.c = 0; S.total = 0; S.clicks = 0; S.owned = {}; S.up = {}; S.order = null; S.start = Date.now();
+  S.mk.held = 0; S.mk.avgC = 0;
+  if (S.talents.rapide) { S.owned.apprenti = 10; S.owned.four = 5; }
+  buffs = {frenzy:0, click:0, rush:null}; upKey = '';
+  if (EV) endEvent();
+  const f = document.createElement('div'); f.className = 'flashscreen'; document.body.appendChild(f); setTimeout(() => f.remove(), 1300);
+  SFX.rebirth();
+  toast('⭐ Renaissance !', `+${p} étoile${p>1?'s':''} du Chef. Ton nouvel empire commence !`);
+  C = calc(); save(); render();
+}
+function buyTalent(t){
+  if (S.talents[t.id]) return;
+  if (S.stars < t.cost) { SFX.fail(); return; }
+  S.stars -= t.cost; S.talents[t.id] = 1;
+  if (t.id === 'rapide' && nb() === 0) { S.owned.apprenti = 10; S.owned.four = 5; }
+  toast(t.icon + ' Talent débloqué', t.name); SFX.ach();
+  C = calc(); render();
+}
+T.forEach(t => {
+  const el = document.createElement('button');
+  el.className = 'item';
+  el.innerHTML = `<span class="ic">${t.icon}</span><span class="info"><b></b><small></small><span class="cost"></span></span>`;
+  el.querySelector('b').textContent = t.name; el.querySelector('small').textContent = t.desc;
+  el.addEventListener('click', () => buyTalent(t));
+  t.el = el; t.co = el.querySelector('.cost'); $('#tlist').appendChild(el);
+});
+$('#rebirthBtn').addEventListener('click', () => {
+  const p = pendingStars(); if (p < 1) return;
+  ask('Renaître ?', `Tu recommences de zéro et gagnes ${fmt(p)} étoile${p>1?'s':''} du Chef (+${p * (S.talents.filante?3:2)} % de production pour toujours).`, 'Renaître', 'yel', rebirth);
+});
+function setHTML(el, html){ if (el._h !== html) { el._h = html; el.innerHTML = html; } }
+function renderChef(){
+  renderDaily(); renderStoryList();
+  const p = pendingStars(), k = starsFor(S.lifetime);
+  const cur = Math.pow(k, 3) * 1e6, nxt = Math.pow(k + 1, 3) * 1e6;
+  const frac = Math.max(0, Math.min(1, (S.lifetime - cur) / (nxt - cur)));
+  $('#chefcard').innerHTML = `<h3>⭐ Étoiles du Chef</h3>
+    <div class="bign">${fmt(S.starsEarned)}</div>
+    Gagnées au total : <b style="color:var(--text)">+${C.starPct} % de production</b> pour toujours.<br>
+    À dépenser en talents : <b style="color:var(--gold)">${fmt(S.stars)} ⭐</b>
+    <div style="margin-top:12px">Si tu renais maintenant : <b style="color:var(--gold)">+${fmt(p)} ⭐</b></div>
+    <div class="prog"><i style="width:${(frac*100).toFixed(1)}%"></i></div>
+    <div style="font-size:12px">Prochaine étoile : ${fmt(nxt)} croissants cuits au total (actuellement ${fmt(S.lifetime)})</div>`;
+  $('#rebirthBtn').disabled = p < 1;
+  T.forEach(t => {
+    const has = !!S.talents[t.id];
+    t.el.classList.toggle('done', has);
+    t.el.classList.toggle('no', !has && S.stars < t.cost);
+    t.co.textContent = has ? '✓ Débloqué' : `⭐ ${t.cost}`;
+  });
+}
+
+/* ================= VITRINE ================= */
+let vKey = '';
+function renderVitrine(){
+  const key = B.map(b => own(b.id)).join();
+  if (key === vKey) return; vKey = key;
+  const list = $('#vlist');
+  const rows = B.filter(b => own(b.id) > 0);
+  if (!rows.length) { list.innerHTML = '<div class="empty">Ta vitrine est vide.<br>Achète ton premier Apprenti dans l’onglet Bâtir !</div>'; return; }
+  list.innerHTML = rows.map(b => {
+    const n = own(b.id), shown = Math.min(n, 48);
+    let icons = '';
+    for (let i = 0; i < shown; i++) icons += `<span style="animation-delay:${(i*0.13)%2.4}s">${b.icon}</span>`;
+    return `<div class="vrow"><div class="vlab"><span>${b.name}</span><span>×${fmt(n)}${n > shown ? ' (+' + fmt(n-shown) + ')' : ''}</span></div><div class="vic">${icons}</div></div>`;
+  }).join('');
+}
+
+/* ================= TABS ================= */
+let tab = 'b';
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  tab = t.dataset.v;
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === 'v-' + tab));
+  render();
+}));
+
+/* ================= NEWS ================= */
+function pickNews(){
+  const pool = NEWS.filter(([m]) => S.lifetime >= m).map(([,t]) => t);
+  const se = season().id;
+  pool.push({printemps:'Les cerisiers sont en fleur, et les croissants aussi.', ete:'Canicule : les fours n’ont jamais été aussi chauds.', automne:'Les feuilles tombent, la pâte monte.', hiver:'Il neige du sucre glace sur toute la ville.'}[se]);
+  if (S.golden) pool.push('Des témoins affirment avoir vu un croissant doré voler. Enquête en cours.');
+  if (S.runs) pool.push(`Le Chef est de retour pour sa ${S.runs + 1}e vie. Les fours tremblent.`);
+  if (buffs.frenzy > Date.now()) return 'FLASH : frénésie dans les fournils, les fours tournent à plein régime !';
+  if (own('camion') > 20) pool.push('Les camions de livraison réclament leur propre voie sur l’autoroute.');
+  if (own('portail') > 0) pool.push('Un client reçoit son croissant avant même de l’avoir commandé.');
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+function rotateNews(){
+  const t = $('#ticker'); t.style.opacity = 0;
+  setTimeout(() => { t.textContent = '📰 ' + pickNews(); t.style.opacity = 1; }, 400);
+}
+setInterval(rotateNews, 9000);
+
+/* ================= RENDER ================= */
+let lastSeason = -1;
+function render(){
+  const now = Date.now();
+  $('#cps').textContent = fmt(C.cps);
+  document.title = `${fmt(Math.floor(S.c))} croissants — L'Empire du Croissant`;
+
+  const si = Math.floor(S.play / SEASON_LEN) % 4, se = SEASONS[si];
+  if (si !== lastSeason) {
+    if (lastSeason !== -1) { toast(`${se.icon} C'est le ${se.name.toLowerCase()} !`, 'Effet de saison : ' + se.fx + '.'); SFX.event(); }
+    lastSeason = si; S.seen[se.id] = 1; document.body.dataset.s = se.id;
+  }
+  const left = SEASON_LEN - (S.play % SEASON_LEN);
+  let rank = RANKS[0][1]; for (const [v,n] of RANKS) if (S.total >= v) rank = n;
+  $('#meta').innerHTML = `<b>${rank}</b> · ${se.icon} ${se.name} (${se.fx}) · ${Math.floor(left/60)}:${String(Math.floor(left%60)).padStart(2,'0')}`;
+
+  let chips = '';
+  if (buffs.frenzy > now) chips += `<span class="chip">🔥 Frénésie ×7 · ${Math.ceil((buffs.frenzy-now)/1000)} s</span>`;
+  if (buffs.click > now) chips += `<span class="chip">✨ Clic ×77 · ${Math.ceil((buffs.click-now)/1000)} s</span>`;
+  if (buffs.rush && buffs.rush.until > now) chips += `<span class="chip">${buffs.rush.icon} Ruée ×${fmt(buffs.rush.mult)} · ${Math.ceil((buffs.rush.until-now)/1000)} s</span>`;
+  if (S.order) chips += `<span class="chip">🚚 Commande · ${Math.max(0, Math.ceil((S.order.at-now)/1000))} s</span>`;
+  const bf = $('#buff'); if (bf.innerHTML !== chips) bf.innerHTML = chips;
+  $('#bakery').classList.toggle('frenzy', buffs.frenzy > now || (buffs.rush && buffs.rush.until > now));
+
+  if (S.order && now >= S.order.at) {
+    earn(S.order.pay - S.order.cost); S.c += S.order.cost; S.ev.cmd++;
+    toast('💰 Commande livrée !', `L'hôtel te paie ${fmt(S.order.pay)} croissants.`); SFX.gold();
+    S.order = null;
+  }
+
+  let hidden = 0;
+  B.forEach((b, i) => {
+    const o = own(b.id);
+    const show = i === 0 || o > 0 || own(B[i-1].id) > 0 || S.total >= b.base * .5;
+    b.el.style.display = show ? '' : 'none';
+    if (!show) { hidden++; return; }
+    const cost = costOf(b, S.buyN);
+    b.el.classList.toggle('no', S.c < cost);
+    b.co.textContent = '🥐 ' + fmt(cost) + (S.buyN > 1 ? `  (×${S.buyN})` : '');
+    b.sm.textContent = `+${fmt(C.per[b.id])}/s chacun` + (o ? ` · total ${fmt(C.per[b.id]*o)}/s` : ` · ${b.desc}`);
+    b.ow.textContent = o || '';
+  });
+  $('#bmore').style.display = hidden ? '' : 'none';
+
+  renderUps();
+  checkAch();
+  const p = pendingStars();
+  $('#cdot').textContent = p >= 1 ? '+' + (p > 99 ? '99' : p) : '';
+  if (tab === 'c') renderChef();
+  if (tab === 'v') renderVitrine();
+  tickMarket(); if (tab === 'm') renderMarket();
+  renderTown(); checkDaily(); checkStory();
+  if (tab === 'a') {
+    const rows = [
+      ['Croissants en stock', fmt(Math.floor(S.c))],
+      ['Cuits dans cette partie', fmt(Math.floor(S.total))],
+      ['Cuits au total (toutes vies)', fmt(Math.floor(S.lifetime))],
+      ['Par seconde', fmt(C.cps)],
+      ['Par clic', fmt(C.click)],
+      ['Clics (total)', fmt(S.clicksAll)],
+      ['Bâtiments', fmt(nb())],
+      ['Croissants dorés attrapés', fmt(S.golden)],
+      ['Clients satisfaits', fmt(S.ev.client)],
+      ['Cuissons parfaites', fmt(S.ev.perfect) + ' / ' + fmt(S.ev.four)],
+      ['Record de pluie', fmt(S.ev.bestRain)],
+      ['Commandes livrées', fmt(S.ev.cmd)],
+      ['Renaissances', fmt(S.runs)],
+      ['Bénéfice au marché', fmt(S.mk.profit)],
+      ['Défis du jour terminés', fmt(S.dailyDone)],
+      ['Bonus succès / étoiles', `+${C.achN} % / +${C.starPct} %`],
+      ['Temps de jeu', fmtTime(S.play)],
+    ];
+    $('#slist').innerHTML = rows.map(([k,v]) => `<div class="row"><span>${k}</span><b>${v}</b></div>`).join('');
+  }
+
+  const hint = $('#hint');
+  hint.textContent = S.clicksAll === 0 ? 'Tape sur le croissant pour le cuire !' : nb() === 0 ? 'Achète un Apprenti dans l’onglet Bâtir 👇' : p >= 1 && S.runs === 0 ? 'Tu peux renaître dans l’onglet Chef ⭐' : 'Garde l’œil ouvert : un croissant doré peut surgir…';
+
+  if (!goldHide && now > nextGold) showGold();
+  if (goldHide && now > goldHide) hideGold();
+  tickEvent();
+}
+
+/* ================= BACKGROUND ================= */
+const cv = $('#bg'), cx = cv.getContext('2d'); let W = 0, H = 0;
+function resize(){ const d = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight; cv.width = W*d; cv.height = H*d; cx.setTransform(d,0,0,d,0,0); }
+addEventListener('resize', resize); resize();
+const cImg = new Image();
+cImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(croissantSVG('ci', '#ffd27a', '#c2621a', '#8a3f10'));
+const sprites = {};
+function sprite(e){
+  if (sprites[e]) return sprites[e];
+  const c = document.createElement('canvas'); c.width = c.height = 48;
+  const x = c.getContext('2d'); x.font = '34px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(e, 24, 27);
+  return sprites[e] = c;
+}
+const P = [], reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function particles(dt){
+  cx.clearRect(0, 0, W, H);
+  if (reduceMotion) return;
+  const wantC = Math.min(34, Math.floor(Math.log10(C.base + 1) * 4.5));
+  let nc = 0, ns = 0; for (const p of P) p.k === 'c' ? nc++ : ns++;
+  if (nc < wantC && Math.random() < dt * 5) P.push({k:'c', x:rnd(0,W), y:-30, vy:rnd(60,140), vx:rnd(-10,10), r:rnd(0,6), vr:rnd(-1.5,1.5), s:rnd(22,38), a:.3});
+  if (ns < 12 && Math.random() < dt * 2) P.push({k:'s', x:rnd(0,W), y:-30, vy:rnd(25,60), vx:rnd(-12,12), r:rnd(0,6), vr:rnd(-1,1), s:rnd(14,24), a:.55, e:season().p, ph:rnd(0,6)});
+  for (let i = P.length - 1; i >= 0; i--) {
+    const p = P[i];
+    p.y += p.vy * dt; p.x += p.vx * dt + (p.k === 's' ? Math.sin(p.y / 35 + p.ph) * 25 * dt : 0); p.r += p.vr * dt;
+    if (p.y > H + 40) { P.splice(i, 1); continue; }
+    cx.save(); cx.globalAlpha = p.a; cx.translate(p.x, p.y); cx.rotate(p.r);
+    if (p.k === 'c') { if (cImg.complete && cImg.naturalWidth) cx.drawImage(cImg, -p.s/2, -p.s*.35, p.s, p.s*.7); }
+    else cx.drawImage(sprite(p.e), -p.s/2, -p.s/2, p.s, p.s);
+    cx.restore();
+  }
+}
+
+
+/* ================= TOWN (illustrated) ================= */
+const SKY = {printemps:['#8fc7ff','#ffe0ec','#7cc76a'], ete:['#5fb2ff','#fff1b8','#9bcf4f'], automne:['#e39a62','#ffe0b0','#c99a3e'], hiver:['#7d8db8','#e4ebf7','#eef3fb']};
+const tierOf = o => o === 0 ? 0 : o < 5 ? 1 : o < 25 ? 2 : o < 100 ? 3 : 4;
+const SCALE = [0, .8, .95, 1.1, 1.25];
+const DRAW = {
+  apprenti: t => {
+    let s = '';
+    const n = Math.min(t, 4);
+    for (let i = 0; i < n; i++) s += `<g transform="translate(${(i - (n-1)/2) * 9},0)"><g class="bobs" style="animation-delay:${i*.3}s"><rect x="-3.5" y="-13" width="7" height="10" rx="2.5" fill="#fff" stroke="#c9b9a6" stroke-width=".6"/><rect x="-3" y="-3" width="2.4" height="3" fill="#4a3426"/><rect x=".6" y="-3" width="2.4" height="3" fill="#4a3426"/><circle cx="0" cy="-16.5" r="3.6" fill="#f2c9a0"/><path d="M-3.6 -19 h7.2 v-2.5 a2.6 2.6 0 0 0 -1.6 -4.6 a2.6 2.6 0 0 0 -4 0 a2.6 2.6 0 0 0 -1.6 4.6z" fill="#fff" stroke="#c9b9a6" stroke-width=".6"/></g></g>`;
+    return s;
+  },
+  four: () => `<rect x="6" y="-30" width="5" height="14" fill="#8a4a2c"/><circle class="smk" cx="8.5" cy="-33" r="2.5" fill="#ddd"/><circle class="smk" style="animation-delay:1.3s" cx="8.5" cy="-33" r="2.5" fill="#ddd"/><path d="M-15 0 v-8 a15 15 0 0 1 30 0 v8z" fill="#c0643b" stroke="#7a3018" stroke-width="1.2"/><path d="M-7 0 v-5 a7 7 0 0 1 14 0 v5z" fill="#2b120a"/><path class="flick" d="M-4 0 q0 -5 4 -8 q4 3 4 8z" fill="#ffb238"/><path class="flick" style="animation-delay:.15s" d="M-2 0 q0 -3 2 -5 q2 2 2 5z" fill="#fff1a0"/>`,
+  boutique: () => {
+    let aw = '';
+    for (let i = 0; i < 8; i++) aw += `<rect x="${-20 + i*5}" y="-24" width="5" height="6" fill="${i % 2 ? '#fff' : '#d9483b'}"/>`;
+    return `<path d="M-20 -26 L0 -38 L20 -26z" fill="#8a4a2c"/><rect x="-18" y="-26" width="36" height="26" fill="#f6e3c4" stroke="#b08b5e" stroke-width=".8"/>${aw}<rect x="-15" y="-15" width="14" height="10" fill="#ffe9a8" stroke="#b08b5e" stroke-width=".8"/><ellipse cx="-8" cy="-8" rx="4" ry="2" fill="#d98b3a"/><rect x="4" y="-15" width="9" height="15" fill="#7a4a2a"/><circle cx="11" cy="-7" r=".9" fill="#ffd86b"/>`;
+  },
+  moulin: () => {
+    let bl = '';
+    for (let a = 0; a < 360; a += 90) bl += `<rect x="-1.6" y="-20" width="3.2" height="19" fill="#fff" stroke="#9b7b52" stroke-width=".6" transform="rotate(${a})"/>`;
+    return `<path d="M-8 0 L-5 -34 h10 L8 0z" fill="#efe1c6" stroke="#9b7b52" stroke-width="1"/><path d="M-6.5 -34 L0 -41 L6.5 -34z" fill="#9b4a2c"/><rect x="-2.5" y="-9" width="5" height="9" fill="#7a4a2a"/><g transform="translate(0,-34)"><g class="spin">${bl}<circle r="2.2" fill="#7a4a2a"/></g></g>`;
+  },
+  usine: () => `<rect x="9" y="-40" width="6" height="22" fill="#6d6f78"/><circle class="smk" cx="12" cy="-43" r="3" fill="#cfcfcf"/><circle class="smk" style="animation-delay:.9s" cx="12" cy="-43" r="3" fill="#cfcfcf"/><circle class="smk" style="animation-delay:1.8s" cx="12" cy="-43" r="3" fill="#cfcfcf"/><path d="M-20 0 V-18 L-12 -24 V-18 L-4 -24 V-18 L4 -24 V-18 L20 -18 V0z" fill="#9aa0ab" stroke="#5f636c" stroke-width="1"/><rect x="-16" y="-13" width="6" height="5" fill="#ffe28a"/><rect x="-6" y="-13" width="6" height="5" fill="#ffe28a"/><rect x="4" y="-13" width="6" height="5" fill="#ffe28a"/>`,
+  ferme: () => `<path d="M-15 0 V-18 L0 -28 L15 -18 V0z" fill="#c0392b" stroke="#7d2219" stroke-width="1"/><rect x="-5" y="-12" width="10" height="12" fill="#fff"/><path d="M-5 -12 L5 0 M5 -12 L-5 0" stroke="#c0392b" stroke-width="1.2"/><g transform="translate(22,0)"><g class="bobs"><ellipse cx="0" cy="-6" rx="7" ry="4" fill="#fff" stroke="#333" stroke-width=".5"/><circle cx="-2" cy="-7" r="1.6" fill="#222"/><circle cx="3" cy="-5" r="1.3" fill="#222"/><circle cx="7" cy="-8" r="2.6" fill="#fff" stroke="#333" stroke-width=".5"/><rect x="-5" y="-3" width="1.3" height="3" fill="#333"/><rect x="3" y="-3" width="1.3" height="3" fill="#333"/></g></g>`,
+  labo: () => `<rect x="-14" y="-24" width="28" height="24" fill="#d6ecf5" stroke="#7aa6b8" stroke-width="1"/><path d="M-14 -24 a14 10 0 0 1 28 0z" fill="#a9d4e6" stroke="#7aa6b8"/><rect x="-10" y="-17" width="7" height="6" fill="#fff8d0"/><rect x="3" y="-17" width="7" height="6" fill="#fff8d0"/><rect x="-3" y="-9" width="6" height="9" fill="#5d7f8d"/><g transform="translate(20,0)"><path d="M-2 -12 v-4 h4 v4 l4.5 12 h-13z" fill="#e6f7ff" stroke="#7aa6b8" stroke-width=".8"/><path d="M-4.6 -5 h9.2 l1.8 5 h-12.8z" fill="#7be08a"/><circle class="bub" cx="0" cy="-6" r="1.2" fill="#7be08a"/><circle class="bub" style="animation-delay:.8s" cx="1.6" cy="-6" r="1" fill="#7be08a"/></g>`,
+  ecole: () => `<line x1="0" y1="-34" x2="0" y2="-50" stroke="#555" stroke-width="1"/><rect class="flag" x="0" y="-50" width="10" height="6" fill="#e8443a"/><rect x="-18" y="-22" width="36" height="22" fill="#f2e6d0" stroke="#a88d68"/><path d="M-21 -22 L0 -34 L21 -22z" fill="#5a6fa8"/><rect x="-14" y="-18" width="3" height="18" fill="#fff"/><rect x="-7" y="-18" width="3" height="18" fill="#fff"/><rect x="4" y="-18" width="3" height="18" fill="#fff"/><rect x="11" y="-18" width="3" height="18" fill="#fff"/><rect x="-2.5" y="-9" width="5" height="9" fill="#6b4a2a"/>`,
+};
+function star(r1, r2, n){ let p = []; for (let i = 0; i < n*2; i++) { const r = i % 2 ? r2 : r1, a = Math.PI * i / n; p.push((Math.sin(a)*r).toFixed(1) + ',' + (-Math.cos(a)*r).toFixed(1)); } return p.join(' '); }
+let townKey = '';
+function renderTown(){
+  const se = season().id;
+  const key = se + '|' + B.map(b => tierOf(own(b.id))).join('');
+  if (key === townKey) return; townKey = key;
+  const [top, bot, grass] = SKY[se];
+  const T_ = id => tierOf(own(id)), sc = id => SCALE[T_(id)];
+  let s = `<svg viewBox="0 0 400 150" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="skyg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${top}"/><stop offset="1" stop-color="${bot}"/></linearGradient></defs>`;
+  s += `<rect width="400" height="150" fill="url(#skyg)"/>`;
+  if (T_('galaxie') || T_('multivers') || T_('bigbang')) for (let i = 0; i < 14; i++) s += `<circle class="tw" style="animation-delay:${(i*.37)%2}s" cx="${(i*67)%400}" cy="${8 + (i*29)%55}" r="${.8 + (i%3)*.4}" fill="#fff"/>`;
+  s += `<circle cx="22" cy="20" r="9" fill="#fff3b0" opacity=".9"/>`;
+  if (T_('galaxie')) s += `<g transform="translate(78,28) scale(${sc('galaxie')})"><g class="spin slow"><ellipse rx="14" ry="5" fill="#d9c2ff" opacity=".6"/><ellipse rx="14" ry="5" transform="rotate(60)" fill="#ffd6f0" opacity=".5"/><ellipse rx="14" ry="5" transform="rotate(120)" fill="#c2e0ff" opacity=".5"/><circle r="3" fill="#fff"/></g></g>`;
+  if (T_('multivers')) s += `<g transform="translate(180,24) scale(${sc('multivers')})"><circle r="8" fill="#e6a35a"/><circle cx="-2" cy="-2" r="3" fill="#f2c084"/><ellipse rx="15" ry="4" fill="none" stroke="#f6d39a" stroke-width="2" transform="rotate(-15)"/></g>`;
+  if (T_('bigbang')) s += `<g transform="translate(262,22) scale(${sc('bigbang')})"><g class="puls"><polygon points="${star(13,5,8)}" fill="#ffcf4a"/><polygon points="${star(7,3,8)}" fill="#fff6c8"/></g></g>`;
+  if (T_('lune')) s += `<g transform="translate(345,28) scale(${sc('lune')})"><circle r="11" fill="#f4f1de"/><circle cx="-3" cy="-2" r="2.5" fill="#dcd7bb"/><circle cx="4" cy="3" r="1.8" fill="#dcd7bb"/><path d="M-3 7 q3 -3 6 0" stroke="#d98b3a" stroke-width="1.6" fill="none"/></g>`;
+  if (T_('portail')) s += `<g transform="translate(230,58) scale(${sc('portail')})"><circle r="8" fill="#c9a8ff" opacity=".55" class="puls"/><g class="spin"><circle r="12" fill="none" stroke="#9b6bff" stroke-width="3" stroke-dasharray="6 4"/></g></g>`;
+  s += `<path d="M0 114 Q60 92 120 110 T240 106 T400 108 V150 H0z" fill="${grass}" opacity=".55"/>`;
+  s += `<rect y="114" width="400" height="36" fill="${grass}"/>`;
+  s += `<rect y="131" width="400" height="11" fill="#6b5a4e"/><line x1="0" y1="136.5" x2="400" y2="136.5" stroke="#e8dcc4" stroke-width="1" stroke-dasharray="8 8"/>`;
+  const slots = {apprenti:18, four:54, boutique:96, moulin:140, usine:184, ferme:226, labo:272, ecole:322};
+  for (const id in slots) if (T_(id)) s += `<g transform="translate(${slots[id]},120) scale(${id === 'apprenti' ? 1 : sc(id)})">${DRAW[id](T_(id))}</g>`;
+  s += `<g transform="translate(374,120)"><rect x="-11" y="-16" width="22" height="16" fill="#e9d2a8" stroke="#a07a4a"/><path d="M-13 -16 L0 -25 L13 -16z" fill="#a0522d"/><rect x="-3" y="-9" width="6" height="9" fill="#6b3f22"/><rect x="-9" y="-12" width="4" height="4" fill="#ffe9a8"/></g>`;
+  if (T_('camion')) s += `<g transform="translate(0,131)"><g class="drive"><rect x="-20" y="-11" width="22" height="11" rx="1.5" fill="#f7c55a" stroke="#a07a20" stroke-width=".8"/><ellipse cx="-9" cy="-5.5" rx="5" ry="2.5" fill="#d98b3a"/><path d="M2 -9 h7 l4 4 v5 h-11z" fill="#e8443a"/><rect x="5" y="-8" width="4" height="3" fill="#cfe9ff"/><circle cx="-14" cy="1" r="2.6" fill="#333"/><circle cx="7" cy="1" r="2.6" fill="#333"/></g></g>`;
+  s += '</svg>';
+  $('#town').innerHTML = s;
+}
+
+/* ================= BUTTER MARKET ================= */
+const mkCap = () => 10 + own('boutique') + 2 * own('ferme') + own('camion');
+const mkPrice = () => S.mk.v / 100 * 5 * Math.max(C.base, 1);
+let mkNext = 0;
+function mkStep(){
+  const m = S.mk;
+  if (m.modeT <= 0) { const r = Math.random(); m.mode = r < .4 ? 0 : r < .65 ? 1 : r < .9 ? 2 : 3; m.modeT = Math.floor(rnd(8, 25)); }
+  m.modeT--;
+  const drift = [0, 1.4, -1.4, 0][m.mode], noise = [3, 3, 3, 12][m.mode];
+  m.v += drift + (Math.random()*2 - 1) * noise + .03 * (100 - m.v);
+  m.v = Math.max(5, Math.min(250, m.v));
+  m.hist.push(Math.round(m.v * 10) / 10);
+  if (m.hist.length > 60) m.hist.shift();
+}
+function tickMarket(){
+  const now = Date.now();
+  if (!S.mk.hist.length) for (let i = 0; i < 40; i++) mkStep();
+  if (now >= mkNext) { mkNext = now + 4000; if (own('boutique') > 0) mkStep(); }
+}
+function mkTrade(a){
+  const m = S.mk, p = mkPrice();
+  if (a.startsWith('-')) {
+    const n = a === '-all' ? m.held : Math.min(+a.slice(1), m.held);
+    if (n <= 0) { SFX.fail(); return; }
+    const gain = n * p, profit = (p - m.avgC) * n;
+    S.c += gain; if (profit > 0) { S.total += profit; S.lifetime += profit; }
+    m.profit += profit; m.held -= n; m.sold += n; if (!m.held) m.avgC = 0;
+    toast(profit >= 0 ? '📈 Vente réussie' : '📉 Vente à perte', `${n} pain${n>1?'s':''} vendu${n>1?'s':''} · ${profit >= 0 ? '+' : '−'}${fmt(Math.abs(profit))} de ${profit >= 0 ? 'bénéfice' : 'perte'}`);
+    profit >= 0 ? SFX.coin() : SFX.fail();
+  } else {
+    const want = a === 'max' ? Infinity : +a;
+    const n = Math.min(want, mkCap() - m.held, Math.floor(S.c / p));
+    if (n <= 0) { SFX.fail(); toast('🧈 Achat impossible', m.held >= mkCap() ? 'Ton entrepôt est plein.' : 'Pas assez de croissants.'); return; }
+    S.c -= n * p; m.avgC = (m.avgC * m.held + p * n) / (m.held + n); m.held += n; m.bought += n;
+    SFX.buy();
+  }
+  renderMarket();
+}
+document.querySelectorAll('[data-mk]').forEach(b => b.addEventListener('click', () => mkTrade(b.dataset.mk)));
+function renderMarket(){
+  const open = own('boutique') > 0;
+  $('#mklock').style.display = open ? 'none' : '';
+  $('#mkcard').style.display = open ? '' : 'none';
+  if (!open) return;
+  const m = S.mk, p = mkPrice(), h = m.hist, prev = h[h.length - 2] || m.v;
+  const ch = (m.v - prev) / prev * 100;
+  $('#mkp').innerHTML = `1 🧈 = ${fmt(p)} 🥐 <span class="${ch >= 0 ? 'up' : 'down'}" style="font-size:16px;white-space:nowrap">${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch).toFixed(1).replace('.', ',')} %</span>`;
+  const mood = ['😐 Marché calme', '📈 Tendance à la hausse', '📉 Tendance à la baisse', '⚡ Marché très agité'][m.mode];
+  const lvl = m.v < 70 ? ' · <span class="up">prix bas, bonne affaire ?</span>' : m.v > 135 ? ' · <span class="down">prix élevé, moment de vendre ?</span>' : '';
+  $('#mkd').innerHTML = `<span style="font-size:13px">${mood}${lvl}</span>`;
+  const lo = Math.min(...h, 100) - 5, hi = Math.max(...h, 100) + 5;
+  const Y = v => (100 - (v - lo) / (hi - lo) * 100).toFixed(1);
+  const X = i => (i / (h.length - 1) * 300).toFixed(1);
+  const pts = h.map((v, i) => X(i) + ',' + Y(v)).join(' ');
+  const col = m.v >= 100 ? '#8fe388' : '#ff8f73';
+  $('#mkc').innerHTML = `<line x1="0" x2="300" y1="${Y(100)}" y2="${Y(100)}" stroke="#d9b998" stroke-dasharray="4 4" stroke-width="1" opacity=".5" vector-effect="non-scaling-stroke"/><polygon points="0,100 ${pts} 300,100" fill="${col}" opacity=".12"/><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>`;
+  const lat = (p - m.avgC) * m.held;
+  $('#mkinfo').innerHTML = `<div style="font-size:14px;color:var(--text)">Stock : <b>${m.held} / ${mkCap()}</b> pains de beurre</div>` +
+    (m.held ? `<div style="font-size:13px">Prix moyen d'achat : ${fmt(m.avgC)} · Si tu vends tout : <span class="${lat >= 0 ? 'up' : 'down'}">${lat >= 0 ? '+' : '−'}${fmt(Math.abs(lat))}</span></div>` : '') +
+    `<div style="font-size:13px">Bénéfice total : <span class="${m.profit >= 0 ? 'up' : 'down'}">${m.profit >= 0 ? '+' : '−'}${fmt(Math.abs(m.profit))}</span> · La capacité augmente avec tes Boulangeries, Fermes et Camions.</div>`;
+  document.querySelectorAll('[data-mk]').forEach(b => {
+    const a = b.dataset.mk;
+    b.disabled = a.startsWith('-') ? !m.held : (m.held >= mkCap() || S.c < p);
+  });
+}
+
+/* ================= DAILY CHALLENGES ================= */
+const DQ = [
+  {id:'gold', icon:'✨', t:'Attrape 3 croissants dorés', n:3, ctr:()=>S.golden},
+  {id:'click', icon:'👆', t:'Fais 500 clics', n:500, ctr:()=>S.clicksAll},
+  {id:'build', icon:'🏗️', t:'Achète 25 bâtiments', n:25, ctr:()=>S.bought},
+  {id:'perfect', icon:'🔥', t:'Réussis une cuisson parfaite', n:1, ctr:()=>S.ev.perfect},
+  {id:'client', icon:'🧑‍💼', t:'Satisfais 2 clients pressés', n:2, ctr:()=>S.ev.client},
+  {id:'rain', icon:'🌧️', t:'Attrape 20 croissants de pluie', n:20, ctr:()=>S.ev.caught},
+  {id:'market', icon:'🧈', t:'Vends 20 pains de beurre', n:20, ctr:()=>S.mk.sold},
+  {id:'ups', icon:'⬆️', t:'Achète 5 bonus', n:5, ctr:()=>S.upsBought},
+];
+const DQI = Object.fromEntries(DQ.map(q => [q.id, q]));
+function today(){ const d = new Date(); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
+function initDaily(day){
+  let h = 7; for (const ch of day) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const r = () => (h = (h * 1103515245 + 12345) >>> 0) / 4294967296;
+  const pool = DQ.slice().sort(() => r() - .5).slice(0, 3);
+  S.daily = {day, q: pool.map(q => ({id: q.id, base: q.ctr()})), done: {}, all: false};
+}
+function checkDaily(){
+  const day = today();
+  if (!S.daily || S.daily.day !== day) initDaily(day);
+  const D = S.daily;
+  for (const it of D.q) {
+    const q = DQI[it.id];
+    if (!D.done[it.id] && q.ctr() - it.base >= q.n) {
+      D.done[it.id] = 1; S.dailyDone++;
+      const g = Math.max(C.base * 600, 500); earn(g);
+      toast('🎯 Défi réussi : ' + q.t, `+${fmt(g)} croissants`); SFX.ach();
+    }
+  }
+  if (!D.all && D.q.every(it => D.done[it.id])) {
+    D.all = true; S.dailyAll++; S.stars++; S.bonusStars++;
+    toast('⭐ Défis du jour terminés !', '+1 étoile du Chef en bonus. Reviens demain pour de nouveaux défis.'); SFX.rebirth();
+  }
+}
+function renderDaily(){
+  const D = S.daily; if (!D) return;
+  const now = new Date(), mid = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const left = (mid - now) / 1000;
+  setHTML($('#dailycard'), `<h3>🎯 Défis du jour</h3>Réussis les 3 pour gagner <b style="color:var(--gold)">1 étoile du Chef</b>. Nouveaux défis dans ${Math.floor(left/3600)} h ${Math.floor(left%3600/60)} min.` +
+    D.q.map(it => {
+      const q = DQI[it.id], prog = Math.min(q.n, Math.max(0, q.ctr() - it.base)), ok = D.done[it.id];
+      return `<div class="q ${ok ? 'ok' : ''}"><span class="qi">${q.icon}</span><span class="qt">${q.t}</span><span class="qp">${ok ? '✓ Fait' : fmt(prog) + ' / ' + fmt(q.n)}</span></div>`;
+    }).join('') + (D.all ? '<div style="margin-top:8px;color:var(--ok)">Tous les défis sont faits, bravo ! 🎉</div>' : ''));
+}
+
+/* ================= STORY ================= */
+const STORY = [
+  [1, 'La petite échoppe', 'Tu hérites de la vieille échoppe de ta tante Odette : un four qui tousse, un rouleau en bois et une recette griffonnée au dos d’une enveloppe. Les passants ne s’arrêtent pas encore. Encore.'],
+  [1e4, 'Le bouche-à-oreille', 'Une file d’attente se forme sur le trottoir. Une vieille dame te dit que tes croissants ont le goût de son enfance. Tu fais semblant d’avoir une poussière dans l’œil.'],
+  [1e6, 'Le rival', 'En face, la « Maison Brioche & Fils » ouvre une boutique rutilante. Leur patron te salue avec un sourire beaucoup trop blanc. La guerre du feuilletage est déclarée.'],
+  [1e8, 'L’âge industriel', 'Tes usines tournent jour et nuit. Brioche & Fils a fermé. Leur patron postule chez toi comme apprenti. Tu l’embauches : il est étonnamment doué pour le pliage.'],
+  [1e10, 'Le carnet d’Odette', 'En rangeant le grenier, tu trouves le carnet de tante Odette. Dernière page, d’une écriture tremblante : « La pâte peut lever plus haut que le ciel. » Tu commences à comprendre.'],
+  [1e12, 'Au-delà du ciel', 'Le premier croissant est livré sur la Lune. Il arrive un peu aplati, mais les astronautes en pleurent de joie. Quelque part, tu es sûr qu’Odette sourit.'],
+  [1e14, 'Le multivers', 'À travers un portail, tu croises une autre version de toi, qui a choisi la baguette. Vous vous regardez longuement. Elle baisse les yeux la première.'],
+  [1e16, 'Épilogue : la dernière fournée', 'L’univers entier sent le beurre chaud. Tu retournes à la petite échoppe, rallumes le vieux four qui tousse et cuis un seul croissant, juste pour toi. Puis un deuxième. On ne se refait pas. — FIN… ou presque : renais, et tout recommence.'],
+];
+const storyQ = [];
+function initStory(){
+  const reached = STORY.map(([v], i) => i).filter(i => S.lifetime >= STORY[i][0]);
+  if (!Object.keys(S.story).length && reached.length > 1) reached.slice(0, -1).forEach(i => S.story[i] = 1);
+}
+function checkStory(){
+  STORY.forEach(([v], i) => { if (!S.story[i] && S.lifetime >= v) { S.story[i] = 1; storyQ.push(i); } });
+  if (storyQ.length && !$('#story').classList.contains('on') && !$('#oven').classList.contains('on')) showStory(storyQ.shift());
+}
+function showStory(i){
+  const [, t, txt] = STORY[i];
+  $('#sk').textContent = i === STORY.length - 1 ? 'Épilogue' : `Chapitre ${i + 1}`;
+  $('#st').textContent = t; $('#sp').textContent = txt;
+  $('#story').classList.add('on'); SFX.event();
+}
+$('#sok').addEventListener('click', () => $('#story').classList.remove('on'));
+function renderStoryList(){
+  const el = $('#storylist'), before = el._h;
+  setHTML(el, STORY.map(([v, t], i) => S.story[i]
+    ? `<button class="chap" data-ch="${i}"><small>${i === STORY.length - 1 ? 'Épilogue' : 'Chapitre ' + (i + 1)} · relire</small>${t}</button>`
+    : `<div class="chap off"><small>${i === STORY.length - 1 ? 'Épilogue' : 'Chapitre ' + (i + 1)}</small>??? · à ${fmt(v)} croissants cuits</div>`).join(''));
+  if (el._h !== before) document.querySelectorAll('[data-ch]').forEach(b => b.addEventListener('click', () => showStory(+b.dataset.ch)));
+}
+
+/* ================= SAVE CODE ================= */
+$('#exp').addEventListener('click', () => {
+  save();
+  const code = btoa(unescape(encodeURIComponent(JSON.stringify(S))));
+  const ta = $('#code'); ta.value = code;
+  const fallback = () => { ta.focus(); ta.select(); toast('📋 Code affiché', 'Sélectionne-le et copie-le à la main.'); };
+  try { navigator.clipboard.writeText(code).then(() => toast('📋 Code copié !', 'Colle-le sur ton autre appareil.'), fallback); } catch(e) { fallback(); }
+});
+$('#imp').addEventListener('click', () => {
+  let d = null;
+  try { d = JSON.parse(decodeURIComponent(escape(atob($('#code').value.trim())))); } catch(e) {}
+  if (!d || typeof d.lifetime !== 'number') { toast('❌ Code invalide', 'Vérifie que tu as bien tout copié.'); SFX.fail(); return; }
+  ask('Charger cette partie ?', `Partie avec ${fmt(d.lifetime)} croissants cuits au total. Ta partie actuelle sera remplacée.`, 'Charger', 'yel', () => {
+    hydrate(d); buffs = {frenzy:0, click:0, rush:null}; upKey = ''; vKey = ''; townKey = ''; lastSeason = -1;
+    if (EV) endEvent(); syncSeg(); syncSound(); save(); C = calc(); render();
+    toast('✅ Partie chargée', 'Bon retour dans ton empire !');
+  });
+});
+
+/* ================= SAVE / LOAD ================= */
+function save(){ S.last = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) {} }
+function hydrate(d){
+  S = Object.assign(fresh(), d);
+  S.ev = Object.assign(fresh().ev, d.ev || {});
+  S.mk = Object.assign(fresh().mk, d.mk || {});
+  ['owned','up','ach','talents','seen','flags','story'].forEach(k => S[k] = S[k] || {});
+}
+function load(){
+  try {
+    const r = localStorage.getItem(KEY);
+    if (r) {
+      hydrate(JSON.parse(r));
+      return;
+    }
+    const old = localStorage.getItem(OLDKEY);
+    if (old) {
+      const d = JSON.parse(old), v = Math.floor(d.total || 0);
+      if (v > 0) {
+        S.c = v; S.lifetime = v; S.clicksAll = d.clicks || 0; S.golden = d.golden || 0;
+        setTimeout(() => toast('🎉 Mise à jour géante !', `Ta progression a été convertie en ${fmt(v)} croissants. Reconstruis ton empire !`), 600);
+      }
+    }
+  } catch(e) {}
+}
+setInterval(save, 5000);
+document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+addEventListener('pagehide', save);
+
+$('#reset').addEventListener('click', () => ask('Tout effacer ?', 'Ton empire, tes étoiles, tes talents et tes succès seront supprimés. Impossible de revenir en arrière.', 'Effacer', 'red', () => {
+  const snd = S.sound;
+  S = fresh(); S.sound = snd; buffs = {frenzy:0, click:0, rush:null}; upKey = ''; vKey = ''; townKey = ''; lastSeason = -1;
+  if (EV) endEvent(); hideGold(); syncSeg(); save(); C = calc(); render();
+}));
+
+/* ================= START ================= */
+load(); syncSeg(); syncSound(); C = calc();
+const away = (Date.now() - S.last) / 1000;
+if (away > 30 && C.base > 0) {
+  const g = C.base * Math.min(away, 8*3600) * (S.talents.nuit ? 1 : .5);
+  earn(g); S.flags.back = 1;
+  setTimeout(() => toast('🌙 Pendant ton absence', `Tes fours ont cuit ${fmt(g)} croissants.`), 400);
+}
+initStory(); render(); rotateNews();
+
+let lastT = performance.now(), acc = 0;
+function frame(t){
+  const raw = Math.max((t - lastT) / 1000, 0); lastT = t;
+  const dt = Math.min(raw, 8*3600);
+  C = calc();
+  earn(C.cps * dt);
+  S.play += Math.min(raw, 1);
+  $('#count').textContent = fmt(Math.floor(S.c));
+  particles(Math.min(raw, .1));
+  acc += raw;
+  if (acc > .15) { acc = 0; render(); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

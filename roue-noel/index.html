@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roue du Père Noël secret</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0f2a1f; --bg2:#14382a; --card:#fbf6ec; --ink:#1f2a24; --muted:#6b7a71;
+    --red:#c8323c; --red2:#a3222b; --green:#2e7d4f; --gold:#e8b44a; --cream:#fff7e6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{min-height:100%}
+  body{
+    font-family:'Nunito',system-ui,sans-serif;color:var(--ink);
+    background:radial-gradient(ellipse at top,#1d4a37 0%,var(--bg) 60%);
+    min-height:100vh;overflow-x:hidden;
+  }
+  .snow{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+  .flake{position:absolute;top:-10px;color:#fff;opacity:.7;animation:fall linear infinite}
+  @keyframes fall{to{transform:translateY(110vh) translateX(30px)}}
+  main{position:relative;z-index:1;max-width:460px;margin:0 auto;padding:28px 18px 48px}
+  header{text-align:center;color:var(--cream);margin-bottom:22px}
+  header h1{font-family:'Fraunces',serif;font-weight:800;font-size:2rem;line-height:1.1}
+  header h1 span{color:var(--gold)}
+  header p{opacity:.8;margin-top:6px;font-size:.95rem}
+  .card{background:var(--card);border-radius:20px;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+  h2{font-family:'Fraunces',serif;font-size:1.25rem;margin-bottom:12px}
+  .row{display:flex;gap:8px}
+  input[type=text]{
+    flex:1;font:inherit;font-size:1rem;padding:12px 14px;border-radius:12px;
+    border:2px solid #e2d8c4;background:#fff;outline:none;min-width:0
+  }
+  input[type=text]:focus{border-color:var(--gold)}
+  button{font:inherit;font-weight:800;cursor:pointer;border:none;border-radius:12px;transition:transform .1s,opacity .2s}
+  button:active{transform:scale(.97)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .btn{background:var(--red);color:#fff;padding:12px 18px;font-size:1rem}
+  .btn.big{width:100%;padding:16px;font-size:1.1rem;margin-top:16px;box-shadow:0 4px 0 var(--red2)}
+  .btn.green{background:var(--green);box-shadow:0 4px 0 #1f5a38}
+  .btn.ghost{background:transparent;color:var(--muted);font-weight:600;padding:8px;font-size:.9rem;text-decoration:underline}
+  .names{list-style:none;margin-top:14px;display:flex;flex-wrap:wrap;gap:8px}
+  .names li{background:#fff;border:2px solid #efe5d1;border-radius:999px;padding:6px 8px 6px 14px;display:flex;align-items:center;gap:6px;font-weight:600}
+  .names li button{background:#f3e9d7;color:var(--muted);width:24px;height:24px;border-radius:50%;font-size:.85rem;line-height:1}
+  .hint{color:var(--muted);font-size:.88rem;margin-top:10px}
+  .chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+  .chip{background:#fff;border:2px solid #efe5d1;padding:12px;font-size:1rem;color:var(--ink);border-radius:14px}
+  .chip.done{background:#e9f3ec;border-color:#cfe5d6;color:var(--green)}
+  .chip:not(.done):hover{border-color:var(--gold)}
+  .progress{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .pill{background:var(--gold);color:#3a2a07;font-weight:800;border-radius:999px;padding:4px 12px;font-size:.85rem}
+  .wheel-wrap{position:relative;width:100%;max-width:340px;aspect-ratio:1;margin:8px auto 0}
+  .wheel-wrap canvas{width:100%;height:100%;border-radius:50%;box-shadow:0 0 0 8px var(--gold),0 0 0 12px #b8862a,0 14px 30px rgba(0,0,0,.3)}
+  .pointer{position:absolute;top:-14px;left:50%;transform:translateX(-50%);width:0;height:0;
+    border-left:16px solid transparent;border-right:16px solid transparent;border-top:30px solid var(--red);
+    filter:drop-shadow(0 3px 2px rgba(0,0,0,.35));z-index:2}
+  .hub{position:absolute;top:50%;left:50%;width:58px;height:58px;transform:translate(-50%,-50%);
+    border-radius:50%;background:var(--cream);border:5px solid var(--gold);display:grid;place-items:center;font-size:1.6rem;z-index:2}
+  .who{text-align:center;margin-bottom:6px}
+  .who b{color:var(--red)}
+  .overlay{position:fixed;inset:0;background:rgba(10,25,18,.92);z-index:10;display:none;align-items:center;justify-content:center;padding:20px}
+  .overlay.show{display:flex}
+  .reveal{background:var(--card);border-radius:24px;padding:30px 22px;text-align:center;max-width:380px;width:100%;animation:pop .4s cubic-bezier(.2,1.4,.4,1)}
+  @keyframes pop{from{transform:scale(.7);opacity:0}}
+  .reveal .gift{font-size:3.2rem}
+  .reveal p{color:var(--muted);margin-top:6px}
+  .reveal .target{font-family:'Fraunces',serif;font-weight:800;font-size:2.3rem;color:var(--red);margin:10px 0 4px;word-break:break-word}
+  .reveal small{display:block;color:var(--muted);margin-top:14px;font-size:.85rem}
+  .warn{background:#fff3d6;border:2px dashed var(--gold);border-radius:14px;padding:12px;text-align:center;margin-bottom:12px;font-size:.95rem}
+  .finish{text-align:center}
+  .finish .big-emoji{font-size:3rem}
+  .confirm{display:none;margin-top:10px;background:#fbe9ea;border-radius:12px;padding:12px;text-align:center;font-size:.92rem}
+  .confirm.show{display:block}
+  .confirm .row{justify-content:center;margin-top:8px}
+  .hidden{display:none!important}
+  .couples{margin-top:18px;padding-top:16px;border-top:2px dashed #e8dcc4}
+  .couples h3{font-family:'Fraunces',serif;font-size:1.05rem}
+  .couples h3 span{font-family:'Nunito',sans-serif;font-weight:600;font-size:.85rem;color:var(--muted)}
+  select{flex:1;min-width:0;font:inherit;font-size:.95rem;padding:10px;border-radius:12px;border:2px solid #e2d8c4;background:#fff;color:var(--ink)}
+  .names li.pair{background:#fbe9ea;border-color:#f1cfd2}
+  .error{color:var(--red);font-weight:700;font-size:.9rem;margin-top:12px;text-align:center}
+  .error:empty{display:none}
+  .footer{text-align:center;margin-top:16px}
+  .footer .btn.ghost{color:#cfe1d6}
+</style>
+</head>
+<body>
+<div class="snow" id="snow"></div>
+<main>
+  <header>
+    <h1>🎄 Père Noël <span>secret</span></h1>
+    <p>Chacun tire en cachette. Les noms restent tous sur la roue.</p>
+  </header>
+
+  <!-- Étape 1 : saisie des noms -->
+  <section class="card" id="setup">
+    <h2>Qui participe ?</h2>
+    <form class="row" id="addForm">
+      <input type="text" id="nameInput" placeholder="Prénom" maxlength="20" autocomplete="off">
+      <button class="btn" type="submit">Ajouter</button>
+    </form>
+    <ul class="names" id="nameList"></ul>
+    <p class="hint" id="setupHint">Ajoute au moins 3 personnes.</p>
+
+    <div class="couples" id="couplesBox">
+      <h3>💑 Couples <span>(facultatif)</span></h3>
+      <p class="hint" style="margin-top:2px">Deux personnes en couple ne pourront pas se tirer entre elles.</p>
+      <div class="row" style="margin-top:10px">
+        <select id="pairA"></select>
+        <select id="pairB"></select>
+        <button class="btn" type="button" id="addPair" style="padding:10px 14px">+</button>
+      </div>
+      <ul class="names" id="pairList"></ul>
+    </div>
+
+    <p class="error" id="startError"></p>
+    <button class="btn big green" id="startBtn" disabled>Lancer le tirage 🎁</button>
+  </section>
+
+  <!-- Étape 2 : choisir qui tire -->
+  <section class="card hidden" id="pick">
+    <div class="progress">
+      <h2 style="margin:0">Qui tire ?</h2>
+      <span class="pill" id="progressPill">0/0</span>
+    </div>
+    <div class="chips" id="chips"></div>
+    <p class="hint">Touche ton prénom, puis prends le téléphone pour toi tout seul.</p>
+  </section>
+
+  <!-- Étape 3 : la roue -->
+  <section class="card hidden" id="spin">
+    <div class="warn">🤫 Les autres, on ne regarde pas l'écran !</div>
+    <p class="who">C'est au tour de <b id="currentName"></b></p>
+    <div class="wheel-wrap">
+      <div class="pointer"></div>
+      <canvas id="wheel" width="680" height="680"></canvas>
+      <div class="hub">🎅</div>
+    </div>
+    <button class="btn big" id="spinBtn">Tourner la roue !</button>
+    <button class="btn ghost" id="backBtn" style="width:100%;margin-top:6px">← Ce n'est pas moi</button>
+  </section>
+
+  <!-- Étape 4 : fini -->
+  <section class="card hidden finish" id="done">
+    <div class="big-emoji">🎉</div>
+    <h2>Tout le monde a tiré !</h2>
+    <p class="hint">Chacun connaît la personne à qui il offre un cadeau. Joyeux Noël !</p>
+  </section>
+
+  <div class="footer hidden" id="footer">
+    <button class="btn ghost" id="resetBtn">Recommencer un nouveau tirage</button>
+    <div class="confirm" id="confirmBox">
+      Tout effacer et refaire le tirage ? Les résultats actuels seront perdus.
+      <div class="row">
+        <button class="btn" id="confirmYes" style="padding:8px 14px">Oui, effacer</button>
+        <button class="btn green" id="confirmNo" style="padding:8px 14px">Annuler</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="overlay" id="overlay">
+  <div class="reveal">
+    <div class="gift">🎁</div>
+    <p><span id="revealFrom"></span>, tu offres un cadeau à…</p>
+    <div class="target" id="revealTarget"></div>
+    <small>Retiens bien ce prénom et garde le secret !</small>
+    <button class="btn big green" id="hideBtn">C'est noté, je cache 🙈</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const KEY = 'roue-noel-v1';
+  const COLORS = ['#c8323c','#2e7d4f','#e8b44a','#fff7e6'];
+  const TEXT_ON = {'#c8323c':'#fff','#2e7d4f':'#fff','#e8b44a':'#3a2a07','#fff7e6':'#1f2a24'};
+
+  let state = { names: [], pairs: [], assign: null, drawn: [] };
+  let current = null, rotation = 0, spinning = false;
+
+  const $ = id => document.getElementById(id);
+
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+  function load(){
+    try{
+      const s = JSON.parse(localStorage.getItem(KEY));
+      if(s && Array.isArray(s.names)) state = { names:s.names, pairs:s.pairs||[], assign:s.assign||null, drawn:s.drawn||[] };
+    }catch(e){}
+  }
+
+  function rnd(k){ const r=new Uint32Array(1); crypto.getRandomValues(r); return r[0]%k; }
+  function shuffle(arr){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=rnd(i+1); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+  function forbidden(giver, receiver){
+    if(giver===receiver) return true;
+    return state.pairs.some(p=>(p[0]===giver&&p[1]===receiver)||(p[0]===receiver&&p[1]===giver));
+  }
+
+  // Tirage aléatoire : personne ne se tire soi-même ni son conjoint, chaque nom tiré une seule fois
+  function makeAssignment(names){
+    // 1) tirage purement au hasard (plusieurs essais)
+    for(let t=0;t<20000;t++){
+      const perm=shuffle(names);
+      if(!perm.some((p,i)=>forbidden(names[i],p))){
+        const a={}; names.forEach((nm,i)=>a[nm]=perm[i]); return a;
+      }
+    }
+    // 2) secours : recherche systématique en ordre aléatoire
+    const givers=shuffle(names), used=new Set(), a={};
+    function bt(k){
+      if(k===givers.length) return true;
+      for(const r of shuffle(names)){
+        if(used.has(r)||forbidden(givers[k],r)) continue;
+        used.add(r); a[givers[k]]=r;
+        if(bt(k+1)) return true;
+        used.delete(r); delete a[givers[k]];
+      }
+      return false;
+    }
+    return bt(0) ? a : null;
+  }
+
+  // --- Couples ---
+  function renderPairs(){
+    ['pairA','pairB'].forEach(id=>{
+      const sel=$(id), prev=sel.value; sel.innerHTML='';
+      state.names.forEach(nm=>{ const o=document.createElement('option'); o.value=nm; o.textContent=nm; sel.appendChild(o); });
+      if(state.names.includes(prev)) sel.value=prev;
+    });
+    if($('pairA').value===$('pairB').value && state.names.length>1) $('pairB').selectedIndex = ($('pairA').selectedIndex+1)%state.names.length;
+    $('couplesBox').classList.toggle('hidden', state.names.length<3);
+    const ul=$('pairList'); ul.innerHTML='';
+    state.pairs.forEach((p,i)=>{
+      const li=document.createElement('li'); li.className='pair';
+      li.textContent=p[0]+' ❤ '+p[1];
+      const b=document.createElement('button'); b.type='button'; b.textContent='✕'; b.setAttribute('aria-label','Retirer ce couple');
+      b.onclick=()=>{ state.pairs.splice(i,1); save(); renderPairs(); };
+      li.appendChild(b); ul.appendChild(li);
+    });
+  }
+  $('addPair').onclick=()=>{
+    const a=$('pairA').value, b=$('pairB').value;
+    $('startError').textContent='';
+    if(!a||!b||a===b){ $('startError').textContent='Choisis deux personnes différentes.'; return; }
+    if(state.pairs.some(p=>(p[0]===a&&p[1]===b)||(p[0]===b&&p[1]===a))){ $('startError').textContent='Ce couple est déjà ajouté.'; return; }
+    state.pairs.push([a,b]); save(); renderPairs();
+  };
+
+  function show(id){
+    ['setup','pick','spin','done'].forEach(s=>$(s).classList.toggle('hidden', s!==id));
+    $('footer').classList.toggle('hidden', id==='setup');
+    $('confirmBox').classList.remove('show');
+  }
+
+  // --- Étape 1 ---
+  function renderNames(){
+    const ul = $('nameList'); ul.innerHTML='';
+    state.names.forEach((nm,i)=>{
+      const li=document.createElement('li');
+      li.textContent=nm;
+      const b=document.createElement('button'); b.type='button'; b.textContent='✕'; b.setAttribute('aria-label','Retirer '+nm);
+      b.onclick=()=>{ state.names.splice(i,1); state.pairs=state.pairs.filter(p=>p[0]!==nm&&p[1]!==nm); save(); renderNames(); };
+      li.appendChild(b); ul.appendChild(li);
+    });
+    const ok = state.names.length>=3;
+    $('startBtn').disabled=!ok;
+    $('setupHint').textContent = ok ? state.names.length+' participants' : 'Ajoute au moins 3 personnes.';
+    $('startError').textContent='';
+    renderPairs();
+  }
+  $('addForm').addEventListener('submit',e=>{
+    e.preventDefault();
+    const v=$('nameInput').value.trim();
+    if(!v) return;
+    if(state.names.some(n=>n.toLowerCase()===v.toLowerCase())){
+      $('setupHint').textContent='« '+v+' » est déjà dans la liste.'; return;
+    }
+    state.names.push(v); $('nameInput').value=''; save(); renderNames(); $('nameInput').focus();
+  });
+  $('startBtn').onclick=()=>{
+    const a = makeAssignment(state.names);
+    if(!a){ $('startError').textContent='Impossible de faire un tirage avec ces couples. Retire un couple ou ajoute une personne.'; return; }
+    state.assign = a; state.drawn=[]; save();
+    drawWheel(); renderPick();
+  };
+
+  // --- Étape 2 ---
+  function renderPick(){
+    if(state.drawn.length===state.names.length){ show('done'); return; }
+    const c=$('chips'); c.innerHTML='';
+    state.names.forEach(nm=>{
+      const b=document.createElement('button');
+      const done=state.drawn.includes(nm);
+      b.className='chip'+(done?' done':'');
+      b.textContent=(done?'✓ ':'')+nm;
+      b.disabled=done;
+      b.onclick=()=>startSpin(nm);
+      c.appendChild(b);
+    });
+    $('progressPill').textContent=state.drawn.length+'/'+state.names.length+' ont tiré';
+    show('pick');
+  }
+
+  // --- Étape 3 : roue ---
+  function drawWheel(){
+    const cv=$('wheel'), ctx=cv.getContext('2d');
+    const W=cv.width, R=W/2, n=state.names.length, seg=2*Math.PI/n;
+    ctx.clearRect(0,0,W,W);
+    state.names.forEach((nm,i)=>{
+      // segment i centré sur l'angle i*seg + seg/2, mesuré depuis le haut, sens horaire
+      const start=-Math.PI/2+i*seg, end=start+seg;
+      let col=COLORS[i%COLORS.length];
+      if(i===n-1 && n%COLORS.length===1) col=COLORS[1]; // évite deux couleurs identiques côte à côte
+      ctx.beginPath(); ctx.moveTo(R,R); ctx.arc(R,R,R,start,end); ctx.closePath();
+      ctx.fillStyle=col; ctx.fill();
+      ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.lineWidth=2; ctx.stroke();
+      ctx.save(); ctx.translate(R,R); ctx.rotate(start+seg/2);
+      ctx.fillStyle=TEXT_ON[col]; ctx.textAlign='right'; ctx.textBaseline='middle';
+      const size=Math.max(22,Math.min(38, 420/n + 14));
+      ctx.font='800 '+size+'px Nunito, system-ui, sans-serif';
+      const label = nm.length>12 ? nm.slice(0,11)+'…' : nm;
+      ctx.fillText(label, R-26, 0);
+      ctx.restore();
+    });
+  }
+  function setRotation(deg, animate){
+    const cv=$('wheel');
+    cv.style.transition = animate ? 'transform 5.2s cubic-bezier(.15,.85,.2,1)' : 'none';
+    cv.style.transform = 'rotate('+deg+'deg)';
+  }
+  function startSpin(nm){
+    current=nm; $('currentName').textContent=nm;
+    rotation=0; setRotation(0,false);
+    $('spinBtn').disabled=false; $('backBtn').classList.remove('hidden');
+    show('spin');
+  }
+  $('backBtn').onclick=()=>{ if(!spinning) renderPick(); };
+  $('spinBtn').onclick=()=>{
+    if(spinning||!current) return;
+    spinning=true; $('spinBtn').disabled=true; $('backBtn').classList.add('hidden');
+    const target=state.assign[current];
+    const n=state.names.length, segDeg=360/n, idx=state.names.indexOf(target);
+    const r=new Uint32Array(1); crypto.getRandomValues(r);
+    const jitter=((r[0]/4294967295)-.5)*segDeg*0.7;
+    const final = -(idx*segDeg + segDeg/2) + jitter;
+    const turns = 360*(6 + (r[0]%3));
+    rotation = turns + ((final%360)+360)%360;
+    setRotation(rotation,true);
+    setTimeout(()=>{
+      $('revealFrom').textContent=current;
+      $('revealTarget').textContent=target;
+      $('overlay').classList.add('show');
+      spinning=false;
+    },5400);
+  };
+  $('hideBtn').onclick=()=>{
+    $('overlay').classList.remove('show');
+    $('revealTarget').textContent='';
+    if(current && !state.drawn.includes(current)) state.drawn.push(current);
+    save(); current=null; setRotation(0,false); renderPick();
+  };
+
+  // --- Recommencer ---
+  $('resetBtn').onclick=()=>$('confirmBox').classList.add('show');
+  $('confirmNo').onclick=()=>$('confirmBox').classList.remove('show');
+  $('confirmYes').onclick=()=>{
+    state.assign=null; state.drawn=[]; save(); renderNames(); show('setup');
+  };
+
+  // --- Neige ---
+  const snow=$('snow');
+  for(let i=0;i<28;i++){
+    const f=document.createElement('div'); f.className='flake'; f.textContent='❄';
+    f.style.left=Math.random()*100+'%';
+    f.style.fontSize=(8+Math.random()*12)+'px';
+    f.style.animationDuration=(8+Math.random()*10)+'s';
+    f.style.animationDelay=(-Math.random()*18)+'s';
+    snow.appendChild(f);
+  }
+
+  // --- Démarrage ---
+  load();
+  renderNames();
+  if(state.assign && state.names.length>=3){ drawWheel(); renderPick(); } else show('setup');
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>{ if(state.assign) drawWheel(); });
+})();
+</script>
+</body>
+</html>
