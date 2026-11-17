@@ -19,7 +19,8 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
   copier `dist/DernierRempart-local.html` vers `../index.html`).
   - Fait : 7 zones, 17 armes, atouts, courant à rétablir, mode test, commandes tactiles
     (joystick, visée au doigt, aide à la visée, bouton ACTION qui s'allume), attente en vertical.
-  - À vérifier : fluidité sur un vrai téléphone (testé seulement en simulation).
+  - Testé sur téléphone par l'utilisateur : jouable mais plus dur. Le jeu vise surtout le PC
+    (clavier + souris) ; le téléphone reste un bonus.
   - Idées : continuer visuels, sons, zombies, armes et carte selon les envies.
 - `errant/` : aventure dans le désert (le plus gros, ~310 Ko).
 - `errant-3d/` : essai d'Errant avec personnages détaillés.
