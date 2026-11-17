@@ -100,8 +100,13 @@ export function initZombies() {
     dress(z);
     z.bones.Head.scale.setScalar(1); z.bones.LeftForeArm.scale.setScalar(1); z.bones.RightForeArm.scale.setScalar(1);
     z.arms = 1; const lost = Math.random(); if (lost < 0.08) z.bones.LeftForeArm.scale.setScalar(0.001); else if (lost < 0.16) z.bones.RightForeArm.scale.setScalar(0.001);
-    z.settled = false; z.settleN = 0; z.flinch = 0; z.shock = 0; z.bleed = 0; z.holder.rotation.z = 0; z.crawl = false; for (const s of ['Left', 'Right']) z.bones[s + 'UpLeg'].scale.setScalar(1);
-    z.lean = rand(0.12, 0.34); z.wob = rand(10); z.groan = rand(0.5, 5); z.burn = 0; z.burnDps = 0; z.burnTick = 0; z.scorch = 0;
+    z.settled = false; z.settleN = 0; z.flinch = 0; z.shock = 0; z.bleed = 0; z.kx = 0; z.kz = 0; z.holder.rotation.z = 0; z.crawl = false; for (const s of ['Left', 'Right']) z.bones[s + 'UpLeg'].scale.setScalar(1);
+    // each one moves in its own way: hunch, a limp, how the arms hang, a head lolling to one side
+    z.lean = z.type === 2 ? rand(0.42, 0.62) : z.type === 1 ? rand(0.3, 0.5) : rand(0.3, 0.62);
+    z.limp = z.type === 0 && Math.random() < 0.55 ? rand(0.45, 1) : z.type === 1 && Math.random() < 0.25 ? rand(0.3, 0.6) : 0; z.limpS = Math.random() < 0.5 ? 'Left' : 'Right';
+    { const u = Math.random(); z.armStyle = z.type === 2 ? 3 : z.brute ? (u < 0.6 ? 2 : 0) : z.type === 1 ? (u < 0.5 ? 0 : u < 0.8 ? 1 : 2) : (u < 0.34 ? 0 : u < 0.68 ? 1 : 2); }
+    z.lead = Math.random() < 0.5 ? 1 : -1; z.tilt = rand(-0.14, 0.14); z.headTilt = rand(-0.42, 0.42); z.twitch = rand(1.5, 6); z.jerk = 0; z.jerkA = 0; z.lurch = z.type === 0 ? rand(0.22, 0.45) : z.type === 1 ? 0.14 : 0.06; z.armS = 0; z.ph = 0; z.shuf = z.type === 0 && !z.brute ? rand(0.5, 0.78) : 1;
+    z.wob = rand(10); z.groan = rand(0.5, 5); z.burn = 0; z.burnDps = 0; z.burnTick = 0; z.scorch = 0;
     z.w.walk = 0; z.w.run = 0; z.w.idle = 1;
     z.holder.visible = true; z.blob.visible = true; z.blob.material.opacity = 0.9;
     list.push(z); Z.alive++;
@@ -139,6 +144,10 @@ export function initZombies() {
     if (!flame && dir && z.kind !== 'b' && z.hp < z.maxHp * 0.55 && Math.random() < 0.08) {
       const side = Math.random() < 0.5 ? 'Left' : 'Right', fa = z.bones[side + 'ForeArm'];
       if (fa && fa.scale.x > 0.5) { fa.scale.setScalar(0.001); _a.setFromMatrixPosition(fa.matrixWorld); G.fx.blood(_a, dir, 22, 3); G.fx.gib(_a, dir); z.bleed = 2.5; z.bleedBone = fa; SND.flesh(z.x, z.z); }
+    }
+    if (!flame && dir && z.state === 'chase' && !z.crawl) { // heavy hits shove the body back a step
+      const imp = Math.min(2.4, (melee ? 2.6 : (dmg / z.maxHp) * 3.2)) / (z.brute ? 3 : 1), l = Math.hypot(dir.x, dir.z) || 1;
+      z.kx = (z.kx || 0) + (dir.x / l) * imp; z.kz = (z.kz || 0) + (dir.z / l) * imp;
     }
     if (!flame && dir) { const side = Math.cos(z.yaw) * dir.x - Math.sin(z.yaw) * dir.z; z.flinch = Math.min(1.4, (z.flinch || 0) + (head ? 1.2 : 0.7)); z.flinchSide = side >= 0 ? 1 : -1; z.flinchHead = head; }
     if (flame > 0) { z.burn = Math.max(z.burn, 3); z.burnDps = flame; if (++z.scorch === 12) charred(z); }
@@ -181,6 +190,51 @@ export function initZombies() {
   };
 
   Z.clear = () => { for (const z of list) { z.on = false; z.holder.visible = false; z.blob.visible = false; release(z); } list.length = 0; Z.alive = 0; };
+
+  // procedural layer over the walk cycle: hunched spine, weight thrown side to side, a dragging leg,
+  // a lolling head with sudden twitches, and arms that reach, dangle and swing with the step
+  const reachArm = (B, f, r, s, side, up, out, w) => {
+    _t.copy(f).addScaledVector(UP, up).addScaledVector(r, out * side).normalize(); aimBone(B[s + 'Arm'], B[s + 'ForeArm'], _t, w);
+    _t.copy(f).addScaledVector(UP, up + 0.16).addScaledVector(r, out * side * 0.25).normalize(); aimBone(B[s + 'ForeArm'], B[s + 'Hand'], _t, w);
+  };
+  const dangleArm = (B, f, r, s, side, swing, w) => {
+    _t.set(0, -1, 0).addScaledVector(f, 0.12 + swing).addScaledVector(r, 0.2 * side).normalize(); aimBone(B[s + 'Arm'], B[s + 'ForeArm'], _t, w);
+    _t.set(0, -1, 0).addScaledVector(f, 0.42 + swing * 1.4).addScaledVector(r, 0.08 * side).normalize(); aimBone(B[s + 'ForeArm'], B[s + 'Hand'], _t, w);
+  };
+  function shamble(z, B, f, r, armUp, armW, dt) {
+    const ph = z.ph, mv = Math.min(1, z.w.walk + z.w.run), run = z.type === 2, t = G.time + z.wob;
+    // hips: dropped on the bad side, rocking with each step
+    turnBone(B.Hips, f, (Math.sin(ph) * (0.05 + z.limp * 0.1) + z.limp * 0.05 * (z.limpS === 'Left' ? 1 : -1)) * mv);
+    // spine: hunched forward, listing to one side, shoulders twisting against the step
+    const lunge = z.atk >= 0 ? Math.sin(Math.min(1, z.atk / 0.75) * Math.PI) : 0, shove = Math.min(0.5, Math.hypot(z.kx || 0, z.kz || 0) * 0.25);
+    const h = z.lean + Math.sin(t * 0.9) * 0.03 + lunge * 0.38 - shove; // throws its weight into a swing, rocks back when shoved
+    turnBone(B.Spine, r, h * 0.42); turnBone(B.Spine1, r, h * 0.36); turnBone(B.Spine2, r, h * 0.22);
+    turnBone(B.Spine1, f, z.tilt - Math.sin(ph) * (0.05 + z.limp * 0.06) * mv); turnBone(B.Spine2, UP, Math.sin(ph) * (run ? 0.16 : 0.1) * mv);
+    // the bad leg swings out stiff and its toe scrapes the floor
+    if (z.limp > 0 && mv > 0.1) { const L = z.limpS, k = z.limp * mv; turnBone(B[L + 'UpLeg'], f, (L === 'Left' ? 1 : -1) * 0.13 * k); turnBone(B[L + 'Foot'], r, 0.5 * k); }
+    // head: lifted to see, lolling to one side; now and then it jerks
+    if (B.Head.scale.x > 0.5) {
+      z.twitch -= dt; if (z.twitch <= 0) { z.twitch = rand(2, 7); z.jerk = 1; z.jerkA = rand(-0.55, 0.55); }
+      z.jerk = Math.max(0, z.jerk - dt * 3.2); const j = z.jerk * z.jerk;
+      turnBone(B.Neck, r, -h * (run ? 0.5 : 0.62) + (run ? -0.04 : 0.08) + Math.sin(t * 0.7) * 0.05);
+      turnBone(B.Neck, UP, z.jerkA * j);
+      turnBone(B.Head, f, z.headTilt * (run ? 0.4 : 1) + Math.sin(t * 1.1) * 0.1 + Math.sin(ph) * 0.06 * mv + z.jerkA * 0.5 * j);
+    }
+    // arms: lifted smoothly toward what the state asks for, lagging a little like dead weight
+    z.armS = damp(z.armS, armUp, 7, dt); const au = z.armS, wob = Math.sin(t * 2.4) * 0.1, wob2 = Math.cos(t * 1.9) * 0.1;
+    const lead = z.lead, swing = Math.sin(ph) * (run ? 0.5 : 0.32) * mv;
+    let style = z.armStyle; if (armW >= 0.95 || armUp > 0.2) style = 0; // attacking, clawing at planks: both arms up
+    if (style === 0) {
+      reachArm(B, f, r, 'Left', 1, -0.1 + au + wob, 0.22, armW); reachArm(B, f, r, 'Right', -1, -0.16 + au + wob2, 0.22, armW * 0.92);
+    } else if (style === 1) {
+      const a = lead > 0 ? 'Left' : 'Right', b = lead > 0 ? 'Right' : 'Left';
+      reachArm(B, f, r, a, lead, -0.02 + au + wob, 0.18, armW); dangleArm(B, f, r, b, -lead, -swing * lead, 0.85);
+    } else if (style === 2) {
+      dangleArm(B, f, r, 'Left', 1, swing + wob * 0.4, 0.9); dangleArm(B, f, r, 'Right', -1, -swing + wob2 * 0.4, 0.9);
+    } else { // runners: clawing forward and up, arms flailing out of time
+      reachArm(B, f, r, 'Left', 1, 0.05 + Math.sin(2 * ph) * 0.35 + au, 0.3, 0.9); reachArm(B, f, r, 'Right', -1, 0.05 + Math.sin(2 * ph + 2.2) * 0.35 + au, 0.3, 0.9);
+    }
+  }
 
   const setAnim = (z, name, dt, rate = 8) => { for (const k in z.w) { z.w[k] = damp(z.w[k], k === name ? 1 : 0, rate, dt); z.act[k].setEffectiveWeight(z.w[k]); } };
 
@@ -255,7 +309,10 @@ export function initZombies() {
       }
 
       // --- movement + separation + wall collision
+      { const A = z.w.run > 0.5 ? z.act.run : z.act.walk; z.ph = (A.time / A.getClip().duration) * Math.PI * 2; }
+      if (moveSpeed > 0 && !z.crawl) moveSpeed *= 1 + z.lurch * Math.sin(2 * z.ph + 0.6); // a surge on every step
       if (moveSpeed > 0) { z.x += Math.sin(z.yaw) * moveSpeed * dt; z.z += Math.cos(z.yaw) * moveSpeed * dt; }
+      if (z.kx || z.kz) { if (z.state === 'chase') { z.x += z.kx * dt; z.z += z.kz * dt; } const k = Math.exp(-7 * dt); z.kx *= k; z.kz *= k; if (Math.abs(z.kx) + Math.abs(z.kz) < 0.02) z.kx = z.kz = 0; }
       if (z.state === 'chase' || z.state === 'approach') {
         for (let j = 0; j < list.length; j++) { const o = list[j]; if (o === z || o.state === 'dead' || o.state === 'rise' || o.state === 'climb') continue; const dx = z.x - o.x, dz = z.z - o.z, d2 = dx * dx + dz * dz; if (d2 < 0.36 && d2 > 1e-6) { const d = Math.sqrt(d2), k = (0.6 - d) * 0.5 / d; z.x += dx * k; z.z += dz * k; } }
         if (z.state === 'chase') {
@@ -267,7 +324,10 @@ export function initZombies() {
       // --- animation
       if (z.state === 'approach' || z.state === 'chase') {
         const moving = moveSpeed > 0.2; setAnim(z, moving ? (z.type === 2 ? 'run' : 'walk') : 'idle', dt);
-        z.act.walk.timeScale = z.speed / 1.45; z.act.run.timeScale = z.speed / 3.9;
+        const uneven = 1 + z.limp * 0.45 * Math.sin(z.ph + (z.limpS === 'Left' ? 0 : Math.PI)); // the bad leg is slow to come through
+        // walkers shuffle: the stride is pulled toward the standing pose, so steps come shorter and quicker
+        if (z.shuf < 1) { const k = z.shuf; z.act.walk.setEffectiveWeight(z.w.walk * k); z.act.idle.setEffectiveWeight(z.w.idle + z.w.walk * (1 - k)); }
+        z.act.walk.timeScale = (z.speed / (1.45 * Math.pow(z.shuf, 0.85))) * uneven; z.act.run.timeScale = z.speed / 3.9;
       }
       const H = z.holder; H.position.set(z.x, z.y, z.z); H.rotation.y = z.yaw;
       if (z.crawl) { // body lies face down, chest at (x, z): the holder sits behind it, tipped forward
@@ -291,15 +351,9 @@ export function initZombies() {
             _t.copy(f).multiplyScalar(0.6 + reach * 0.5).addScaledVector(UP, -1.0 + atk).addScaledVector(r, side * 0.5).normalize(); aimBone(B[s + 'ForeArm'], B[s + 'Hand'], _t, 1);
           }
         } else if (z.state !== 'dead') {
-          turnBone(B.Spine, r, -(z.lean + (z.type === 2 ? 0.12 : 0)));  // hunch forward
-          turnBone(B.Neck, f, Math.sin(G.time * 1.3 + z.wob) * 0.22 + 0.18);
-          const wob = Math.sin(G.time * 2.4 + z.wob) * 0.12, wob2 = Math.cos(G.time * 1.9 + z.wob) * 0.12;
-          _t.copy(f).addScaledVector(UP, -0.12 + armUp + wob).addScaledVector(r, 0.22).normalize(); aimBone(B.LeftArm, B.LeftForeArm, _t, armW);
-          _t.copy(f).addScaledVector(UP, 0.12 + armUp * 0.8 + wob).addScaledVector(r, 0.05).normalize(); aimBone(B.LeftForeArm, B.LeftHand, _t, armW);
-          _t.copy(f).addScaledVector(UP, -0.2 + armUp + wob2).addScaledVector(r, -0.22).normalize(); aimBone(B.RightArm, B.RightForeArm, _t, armW * 0.92);
-          _t.copy(f).addScaledVector(UP, 0.05 + armUp * 0.8 + wob2).addScaledVector(r, -0.05).normalize(); aimBone(B.RightForeArm, B.RightHand, _t, armW * 0.92);
+          shamble(z, B, f, r, armUp, armW, dt);
           if (z.shock > 0) { for (const k of ['Spine1', 'Neck', 'LeftArm', 'RightArm']) turnBone(B[k], UP, rand(-0.35, 0.35)); }
-          if (z.flinch > 0) { const k = Math.sin(Math.min(1, z.flinch) * Math.PI * 0.5); turnBone(B.Spine1, r, k * 0.45); turnBone(B.Spine1, UP, z.flinchSide * k * 0.35); if (z.flinchHead && B.Head.scale.x > 0.5) turnBone(B.Neck, r, k * 0.7); }
+          if (z.flinch > 0) { const k = Math.sin(Math.min(1, z.flinch) * Math.PI * 0.5); turnBone(B.Spine1, r, -k * 0.45); turnBone(B.Spine1, UP, z.flinchSide * k * 0.35); if (z.flinchHead && B.Head.scale.x > 0.5) turnBone(B.Neck, r, -k * 0.7); }
         } else {
           // ragdoll-ish collapse: knees fold, spine curls, arms go limp toward the floor
           const tip = Math.max(0, (z.fall - 0.22) / 0.78), buckle = Math.min(1, z.fall / 0.35) * (z.fallDir > 0 ? 1 : 0.3) * (1 - tip), lim = Math.min(1, z.fall * 1.6);

@@ -210,7 +210,9 @@ function simulate(dt) {
   G.camera.updateMatrixWorld(true);
   { // the torch dims as a wall comes close, so it never burns a white disc into the plaster
     G.camera.getWorldPosition(_fo); _fd.set(0, 0, -1).transformDirection(G.camera.matrixWorld);
-    const t = rayWorld(_fo, _fd, 3).t, k = Math.min(1, Math.max(0.2, (t - 0.25) / 2.2));
+    let t = rayWorld(_fo, _fd, 3).t;
+    for (const z of G.zombies.list) { if (z.state === 'dead') continue; const dx = z.x - _fo.x, dz = z.z - _fo.z, d = Math.hypot(dx, dz); if (d < t && d > 0.01 && (dx * _fd.x + dz * _fd.z) / d > 0.7) t = Math.max(0.3, d - 0.25); } // a zombie in your face counts as a wall
+    const k = Math.min(1, Math.max(0.2, (t - 0.25) / 2.2));
     flashlight.intensity += (20 * k - flashlight.intensity) * (1 - Math.exp(-10 * dt));
   }
   G.weapons.update(dt, active ? input : IDLE, active);
