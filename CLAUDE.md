@@ -12,6 +12,13 @@ Dépôt de petits jeux, joués surtout sur téléphone dans le navigateur.
 - Un jeu = un dossier à la racine (par exemple `snake/`) avec un `index.html` autonome.
 - Répondre à l'utilisateur en français, avec des explications simples.
 
+## Enregistrement sur GitHub
+
+- L'utilisateur autorise Claude à enregistrer directement sur la branche `main`
+  (commit + push), sans pull request ni demande de validation.
+- Toujours récupérer la dernière version de `main` avant de modifier, et dire
+  à l'utilisateur en une phrase ce qui a été enregistré.
+
 ## Notes de suivi (`NOTES.md`)
 
 - En début de conversation, lire `NOTES.md` pour savoir où on en est.
