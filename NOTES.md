@@ -14,6 +14,13 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
 
 ## Jeux
 
+- `dernier-rempart/` : FPS zombies en 3D (Three.js), un seul fichier `index.html` (~6,5 Mo).
+  Code source, modèles et outils dans `dernier-rempart/source/` (`npm install` puis `node tools/build.mjs`,
+  copier `dist/DernierRempart-local.html` vers `../index.html`).
+  - Fait : 7 zones, 17 armes, atouts, courant à rétablir, mode test, commandes tactiles
+    (joystick, visée au doigt, aide à la visée, bouton ACTION qui s'allume), attente en vertical.
+  - À vérifier : fluidité sur un vrai téléphone (testé seulement en simulation).
+  - Idées : continuer visuels, sons, zombies, armes et carte selon les envies.
 - `errant/` : aventure dans le désert (le plus gros, ~310 Ko).
 - `errant-3d/` : essai d'Errant avec personnages détaillés.
 - `croissant/` : L'Empire du Croissant (clicker). Code de sauvegarde pour transférer une partie.
@@ -25,5 +32,4 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
 
 ## À faire
 
-- **Dernier Rempart** pas encore importé : l'artefact fait plus de 4 Mo, trop gros pour être
-  récupéré depuis une session cloud. À importer depuis le PC (Claude Code) ou à alléger.
+- Rien en attente pour l'instant.
