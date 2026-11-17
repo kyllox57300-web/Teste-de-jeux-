@@ -22,6 +22,8 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
   - Testé sur téléphone par l'utilisateur : jouable mais plus dur. Le jeu vise surtout le PC
     (clavier + souris) ; le téléphone reste un bonus.
   - Idées : continuer visuels, sons, zombies, armes et carte selon les envies.
+  - Plus tard : un vrai « mode téléphone » (aide à la visée plus forte, tir automatique sous le viseur,
+    zombies un peu plus lents et moins nombreux).
 - `errant/` : aventure dans le désert (le plus gros, ~310 Ko).
 - `errant-3d/` : essai d'Errant avec personnages détaillés.
 - `croissant/` : L'Empire du Croissant (clicker). Code de sauvegarde pour transférer une partie.
