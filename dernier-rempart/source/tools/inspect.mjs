@@ -1,0 +1,10 @@
+import { NodeIO } from '@gltf-transform/core';
+const io = new NodeIO();
+const doc = await io.read(process.argv[2]);
+const r = doc.getRoot();
+console.log('anims', r.listAnimations().map(a=>a.getName()+':'+a.listChannels().length));
+console.log('meshes', r.listMeshes().map(m=>m.getName()+' prims '+m.listPrimitives().map(p=>p.getAttribute('POSITION').getCount()+'v/'+(p.getIndices()?.getCount()/3)+'t mat='+p.getMaterial()?.getName()).join(',')));
+console.log('textures', r.listTextures().map(t=>t.getName()+' '+t.getMimeType()+' '+t.getSize()+' '+t.getImage().length));
+console.log('materials', r.listMaterials().map(m=>m.getName()+' base='+m.getBaseColorTexture()?.getName()+' n='+m.getNormalTexture()?.getName()+' rough='+m.getRoughnessFactor()+' metal='+m.getMetallicFactor()));
+console.log('nodes', r.listNodes().map(n=>n.getName()).join(' '));
+for (const n of r.listNodes().slice(0,6)) console.log(n.getName(), n.getTranslation(), n.getRotation(), n.getScale());

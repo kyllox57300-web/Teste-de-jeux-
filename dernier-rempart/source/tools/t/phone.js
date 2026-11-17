@@ -1,0 +1,1 @@
+export default async (page, shot) => { await shot('72-phone'); console.log(await page.evaluate(() => JSON.stringify({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, note: !document.getElementById('touch-note').hidden }))); };

@@ -1,0 +1,10 @@
+import { build } from 'esbuild';
+import fs from 'fs';
+const res = await build({ entryPoints: ['src/main.js'], bundle: true, minify: !process.argv.includes('--dev'), format: 'iife', write: false, target: 'es2020', loader: { '.jpg': 'dataurl', '.png': 'dataurl', '.glb': 'binary' }, legalComments: 'none' });
+const js = res.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
+const tpl = fs.readFileSync('src/index.template.html', 'utf8');
+const page = tpl.replace('/*__JS__*/', () => js);
+fs.mkdirSync('dist', { recursive: true });
+fs.writeFileSync('dist/dernier-rempart.html', page);
+fs.writeFileSync('dist/DernierRempart-local.html', `<!doctype html>\n<html lang="fr">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n<meta name="theme-color" content="#07080a">\n<meta name="mobile-web-app-capable" content="yes">\n<meta name="apple-mobile-web-app-capable" content="yes">\n<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">\n<style>body{margin:0}[hidden]{display:none!important}</style>\n</head>\n<body>\n${page}\n</body>\n</html>\n`);
+console.log('built', (page.length / 1e6).toFixed(2), 'MB');
