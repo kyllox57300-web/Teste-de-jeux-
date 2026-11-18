@@ -1,0 +1,7 @@
+{
+  "name": "bitcoin-a-la-benne-3d",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "node tools/build.mjs", "sim": "node tools/sim.mjs" },
+  "dependencies": { "esbuild": "^0.28.2", "three": "^0.170.0" }
+}
