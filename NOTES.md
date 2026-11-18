@@ -41,19 +41,19 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
   - Idées : améliorer les armes (sensations de tir, recul, nouvelles armes), détailler la crypte et le cimetière.
   - Plus tard : un vrai « mode téléphone » (aide à la visée plus forte, tir automatique sous le viseur,
     zombies un peu plus lents et moins nombreux).
-- `bitcoin-a-la-benne/` : jeu incrémental (fichier unique `jeu.html`, `index.html` redirige dessus).
-  - Fait (18/11) : 5 chapitres avec dialogues et vraie fin, 7 zones, 56 objets (4 raretés), 8 outils (niveau max),
-    8 employés (x2 à 10/25/50/100/150/200), vitrine (garder épiques/légendaires = bonus), vente auto, marché Bitcoin
-    avec graphique, 9 événements à 2-3 choix, 34 quêtes, 25 succès, prestige (Karma = +10 % valeur), sons et musique
-    Web Audio, paramètres, export/import, sauvegarde auto 10 s, gains hors ligne (50 %, 8 h max), tutoriel.
-  - Équilibrage simulé par un robot (`GAME` exposé dans la page) : fin en ~60-68 min en tapant vite, ~77 min en tapant
-    lentement ; après un prestige (7 Karma) ~35 min. Réglages : `ZONES` (cost), `EMPS`, `TOOLS`, `CFG`.
-  - 18/11 : l'utilisateur veut une refonte en « monde vu de dessus » : décharge couverte de tas à vider couche par couche,
-    Kévin touche un tas et y va tout seul, sac + allers-retours chez Josiane (plus tard : camion/livreur qui automatise
-    la vente), améliorations visibles (outil, sac, brouette, pelleteuse, camion, employés), détecteur qui bipe près du
-    disque, tout dessiné en code (sinon ressources Kenney). On garde histoire, économie, marché, sauvegarde.
-  - Prototype en cours : `prototype.html` (tas en couches, chemins, sac, vente, brouette, 3 employés, détecteur,
-    grillages/portails entre les 7 quartiers). En attente de l'avis de l'utilisateur sur le rendu avant d'y rebrancher le reste.
+- `bitcoin-a-la-benne/` : jeu de gestion « vider la décharge », fichier unique `jeu.html` (`index.html` redirige).
+  - Refait le 18/11 en monde vu de dessus, tout dessiné en code (canvas) : 7 quartiers de 160 tas (1 à 6 couches),
+    séparés par des grillages à portail payant. On touche un tas → Kévin y va (chemin calculé) et le vide couche par couche
+    (toucher le tas en cours = coup en plus). Sac → vente chez Josiane (puis camion de livraison automatique).
+  - Fait : outil (paliers visibles pelle/pioche/marteau-piqueur/pelle en or), sac, brouette, bottes, lampe (chance),
+    pelleteuse (Kévin la conduit), camion, 6 types d'employés visibles (Gégé, stagiaire, ferrailleur, chien, mini-bulldozer,
+    robot), détecteur qui bipe (boîtier puis disque), indice « côté de la Fosse », drone, vitrine/collection, marché Bitcoin,
+    9 événements à choix (dont camion-benne qui recouvre des tas), 28 quêtes, 27 succès, 5 chapitres + fin, prestige Karma,
+    sauvegarde auto + export/import, hors ligne (équipe à 50 %), sons + musique, réglages.
+  - Sécurité anti-blocage : si plus aucun tas accessible, la ville livre de nouveaux tas.
+  - Équilibrage par robot (`GAME` exposé, mode `headless`) : fin en 52-83 min (robot), ~35 min après prestige.
+    Réglages : `QUARTERS` (hp, v, cost), `EMPS`, `LEVELED`, `ONCE`, `SACKS`.
+  - À tester sur un vrai téléphone (lisibilité, confort des touchers). Idées : sons plus riches, plus de types de tas.
 - `errant/` : aventure dans le désert (le plus gros, ~310 Ko).
 - `errant-3d/` : essai d'Errant avec personnages détaillés.
 - `croissant/` : L'Empire du Croissant (clicker). Code de sauvegarde pour transférer une partie.
