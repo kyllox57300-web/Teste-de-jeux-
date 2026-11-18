@@ -48,7 +48,12 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
     Web Audio, paramètres, export/import, sauvegarde auto 10 s, gains hors ligne (50 %, 8 h max), tutoriel.
   - Équilibrage simulé par un robot (`GAME` exposé dans la page) : fin en ~60-68 min en tapant vite, ~77 min en tapant
     lentement ; après un prestige (7 Karma) ~35 min. Réglages : `ZONES` (cost), `EMPS`, `TOOLS`, `CFG`.
-  - À tester sur un vrai téléphone. Idées : plus d'événements, objets de collection par zone avec bonus de set.
+  - 18/11 : l'utilisateur veut une refonte en « monde vu de dessus » : décharge couverte de tas à vider couche par couche,
+    Kévin touche un tas et y va tout seul, sac + allers-retours chez Josiane (plus tard : camion/livreur qui automatise
+    la vente), améliorations visibles (outil, sac, brouette, pelleteuse, camion, employés), détecteur qui bipe près du
+    disque, tout dessiné en code (sinon ressources Kenney). On garde histoire, économie, marché, sauvegarde.
+  - Prototype en cours : `prototype.html` (tas en couches, chemins, sac, vente, brouette, 3 employés, détecteur,
+    grillages/portails entre les 7 quartiers). En attente de l'avis de l'utilisateur sur le rendu avant d'y rebrancher le reste.
 - `errant/` : aventure dans le désert (le plus gros, ~310 Ko).
 - `errant-3d/` : essai d'Errant avec personnages détaillés.
 - `croissant/` : L'Empire du Croissant (clicker). Code de sauvegarde pour transférer une partie.
