@@ -340,10 +340,28 @@ export function menuMusic(on) {
   schedule(); music = { bus, timer: setInterval(() => { if (ok()) schedule(); }, 1000) };
 }
 export function tension(k) { if (tensionBus && ac) tensionBus.gain.setTargetAtTime(clamp(k, 0, 1) * 0.06, ac.currentTime, 0.8); }
+// crows: two to four harsh caws from the dark trees
+function crows(p) { const n = 2 + ((Math.random() * 3) | 0), f = rand(380, 470); for (let i = 0; i < n; i++) setTimeout(() => { if (ok()) voice(p.x, p.z, { f: f * rand(0.95, 1.05), dur: rand(0.2, 0.3), gain: 0.28, path: ['a', 'ae'], pitch: [1.1, 1, 0.85], creak: 0.7, breath: 0.6, vib: 0, strain: 3, tract: 0.55, y: 6 }); }, i * rand(380, 520)); }
+// a dog howling somewhere beyond the village
+function howl(p) { const o = out(0.16, p.x, p.z, 0.8, 2), lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1400; lp.connect(o);
+  const t = ac.currentTime, d = rand(2.2, 3.2), osc = ac.createOscillator(), g = ac.createGain(), vb = ac.createOscillator(), vg = ac.createGain(); osc.type = 'triangle';
+  const f = rand(430, 520); osc.frequency.setValueAtTime(f * 0.8, t); osc.frequency.linearRampToValueAtTime(f * 1.25, t + d * 0.3); osc.frequency.linearRampToValueAtTime(f * 1.15, t + d * 0.7); osc.frequency.linearRampToValueAtTime(f * 0.75, t + d);
+  vb.frequency.value = 5.5; vg.gain.value = 9; vb.connect(vg); vg.connect(osc.frequency);
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(1, t + 0.35); g.gain.setValueAtTime(1, t + d * 0.75); g.gain.exponentialRampToValueAtTime(0.0001, t + d); osc.connect(g); g.connect(lp);
+  for (const n of [osc, vb]) { n.start(t); n.stop(t + d + 0.05); } }
+// the church bell of the village, a long way off
+function toll() { const o = out(0.13, undefined, undefined, 1); const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; lp.connect(o); for (let i = 0; i < 3; i++) bell(lp, { t: i * 2.6, f: 146.8, dur: 5, gain: 0.5, parts: [0.5, 1, 1.19, 1.5, 2, 2.52] }); }
 export function ambientTick(dt) {
   if (!amb || !ok()) return;
   amb.next -= dt; if (amb.next > 0) return; amb.next = rand(6, 16);
   const a = Math.random() * 6.283, d = rand(14, 30), x = P.x + Math.cos(a) * d, z = P.z + Math.sin(a) * d;
-  if (Math.random() < 0.5) { const o = out(0.35, P.x + Math.cos(a) * 4, P.z + Math.sin(a) * 4, 0.6, 2.8); creak(o, 0, rand(0.6, 1.4)); }
-  else voice(x, z, { f: rand(72, 95), dur: rand(1.8, 2.8), gain: 0.3, path: ['uh', 'o', 'u'], pitch: [0.95, 1.05, 0.8], creak: 0.2, breath: 0.25, tract: 0.88 });
+  const u = Math.random(), far = (k) => ({ x: P.x + Math.cos(a) * k, z: P.z + Math.sin(a) * k });
+  if (u < 0.32) { const o = out(0.35, P.x + Math.cos(a) * 4, P.z + Math.sin(a) * 4, 0.6, 2.8); creak(o, 0, rand(0.6, 1.4)); }
+  else if (u < 0.55) voice(x, z, { f: rand(72, 95), dur: rand(1.8, 2.8), gain: 0.3, path: ['uh', 'o', 'u'], pitch: [0.95, 1.05, 0.8], creak: 0.2, breath: 0.25, tract: 0.88 });
+  else if (u < 0.7) crows(far(rand(18, 30)));
+  else if (u < 0.8) howl(far(45));
+  else if (u < 0.88) toll();
+  else if (u < 0.95) { const q = far(40); voice(q.x, q.z, { f: rand(260, 330), dur: rand(1.0, 1.5), gain: 0.18, path: ['a', 'ae', 'a'], pitch: [0.9, 1.25, 1.15, 0.7], creak: 0.1, breath: 0.4, vib: 0.04, vibHz: 7, strain: 2, tract: 1.15 }); } // someone far off, screaming
+  else { const o = out(0.5, P.x + Math.cos(a) * 5, P.z + Math.sin(a) * 5, 0.5, 3); for (let i = 0; i < 5; i++) { tone(o, { t: i * rand(0.07, 0.14), dur: 0.05, type: 'triangle', f0: rand(1800, 3200), f1: 900, gain: 0.25 }); nz(o, { t: i * 0.1, dur: 0.04, type: 'bandpass', f0: 4200, f1: 2500, q: 4, gain: 0.3 }); } } // glass or tin rattling somewhere in the house
 }
+export const ambientDebug = { crows: (x, z) => crows({ x, z }), howl: (x, z) => howl({ x, z }), toll: () => toll() };

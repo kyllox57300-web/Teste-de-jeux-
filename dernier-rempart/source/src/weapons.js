@@ -211,7 +211,7 @@ export function initWeapons() {
   function explode(pos, up) {
     G.fx.explosion(pos); SND.boom(); boomT = 0.22; flashLight.position.copy(pos).setY(Math.max(0.9, pos.y)); { cam.getWorldPosition(_o); _d.subVectors(_o, flashLight.position).setY(0); if (_d.lengthSq() > 1e-4) flashLight.position.addScaledVector(_d.normalize(), 0.6); } flashLight.intensity = 140;
     const R = 5.2, Z = G.zombies, p = pl();
-    for (const z of Z.list.slice()) { if (z.state === 'dead') continue; const d = Math.hypot(z.x - pos.x, z.z - pos.z, (z.y + 1) - pos.y); if (d < R) { _n.set(z.x - pos.x, 0.3, z.z - pos.z).normalize(); const res = Z.damage(z, (up ? 2600 : 1300) * Math.pow(1 - d / R, 0.9), false, _n, null, false); if (!res.killed && Math.random() < 0.7) Z.cripple(z); } }
+    for (const z of Z.list.slice()) { if (z.state === 'dead') continue; const d = Math.hypot(z.x - pos.x, z.z - pos.z, (z.y + 1) - pos.y); if (d < R) { _n.set(z.x - pos.x, 0.3, z.z - pos.z).normalize(); const res = Z.damage(z, (up ? 2600 : 1300) * Math.pow(1 - d / R, 0.9), false, _n, null, false); if (!res.killed && z.state === 'chase' && Math.random() < 0.45) Z.cripple(z); } }
     const dp = Math.hypot(p.x - pos.x, p.z - pos.z, (p.y + 1.2) - pos.y); p.shake = Math.max(p.shake, clamp(1.2 - dp / 12, 0, 1)); if (dp < 3.4) G.game.hurtAmount(60 * (1 - dp / 3.4));
   }
   S.explode = explode; S.stat = wstat; S.arms = { R: armR, L: armL };

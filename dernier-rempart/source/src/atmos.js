@@ -319,6 +319,33 @@ export function buildAtmosphere() {
       for (const R of ripples) if (R.m.visible) { R.t += dt; R.m.scale.setScalar(1 + R.t * 9); R.m.material.opacity = 0.4 * (1 - R.t / 0.45); if (R.t > 0.45) R.m.visible = false; }
     };
   }
+  // puddles in the yard and between the graves: black mirrors that catch the lamps, the fire and the lightning
+  {
+    const c = cv(256), x = c.getContext('2d'), r = mulberry32(77);
+    x.fillStyle = '#000'; x.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 9; i++) { const px = 128 + (r() - 0.5) * 110, py = 128 + (r() - 0.5) * 70, rad = 30 + r() * 46, g = x.createRadialGradient(px, py, rad * 0.35, px, py, rad); g.addColorStop(0, '#fff'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.beginPath(); x.ellipse(px, py, rad, rad * (0.6 + r() * 0.4), r() * 3, 0, 6.283); x.fill(); }
+    const id = x.getImageData(0, 0, 256, 256), d = id.data; for (let i = 0; i < d.length; i += 4) { const v = Math.min(255, Math.max(0, (d[i] - 70) * 2.4)); d[i] = d[i + 1] = d[i + 2] = v; } x.putImageData(id, 0, 0);
+    const pm = new THREE.MeshStandardMaterial({ color: 0x06080b, roughness: 0.05, metalness: 0.1, alphaMap: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, envMapIntensity: 2.5 });
+    const pg = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), rp = mulberry32(5);
+    const spots = [[19.5, -9, 3.2], [24, 1.5, 2.6], [29.5, -4.5, 3.6], [21.4, -2.3, 2.2], [22.6, -11.4, 2.6], [31.5, 3.5, 2.2], [26.5, -11.5, 2.4], [18.6, 10, 2.2], [21, 14.5, 1.6], [31.5, 9.5, 2.8], [19.5, 21.5, 2], [30.5, 19, 1.8], [25.5, 12.2, 2.4]];
+    for (const [px, pz, sz] of spots) { const m = new THREE.Mesh(pg, pm); m.position.set(px, 0.006, pz); m.rotation.y = rp() * 6.28; m.scale.set(sz * (0.9 + rp() * 0.5), 1, sz * (0.6 + rp() * 0.4)); m.receiveShadow = true; m.renderOrder = 1; scene.add(m); }
+  }
+  // lightning you can see: a jagged forked bolt far off over the roofs, only for the instant of the flash
+  {
+    const pos = new Float32Array(900 * 3), geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage));
+    const bm = new THREE.MeshBasicMaterial({ color: new THREE.Color(5, 5.5, 8), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide });
+    const bolt = new THREE.Mesh(geo, bm); bolt.frustumCulled = false; bolt.visible = false; bolt.renderOrder = 0; scene.add(bolt); A.boltMesh = bolt;
+    let n = 0; const _a = new THREE.Vector3(), _b = new THREE.Vector3(), side = new THREE.Vector3();
+    const seg = (a, b, w) => { if (n > 890) return; side.set(a.x - 13, 0, a.z + 10).normalize(); // the ribbon faces the map
+      const sx = -side.z * w, sz = side.x * w;
+      for (const [p, q] of [[a, -1], [a, 1], [b, -1], [a, 1], [b, 1], [b, -1]]) { pos[n * 3] = p.x + sx * q; pos[n * 3 + 1] = p.y; pos[n * 3 + 2] = p.z + sz * q; n++; } };
+    const branch = (p, dir, len, w, depth) => { let a = p.clone(); const steps = 10 + ((Math.random() * 6) | 0);
+      for (let i = 0; i < steps; i++) { _b.copy(a).addScaledVector(dir, len / steps); _b.x += rand(-1, 1) * len * 0.07; _b.z += rand(-1, 1) * len * 0.07; _b.y += rand(-0.3, 0.3) * len * 0.05; seg(a, _b, w * (1 - i / steps * 0.6)); a = _b.clone();
+        if (depth < 2 && Math.random() < 0.18) branch(a, dir.clone().add(new THREE.Vector3(rand(-0.9, 0.9), rand(-0.1, 0.2), rand(-0.9, 0.9))).normalize(), len * rand(0.25, 0.45), w * 0.5, depth + 1); } };
+    A.strike = (at) => { n = 0; const ang = at ?? rand(0, 6.283), dist = rand(140, 165), top = new THREE.Vector3(13 + Math.cos(ang) * dist, rand(70, 90), -10 + Math.sin(ang) * dist);
+      branch(top, new THREE.Vector3(rand(-0.2, 0.2), -1, rand(-0.2, 0.2)).normalize(), top.y + 4, 1.1, 0);
+      for (let i = n; i < 900; i++) pos[i * 3] = pos[i * 3 + 1] = pos[i * 3 + 2] = 0; geo.attributes.position.needsUpdate = true; geo.setDrawRange(0, n); bolt.visible = true; };
+  }
   // wet ground outside catches the lamps and the moon
   M.grass.roughness = 0.6; M.dirt.roughness = 0.55; M.dirt.color.multiplyScalar(0.8); M.grass.color.multiplyScalar(0.85);
 
@@ -330,8 +357,8 @@ export function buildAtmosphere() {
     A.clouds.position.copy(G.camera.position); A.clouds.material.uniforms.uT.value = A.t; if (A.grassT) A.grassT.value = A.t;
     // lightning: two quick flashes, thunder follows
     A.nextBolt -= dt;
-    if (A.nextBolt <= 0) { A.nextBolt = rand(22, 50); A.bolt = 0; SND.thunder(rand(0.6, 2.2)); }
-    if (A.bolt !== undefined) { A.bolt += dt; const b = A.bolt; A.flash = b < 0.08 ? 1 : b < 0.16 ? 0.15 : b < 0.24 ? 0.8 : Math.max(0, 0.8 - (b - 0.24) * 3); if (b > 0.6) { A.bolt = undefined; A.flash = 0; } }
+    if (A.nextBolt <= 0) { A.nextBolt = rand(22, 50); A.bolt = 0; SND.thunder(rand(0.6, 2.2)); A.strike(A.boltAt); }
+    if (A.bolt !== undefined) { A.bolt += dt; const b = A.bolt; A.flash = b < 0.08 ? 1 : b < 0.16 ? 0.15 : b < 0.24 ? 0.8 : Math.max(0, 0.8 - (b - 0.24) * 3); if (b > 0.6) { A.bolt = undefined; A.flash = 0; } A.boltMesh.material.opacity = b < 0.08 ? 1 : b < 0.16 ? 0.1 : b < 0.3 ? 0.85 : Math.max(0, 0.85 - (b - 0.3) * 4); A.boltMesh.visible = A.bolt !== undefined; }
     A.clouds.material.uniforms.uFlash.value = A.flash; A.shaftMat.uniforms.uK.value = 1 + A.flash * 6;
     W.hemi.intensity = 0.5 + A.flash * 2.2; W.sun.intensity = 3.4 + A.flash * 9;
   };

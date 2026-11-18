@@ -138,6 +138,68 @@ const KINDS = {
   },
 };
 
+// ---------------------------------------------------------------- knocked down, then back up
+// The fall reuses a death (thrown back / stumbling forward); the body lies a moment, then climbs back to its feet
+// through a few key poses (sitting up or onto hands and knees, a crouch or a kneel, a half rise, standing).
+const NUM = ['pitch', 'roll', 'twist', 'spin', 'thL', 'shL', 'thR', 'shR', 'curl', 'side', 'neck', 'look'];
+function snap(c) { const o = { aL: c.aL.slice(), aR: c.aR.slice(), w: c.wL }; for (const k of NUM) o[k] = c[k]; return o; }
+function load(o, c) { for (const k of NUM) c[k] = o[k] || 0; c.aL = o.aL; c.aR = o.aR; c.wL = c.wR = o.w; }
+function interp(keys, u, c, D) {
+  let i = 0; while (i < keys.length - 2 && u > keys[i + 1].u) i++;
+  const A = keys[i], B = keys[i + 1], k = ease((u - A.u) / (B.u - A.u));
+  for (const n of NUM) c[n] = mix(A[n] || 0, B[n] || 0, k);
+  c.aL = lerpArm(A.aL || LIMP, B.aL || LIMP, k, D.b1 || (D.b1 = [0, 0, 0, 0])); c.aR = lerpArm(A.aR || LIMP, B.aR || LIMP, k, D.b2 || (D.b2 = [0, 0, 0, 0]));
+  c.wL = c.wR = mix(A.w ?? 0.9, B.w ?? 0.9, k);
+}
+// leg angles in the side view: the thigh points (thigh - pitch) forward of straight down, the shin that much less the knee bend
+const UP_FROM_BACK = [
+  { u: 0.3, pitch: -0.3, thL: 1.0, shL: 1.8, thR: 0.8, shR: 1.75, curl: 0.45, neck: 0.25, aL: [-0.35, -0.6, 0.5, 0.6], aR: [-0.35, -0.6, 0.5, 0.6], w: 0.9 }, // sits up, hands behind
+  { u: 0.56, pitch: 0.5, thL: 1.7, shL: 1.6, thR: 1.6, shR: 1.7, curl: 0.55, neck: -0.2, aL: [0.6, -0.4, 0.3, 0.6], aR: [0.5, -0.4, 0.35, 0.6], w: 0.8 }, // crouch over its feet
+  { u: 0.8, pitch: 0.42, thL: 0.9, shL: 0.9, thR: 0.85, shR: 0.95, curl: 0.5, neck: -0.3, w: 0.6 }, // half way up
+  { u: 1, pitch: 0.08, thL: 0.05, shL: 0.1, thR: 0.05, shR: 0.1, curl: 0.3, neck: -0.25, w: 0.3 },
+];
+const UP_FROM_FRONT = [
+  { u: 0.3, pitch: 1.35, thL: 1.35, shL: 1.55, thR: 1.3, shR: 1.6, curl: 0.1, neck: -0.55, aL: [0.25, 0, 0.2, 1], aR: [0.25, 0, 0.2, 1], w: 0.95 }, // hands and knees
+  { u: 0.55, pitch: 0.25, thL: 0.25, shL: 1.6, thR: 0.2, shR: 1.6, curl: 0.35, neck: -0.2, w: 0.85 }, // kneeling
+  { u: 0.78, pitch: 0.3, thL: 1.45, shL: 1.35, thR: 0.25, shR: 1.5, curl: 0.4, neck: -0.25, w: 0.6 }, // one foot planted
+  { u: 1, pitch: 0.08, thL: 0.05, shL: 0.1, thR: 0.05, shR: 0.1, curl: 0.3, neck: -0.25, w: 0.3 },
+];
+const GETUP = 1.6;
+function knock(fall, fallEnd, keys) {
+  return (t, D, c) => {
+    const f1 = fallEnd(D), l1 = f1 + D.lie, end = l1 + GETUP;
+    if (t < f1) { KINDS[fall](t, D, c); return end; }
+    if (!D.L) { KINDS[fall](f1, D, c); D.L = snap(c); D.L.u = 0; }
+    c.slide = D.dist;
+    if (t < l1) { load(D.L, c); c.neck += 0.2 * Math.sin(t * 11) * bump(t, f1, f1 + 0.6); c.look += 0.25 * bump(t, l1 - 0.5, l1); return end; } // a twitch, then the head comes up
+    interp([D.L, ...keys], (t - l1) / GETUP, c, D); return end;
+  };
+}
+KINDS.knockB = knock('back', (D) => D.T + 0.45, UP_FROM_BACK);
+KINDS.knockF = knock('stumble', () => 1.1, UP_FROM_FRONT);
+// killed while down or getting up: from wherever it is, it slumps flat
+KINDS.hold = (t, D, c) => {
+  const k = drop(t, 0, 0.5), S = D.S, back = S.pitch < 0;
+  for (const n of NUM) c[n] = mix(S[n] || 0, n === 'pitch' ? (back ? -1.53 : 1.52) : n === 'roll' || n === 'twist' || n === 'look' ? S[n] || 0 : n === 'thL' || n === 'thR' ? 0.15 : n === 'shL' || n === 'shR' ? 0.3 : 0, k);
+  c.aL = lerpArm(S.aL, FLAT, k, D.b1 || (D.b1 = [0, 0, 0, 0])); c.aR = lerpArm(S.aR, FLAT, k, D.b2 || (D.b2 = [0, 0, 0, 0])); c.wL = c.wR = mix(S.w, 0.9, k); c.slide = D.dist;
+  return 0.8;
+};
+export function holdDeath(z) {
+  const c = blank(z.dc); KINDS[z.death](z.t, z.dD, c); // where the knock-down has the body right now (it may not have been drawn yet)
+  const S = snap(c), D = { S, dist: z.dD.dist || 0, hits: Math.abs(S.pitch) < 1.2 ? [0.5] : [] };
+  z.dAge0 = (z.dAge0 || 0) + z.t; z.death = 'hold'; z.dD = D; z.dLanded = 0;
+}
+// a heavy blow that does not kill: knocked off its feet. Returns false if there is no room to fall.
+export function startKnock(z, dir, force) {
+  const fx = Math.sin(z.yaw), fz = Math.cos(z.yaw), body = 1.75 * z.scale;
+  let dx = -fx, dz = -fz; { const l = Math.hypot(dir.x, dir.z); if (l > 1e-4) { dx = dir.x / l; dz = dir.z / l; } }
+  const D = { rs: Math.random() < 0.5 ? 1 : -1, fd: 1, mode: 0, s: 1, hits: null, lie: rand(0.5, 1.2) };
+  if (dx * fx + dz * fz > 0.2) { const d = roomFor(z, fx, fz, rand(0.3, 0.7), body); if (d < 0) return false; D.dist = d; z.ddx = fx; z.ddz = fz; z.death = 'knockF'; }
+  else { const d = roomFor(z, dx, dz, rand(0.4, 0.8) + Math.min(1, force * 0.3), body); if (d < 0) return false; D.dist = d; D.T = 0.52 + Math.min(0.12, force * 0.03); D.hop = Math.min(0.18, force * 0.05); D.fd = -1; z.ddx = dx; z.ddz = dz; z.death = 'knockB'; }
+  z.dD = D; z.dx0 = z.x; z.dz0 = z.z; z.dc = z.dc || {}; z.dLanded = 0; z.dGround = undefined; z.dAge0 = 0;
+  return true;
+}
+
 // ---------------------------------------------------------------- choosing
 // clear floor from (x, z) along (dx, dz) for len metres?
 const clear = (z, dx, dz, len) => G.world.los(z.x, z.z, z.x + dx * len, z.z + dz * len);
@@ -198,7 +260,7 @@ export function chooseDeath(z, info) {
   }
   if (z.ddx === undefined || Number.isNaN(z.ddx)) { z.ddx = 0; z.ddz = 0; }
   if (D.dist === undefined) D.dist = 0;
-  z.death = kind; z.dD = D; z.dx0 = z.x; z.dz0 = z.z; z.dc = z.dc || {}; z.dRest = 1; z.dLanded = 0;
+  z.death = kind; z.dD = D; z.dx0 = z.x; z.dz0 = z.z; z.dc = z.dc || {}; z.dRest = 1; z.dLanded = 0; z.dAge0 = 0;
   return kind;
 }
 
@@ -225,7 +287,7 @@ export function poseDeath(z, t) {
   H.position.set(z.x, z.dGround, z.z);
   for (const [b, q] of z.deathPose) b.quaternion.copy(q);
   // the stride it died in melts away: legs and back go slack toward a plain standing pose, the bends below act on that
-  { const kL = ramp(t, 0, 0.3), kS = ramp(t, 0, 0.45) * 0.8; for (const [b, q, leg] of z.relaxQ) b.quaternion.slerp(q, leg ? kL : kS); }
+  { const a = t + (z.dAge0 || 0), kL = ramp(a, 0, 0.3), kS = ramp(a, 0, 0.45) * 0.8; for (const [b, q, leg] of z.relaxQ) b.quaternion.slerp(q, leg ? kL : kS); }
   H.updateMatrixWorld(true);
   const m = H.matrixWorld; _rB.setFromMatrixColumn(m, 0).normalize(); _uB.setFromMatrixColumn(m, 1).normalize(); _fB.setFromMatrixColumn(m, 2).normalize();
   // legs: thigh forward, knee bent back

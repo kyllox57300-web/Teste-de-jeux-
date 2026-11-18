@@ -30,11 +30,15 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
     Outil pour filmer : `source/tools/t/deathsheet.sh back,knees,...`.
   - Sang projeté sur les murs derrière un zombie touché (il coule un peu). Tir dans les jambes : le zombie
     plonge sur un genou puis repart.
+  - Renversé sans mourir (fusil à pompe de près, explosion, coup de crosse) : il tombe en arrière ou en avant,
+    reste au sol un instant puis se relève (`knockB` / `knockF` dans `deaths.js`, test `tools/t/knock.js`).
+  - Dehors : éclairs visibles dans le ciel, flaques qui reflètent les lumières (cour et cimetière).
+    Ambiance sonore : corbeaux, chien qui hurle au loin, cloche du village, cri lointain, bruit de verre.
   - Bug connu de l'outil de test (déjà là avant) : `tools/t/all.js` finit par une attente trop longue
     de l'écran de fin ; tous les contrôles avant passent.
   - Testé sur téléphone par l'utilisateur : jouable mais plus dur. Le jeu vise surtout le PC
     (clavier + souris) ; le téléphone reste un bonus.
-  - Idées : continuer visuels de la carte, sons d'ambiance, armes ; réactions des zombies aux coups non mortels.
+  - Idées : améliorer les armes (sensations de tir, recul, nouvelles armes), détailler la crypte et le cimetière.
   - Plus tard : un vrai « mode téléphone » (aide à la visée plus forte, tir automatique sous le viseur,
     zombies un peu plus lents et moins nombreux).
 - `errant/` : aventure dans le désert (le plus gros, ~310 Ko).
