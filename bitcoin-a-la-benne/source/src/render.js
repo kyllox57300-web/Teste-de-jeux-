@@ -117,6 +117,8 @@ function buildGround(){
   const ground = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({vertexColors:true}));
   ground.receiveShadow = true; ground.userData.kind = 'ground'; worldGroup.add(ground); R.ground = ground;
   R.groundDims = {x0:(X0 + X1) / 2 - w / 2, z0:(Z0 + Z1) / 2 - d / 2, sx, sz, w, d};
+  // déchets oubliés au sol des cases vidées (la décharge reste « vivante » une fois nettoyée)
+  R.litter = {}; for(const k of ['paper', 'can', 'bottle', 'plank', 'cd']){ const m = new THREE.InstancedMesh(M.decoGeo(k), M.VCOL, NQ * QROWS * COLS); m.count = 0; m.receiveShadow = true; m.frustumCulled = false; worldGroup.add(m); R.litter[k] = m; }
   for(let r2 = 0; r2 < NQ * QROWS; r2++) for(let c2 = 0; c2 < COLS; c2++) if(!W.tiles[r2][c2].L) stainCell(c2, r2, false);
   geo.attributes.color.needsUpdate = true;
   // ligne blanche au milieu de la route
@@ -132,6 +134,12 @@ function stainCell(c, r, update = true){
     const dist = Math.hypot(pos.getX(k) - x, pos.getZ(k) - z); if(dist > CELL * 0.7) continue;
     const f = 0.72 + 0.1 * rr(); col.setXYZ(k, R.groundBase[k * 3] * f, R.groundBase[k * 3 + 1] * f * 0.97, R.groundBase[k * 3 + 2] * f * 0.94); }
   if(update) col.needsUpdate = true;
+  // 2 ou 3 petits déchets couchés au sol
+  const kinds = ['paper', 'can', 'bottle', 'plank', 'cd'], n = 2 + (rr() < .5 ? 1 : 0);
+  for(let i = 0; i < n; i++){ const k = kinds[Math.floor(rr() * kinds.length)], m = R.litter[k]; if(m.count >= m.instanceMatrix.count) continue;
+    tmpQ.setFromEuler(tmpE.set(k === 'can' || k === 'bottle' ? Math.PI / 2 : 0, rr() * 6.28, 0)); const sc = k === 'plank' ? .6 : .55;
+    m.setMatrixAt(m.count++, tmpM.compose(tmpV.set(x + (rr() - .5) * CELL * .8, k === 'can' || k === 'bottle' ? .06 : .01, z + (rr() - .5) * CELL * .8), tmpQ, tmpS.set(sc, sc, sc)));
+    m.instanceMatrix.needsUpdate = true; }
 }
 /* ---------- Grillages et portails ---------- */
 let chainTex = null;
@@ -530,14 +538,14 @@ export const camForward = () => ({x:Math.sin(R.cam.yaw), z:Math.cos(R.cam.yaw)})
    JOUR / NUIT
    ========================================================= */
 const SKY = [ // [moment, haut, horizon, intensité soleil, couleur soleil, hémisphère]
-  [0.00, 0x101840, 0x24305a, 0.0, 0xffffff, 0.75],
-  [0.08, 0x1a2a60, 0xf0906a, 0.5, 0xff9060, 0.55],
-  [0.16, 0x4a90d8, 0xcfe6f0, 2.2, 0xfff0d0, 1.1],
+  [0.00, 0x1a2a5a, 0x34487a, 0.0, 0xffffff, 1.05],
+  [0.04, 0x2a3a70, 0xf0906a, 0.6, 0xff9060, 0.8],
+  [0.12, 0x4a90d8, 0xcfe6f0, 2.2, 0xfff0d0, 1.1],
   [0.50, 0x3a84d0, 0xd8eaf0, 2.6, 0xfff4e0, 1.2],
-  [0.64, 0x5a7ac0, 0xf8b070, 1.6, 0xffc080, 0.9],
-  [0.72, 0x2a2a60, 0xd06050, 0.4, 0xff7050, 0.5],
-  [0.80, 0x101840, 0x24305a, 0.0, 0xffffff, 0.75],
-  [1.00, 0x101840, 0x24305a, 0.0, 0xffffff, 0.75],
+  [0.64, 0x5a7ac0, 0xf8b070, 1.7, 0xffc080, 0.95],
+  [0.74, 0x2e3a70, 0xd06050, 0.5, 0xff7050, 0.8],
+  [0.80, 0x1a2a5a, 0x34487a, 0.0, 0xffffff, 1.05],
+  [1.00, 0x1a2a5a, 0x34487a, 0.0, 0xffffff, 1.05],
 ];
 const ca = new THREE.Color(), cb = new THREE.Color();
 function lerpHex(a, b, u, out){ ca.setHex(a); cb.setHex(b); return out.copy(ca).lerp(cb, u); }
@@ -552,10 +560,10 @@ function updateDayNight(){
   R.scene.fog.color.copy(R.skyMat.uniforms.hor.value).lerp(R.skyMat.uniforms.top.value, .25);
   R.stars.material.opacity = Math.max(0, night - .3) * 1.2;
   // le soleil fait le tour (lune la nuit : lumière bleutée faible)
-  const ang = (t - 0.08) / 0.72 * Math.PI, el = Math.sin(Math.max(0.05, Math.min(Math.PI - .05, ang)));
+  const ang = (t - 0.04) / 0.74 * Math.PI, el = Math.sin(Math.max(0.05, Math.min(Math.PI - .05, ang)));
   const k = W.kevin || {x:0, z:cz(NQ * QROWS)};
   const dir = new THREE.Vector3(Math.cos(ang) * .8, Math.max(.25, el), .45).normalize();
-  if(night > .85){ dir.set(-.4, .9, .3).normalize(); R.sun.intensity = .9; R.sun.color.setHex(0x9fb0e0); }
+  if(night > .85){ dir.set(-.4, .9, .3).normalize(); R.sun.intensity = 1.25; R.sun.color.setHex(0xa8b8e8); }
   R.sun.position.set(k.x + dir.x * 50, dir.y * 50, k.z + dir.z * 50); R.sun.target.position.set(k.x, 0, k.z);
   R.skyMat.uniforms.sunDir.value.copy(dir);
   // lampadaires

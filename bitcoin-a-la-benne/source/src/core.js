@@ -95,7 +95,7 @@ export const gadgetMul = () => has('B5') || has('BU') ? 2 : 1;
 export const pickRadius = () => (S.tool === 'vacuum' ? 7 * gadgetMul() : 2.6) ;
 export const detRange = () => (9 + 4 * S.up.detR) * (has('B5') ? 1.5 : 1);
 export function bm(k){ let m = 1; for(const b of S.buffs) if(b.k === k) m *= b.m; return m; }
-export const isNight = () => S.dayT > 0.72 || S.dayT < 0.08;
+export const isNight = () => S.dayT > 0.76 || S.dayT < 0.04;
 export const luck = () => (1 + 0.05 * S.up.luck) * bm('luck') * (has('F3') ? 2 : 1) * (isNight() ? 1.3 : 1);
 export const karmaMult = () => 1 + 0.10 * S.meta.karma;
 export const xpNeed = lv => Math.round(50 * Math.pow(1.36, lv - 1));
