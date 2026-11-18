@@ -33,7 +33,7 @@ export function initRender(canvas, quality){
   R.renderer.toneMapping = THREE.ACESFilmicToneMapping; R.renderer.toneMappingExposure = 1.05;
   R.renderer.shadowMap.enabled = R.q.shadows; R.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   R.scene = new THREE.Scene();
-  R.camera = new THREE.PerspectiveCamera(55, 1, 0.1, 600);
+  R.camera = new THREE.PerspectiveCamera(55, 1, 0.1, 600); R.scene.add(R.camera);
   resize();
   addEventListener('resize', resize);
   buildSky(); buildLights();
@@ -86,7 +86,7 @@ let worldGroup = null;
 export function buildWorld(){
   if(worldGroup){ R.scene.remove(worldGroup); worldGroup.traverse(o => { if(o.geometry && !o.userData.shared) o.geometry.dispose(); }); }
   worldGroup = new THREE.Group(); R.scene.add(worldGroup);
-  R.loot.clear(); R.bigs.clear(); R.conts.clear(); R.workers.clear();
+  R.loot.clear(); R.bigs.clear(); R.conts.clear(); R.workers.clear(); R.flying = []; R.flyToKevin = [];
   buildGround(); buildFences(); buildDecor(); buildCharacters(); buildFx();
   buildHeaps();
   for(const o of W.conts) addContMesh(o);
@@ -428,7 +428,26 @@ function debris(x, y, z, n, col, sp = 4){
 function puff(x, y, z, s = 2, col = 0xd8c8a8){ const p = R.puffs.find(p => p.t >= p.life); if(!p) return; p.t = 0; p.life = .9; p.s.visible = true; p.s.position.set(x, y, z); p.base = s; p.s.material.color.setHex(col); }
 function sparkle(x, y, z, n, col){ for(let i = 0; i < n; i++){ const p = R.sparks.find(p => p.t >= p.life); if(!p) return; p.t = 0; p.life = 1 + R2() * .6; p.s.visible = true; p.s.position.set(x, y, z);
   p.v.set((R2() - .5) * 6, 3 + R2() * 5, (R2() - .5) * 6); p.s.material.color.setHex(col); p.s.scale.setScalar(.5); } }
+/** Les déchets de la couche retirée s'envolent pour de vrai (copies des déchets du tas) */
+function flyDecos(c, r){
+  const i = R.heapIndex.get(r * COLS + c); if(i === undefined) return;
+  const t = W.tiles[r][c], gone = R.heapDecos[i].filter(d => d.m && d.vis && d.k === t.L);
+  for(const d of gone.slice(0, 7)){
+    let f = R.flying.find(o => !o.on);
+    if(!f){ if(R.flying.length > 40) continue; f = {mesh:new THREE.Mesh(M.decoGeo(d.type), M.VCOL), on:false}; f.mesh.castShadow = R.q.shadows; worldGroup.add(f.mesh); R.flying.push(f); }
+    f.mesh.geometry = M.decoGeo(d.type); tmpM.fromArray(d.m); tmpM.decompose(f.mesh.position, f.mesh.quaternion, f.mesh.scale);
+    const ang = Math.atan2(f.mesh.position.x - cx(c), f.mesh.position.z - cz(r)) + (R2() - .5);
+    f.v = new THREE.Vector3(Math.sin(ang) * (2 + R2() * 3), 5 + R2() * 4, Math.cos(ang) * (2 + R2() * 3)); f.spin = (R2() - .5) * 12; f.t = 0; f.on = true; f.mesh.visible = true; f.s0 = f.mesh.scale.x;
+  }
+}
+function updateFlying(dt){
+  for(const f of R.flying){ if(!f.on) continue; f.t += dt; f.v.y -= 18 * dt; f.mesh.position.addScaledVector(f.v, dt); f.mesh.rotation.x += f.spin * dt; f.mesh.rotation.z += f.spin * .7 * dt;
+    if(f.mesh.position.y < 0.1){ f.mesh.position.y = 0.1; f.v.multiplyScalar(.4); f.v.y = Math.abs(f.v.y); }
+    const k = f.t > .9 ? Math.max(0, 1 - (f.t - .9) / .4) : 1; f.mesh.scale.setScalar(f.s0 * k);
+    if(f.t > 1.3){ f.on = false; f.mesh.visible = false; } }
+}
 function updateFx(dt){
+  updateFlying(dt);
   for(let i = 0; i < R.fxDebris.count; i++){ const d = R.fxD[i]; if(!d) continue; d.t += dt;
     if(d.t >= d.life){ R.fxDebris.setMatrixAt(i, ZERO); R.fxD[i] = null; continue; }
     d.vy -= 14 * dt; d.x += d.vx * dt; d.y = Math.max(.05, d.y + d.vy * dt); d.z += d.vz * dt; if(d.y <= .05){ d.vx *= .6; d.vz *= .6; d.vy = Math.abs(d.vy) * .3; }
@@ -447,7 +466,7 @@ export function onFx(f){
   if(!R.ready) return;
   switch(f.t){
     case 'world': buildWorld(); break;
-    case 'layer': { heapChanged(f.c, f.r); const t = W.tiles[f.r][f.c], col = QUARTERS[t.q].col.mound, x = cx(f.c), z = cz(f.r);
+    case 'layer': { flyDecos(f.c, f.r); heapChanged(f.c, f.r); const t = W.tiles[f.r][f.c], col = QUARTERS[t.q].col.mound, x = cx(f.c), z = cz(f.r);
       debris(x, heapH(t.L + 1) * .8, z, 14, col, 5); puff(x, heapH(t.L + 1) * .6, z, 3.2);
       if(f.k) R.cam.shake = Math.max(R.cam.shake, .12); break; }
     case 'hit': { const t = W.tiles[f.r][f.c]; if(f.k) debris(cx(f.c), heapH(t.L) * .9, cz(f.r), 3, QUARTERS[t.q].col.mound, 2.5); break; }
@@ -459,6 +478,7 @@ export function onFx(f){
     case 'rare': { const o = W.loot.find(l => l.id === f.id); if(o) sparkle(o.x, 1, o.z, f.r === 'l' ? 30 : 12, f.r === 'l' ? 0xffd040 : f.r === 'e' ? 0xd090ff : 0x70c0ff); break; }
     case 'newBig': { const o = W.bigs.find(b => b.id === f.id); if(o){ addBigMesh(o); puff(o.x, .5, o.z, 3); } break; }
     case 'newCont': { const o = W.conts.find(b => b.id === f.id); if(o && !R.conts.has(o.id)) addContMesh(o); break; }
+    case 'thump': puff(f.x, .3, f.z, 2.2); debris(f.x, .3, f.z, 6, 0x9a8a70, 3); R.cam.shake = Math.max(R.cam.shake, .08); break;
     case 'sellBig': case 'thud': { const g = R.bigs.get(f.id); if(g){ worldGroup.remove(g); R.bigs.delete(f.id); } const sp = C.sellPos(); debris(sp.x, 1, sp.z - 1, 20, 0xffcf3a, 5); puff(sp.x, .5, sp.z - 1, 3); break; }
     case 'sell': { const sp = C.sellPos(); debris(sp.x, 1.2, sp.z - .5, Math.min(40, 6 + f.n * 2), 0xffcf3a, 4); sparkle(sp.x, 1.5, sp.z - .5, 10, 0xffe070); break; }
     case 'opened': { const g = f.big ? R.bigs.get(f.id) : R.conts.get(f.id); if(g){ g.userData.openT = 0.001; const o = (f.big ? W.bigs : W.conts).find(b => b.id === f.id); if(o){ puff(o.x, 1, o.z, 2.5); sparkle(o.x, 1.2, o.z, 10, 0xffffff); } } break; }
@@ -487,6 +507,7 @@ function updateCamera(dt, time){
   if(!k){ return; }
   const moving = k.path.length > 0;
   c.userT -= dt;
+  if(R.viewTool) R.viewTool.visible = c.mode === 'fps' && C.S.tool !== 'digger';
   if(c.mode === 'tps'){
     // la caméra se replace doucement derrière Kévin quand il marche (sauf si on vient de la tourner au doigt)
     if(moving && c.userT <= 0 && !k.freeMove){ let d = (k.ang + Math.PI) - c.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); c.yaw += d * Math.min(1, dt * .8); }
@@ -495,6 +516,9 @@ function updateCamera(dt, time){
     R.camera.position.set(c.tx - Math.sin(c.yaw) * cp * dist, c.ty + Math.sin(c.pitch) * dist, c.tz - Math.cos(c.yaw) * cp * dist);
     R.camera.lookAt(c.tx, c.ty, c.tz);
   } else {
+    if(!R.viewTool || R.viewTier !== C.toolTier()){ if(R.viewTool) R.camera.remove(R.viewTool); R.viewTool = M.toolModel(C.toolTier()); R.viewTool.castShadow = false; R.viewTier = C.toolTier(); R.camera.add(R.viewTool); }
+    const sw = k.target && !moving ? Math.max(0, Math.sin(k.dig)) : 0;
+    R.viewTool.position.set(.55, .5 - sw * .3, -.95 - sw * .2); R.viewTool.rotation.set(-.25 + sw * .8, Math.PI + .35, .1);
     R.camera.position.set(k.x, 1.65 + Math.abs(Math.sin(k.walk * .5)) * (moving ? .04 : 0), k.z);
     R.camera.lookAt(k.x + Math.sin(c.yaw) * Math.cos(c.pitch), 1.65 + Math.sin(c.pitch), k.z + Math.cos(c.yaw) * Math.cos(c.pitch));
   }

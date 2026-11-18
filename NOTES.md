@@ -41,19 +41,21 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
   - Idées : améliorer les armes (sensations de tir, recul, nouvelles armes), détailler la crypte et le cimetière.
   - Plus tard : un vrai « mode téléphone » (aide à la visée plus forte, tir automatique sous le viseur,
     zombies un peu plus lents et moins nombreux).
-- `bitcoin-a-la-benne/` : jeu de gestion « vider la décharge », fichier unique `jeu.html` (`index.html` redirige).
-  - Refait le 18/11 en monde vu de dessus, tout dessiné en code (canvas) : 7 quartiers de 160 tas (1 à 6 couches),
-    séparés par des grillages à portail payant. On touche un tas → Kévin y va (chemin calculé) et le vide couche par couche
-    (toucher le tas en cours = coup en plus). Sac → vente chez Josiane (puis camion de livraison automatique).
-  - Fait : outil (paliers visibles pelle/pioche/marteau-piqueur/pelle en or), sac, brouette, bottes, lampe (chance),
-    pelleteuse (Kévin la conduit), camion, 6 types d'employés visibles (Gégé, stagiaire, ferrailleur, chien, mini-bulldozer,
-    robot), détecteur qui bipe (boîtier puis disque), indice « côté de la Fosse », drone, vitrine/collection, marché Bitcoin,
-    9 événements à choix (dont camion-benne qui recouvre des tas), 28 quêtes, 27 succès, 5 chapitres + fin, prestige Karma,
-    sauvegarde auto + export/import, hors ligne (équipe à 50 %), sons + musique, réglages.
-  - Sécurité anti-blocage : si plus aucun tas accessible, la ville livre de nouveaux tas.
-  - Équilibrage par robot (`GAME` exposé, mode `headless`) : fin en 52-83 min (robot), ~35 min après prestige.
-    Réglages : `QUARTERS` (hp, v, cost), `EMPS`, `LEVELED`, `ONCE`, `SACKS`.
-  - À tester sur un vrai téléphone (lisibilité, confort des touchers). Idées : sons plus riches, plus de types de tas.
+- `bitcoin-a-la-benne/` : passé en **3D** le 18-19/11 (Three.js, low poly). `jeu.html` = version 3D (fichier unique,
+  marche hors ligne). Ancienne version 2D gardée : `jeu-2d.html` (lien sur la page d'accueil).
+  - Source : `source/` (`npm install`, puis `node tools/build.mjs` → écrit `../jeu.html`). Fichiers : `data.js` (données),
+    `core.js` (toute la logique, sans affichage), `render.js` (3D), `models.js` (modèles en code), `ui.js`, `main.js`, `audio.js`.
+  - Simulation d'équilibrage : `node tools/sim.mjs 2 3` (robot qui joue avec le vrai moteur) → fin en ~60-80 min.
+  - Fait : 7 quartiers (588 tas à couches, qui rétrécissent, déchets 3D qui s'envolent), objets à ramasser (56 + rareté
+    qui brille, rayon de lumière pour les légendaires), gros objets à porter / pousser / lancer (télé, frigo, machine, moto,
+    statue, coffre-fort), contenants à fouiller (poubelle, valise, armoire, coffre de voiture), coffre-fort avec mini-jeu,
+    objets cassés + mini-jeu de réparation, outils (pelle 4 paliers, détecteur + trésors enfouis, aimant, aspirateur,
+    grue, pelleteuse, drone), camion, 6 employés animés, arbre de compétences (4 branches × 7, ultimes : Séisme, Hercule,
+    Loup de la Benne, MacGyver + robot R0B0), XP/niveaux, album avec bonus de séries, commande de Josiane, combo, bonus de
+    nuit, cycle jour/nuit (7 min), lampadaires, mouettes, mouches, fumée, vue 3e / 1re personne, ZQSD + souris,
+    qualité basse/moyenne/haute/auto (baisse auto si ça rame), sauvegarde/hors ligne/export/prestige.
+  - À tester sur un vrai téléphone (fluidité, taille des boutons, facilité à toucher les objets au sol).
+  - Idées : vrais modèles 3D (Kenney) si le style « blocs » ne plaît pas, plus d'animations de Josiane, sons plus riches.
 - `errant/` : aventure dans le désert (le plus gros, ~310 Ko).
 - `errant-3d/` : essai d'Errant avec personnages détaillés.
 - `croissant/` : L'Empire du Croissant (clicker). Code de sauvegarde pour transférer une partie.

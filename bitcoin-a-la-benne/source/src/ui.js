@@ -153,6 +153,7 @@ export function hud(){
   const mg = $('#bMagnet'); mg.classList.toggle('hidden', !S.up.magnet); if(S.up.magnet){ const cd = S.cds.magnet || 0; mg.querySelector('i').style.height = (cd / (10 / C.gadgetMul()) * 100) + '%'; }
   const qk = $('#bQuake'); qk.classList.toggle('hidden', !has('FU')); if(has('FU')) qk.querySelector('i').style.height = ((S.cds.quake || 0) / 40 * 100) + '%';
   $('#bView').textContent = R.cam.mode === 'fps' ? '🎥' : '👁️';
+  $('#cross').classList.toggle('hidden', R.cam.mode !== 'fps');
   // détecteur
   const det = $('#det'), showDet = S.up.det && (S.tool === 'det' || C.detTargets().some(t => t.story));
   det.classList.toggle('hidden', !showDet);

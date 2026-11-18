@@ -203,7 +203,7 @@ function genWorld(seed){
   addCont('trunk', cx(COLS - 1) - 0.3, cz(NQ * QROWS + 5), 0, true);
 }
 function addCont(kind, x, z, q, decor){ const o = {id:W.nextId++, kind, x, z, q, open:false, opening:0, decor:!!decor}; W.conts.push(o); emit('newCont', {id:o.id}); return o; }
-function addBig(kind, x, z, q){ const o = {id:W.nextId++, kind, x, y:0, z, vy:0, q, state:'ground', open:false, rot:R() * 6.28, tx:0, tz:0, t:0}; W.bigs.push(o); emit('newBig', {id:o.id}); return o; }
+function addBig(kind, x, z, q, drop){ const o = {id:W.nextId++, kind, x, y:drop ? 2.2 : 0, z, vy:drop ? 3.5 : 0, q, state:'ground', open:false, rot:R() * 6.28, tx:0, tz:0, t:0}; W.bigs.push(o); emit('newBig', {id:o.id}); return o; }
 
 /* =========================================================
    ENTITÉS
@@ -574,7 +574,7 @@ function removeLayer(ent, c, r){
   else if(c === S.disk.c && r === S.disk.r && !S.disk.found) foundDisk();
   else {
     const roll = R();
-    if(roll < 0.07) addBig(pick(BIG.filter(b => b.id !== 'safe' || t.q >= 2)).id, cx(c), cz(r), t.q);
+    if(roll < 0.07) addBig(pick(BIG.filter(b => b.id !== 'safe' || t.q >= 2)).id, cx(c), cz(r), t.q, true);
     else if(roll < 0.16) addCont(pick(CONTAINERS).id, cx(c), cz(r), t.q);
     else if(isK && has('F5') && roll < 0.41){ for(let i = 0; i < 2; i++) spawnLoot(rollItem(t.q, 'r'), cx(c), 0.5, cz(r), 1.6, ent); toast('✨ Flair : un petit trésor caché !'); }
   }
@@ -644,6 +644,8 @@ export function update(dt){
   // --- Gros objets : portés, lancés, grue ---
   for(const o of W.bigs){
     if(o.state === 'carried'){ o.x = k.x; o.z = k.z; o.y = 1.9; o.rot = k.ang; }
+    else if(o.state === 'ground' && (o.y > 0 || o.vy)){ // petite physique : chute et rebond
+      o.vy -= 22 * dt; o.y += o.vy * dt; if(o.y <= 0){ o.y = 0; if(o.vy < -3){ o.vy = -o.vy * 0.35; emit('thump', {x:o.x, z:o.z}); } else o.vy = 0; } }
     else if(o.state === 'thrown'){ o.t += dt; const u = Math.min(1, o.t / o.dur); o.x = o.sx + (o.tx - o.sx) * u; o.z = o.sz + (o.tz - o.sz) * u; o.y = 1.9 * (1 - u) + Math.sin(u * Math.PI) * (6 + o.dur * 4); o.rot += dt * 8;
       if(u >= 1){ o.y = 0; o.state = 'ground'; emit('thud', {x:o.x, z:o.z}); sellBigObj(o); break; } }
   }
