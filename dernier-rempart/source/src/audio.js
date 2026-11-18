@@ -8,7 +8,7 @@ export function debugStream() { const d = ac.createMediaStreamDestination(); lim
 let ac = null, master = null, noise = null, pink = null, sat = null, glottal = null, amb = null, tensionBus = null;
 const verb = { in: null, out: null }, P = { x: 0, z: 0, yaw: 0 };
 const ok = () => ac && ac.state === 'running';
-const BUSY = {}, CAP = { shell: 3, voice: 4, die: 3, flesh: 3, zstep: 4, impact: 3, hit: 2, plank: 3, thud: 2 };
+const BUSY = {}, CAP = { shell: 3, voice: 4, die: 3, flesh: 3, zstep: 4, impact: 3, hit: 2, plank: 3, thud: 2, fall: 4 };
 function allow(cat, dur) {
   const now = ac.currentTime, L = (BUSY[cat] ||= []);
   while (L.length && L[0] <= now) L.shift();
@@ -224,10 +224,22 @@ export function groan(x, z, fast) {
   }
 }
 export function zombieAttack(x, z) { if (!ok() || !allow('voice', 0.6)) return; voice(x, z, { f: rand(170, 220), dur: 0.55, gain: 0.95, path: ['ae', 'a', 'uh'], pitch: [0.85, 1.25, 1.15, 0.85], creak: 0.35, breath: 0.45, vib: 0.03, vibHz: 7, strain: 2.2, tract: 0.95 }); }
-export function zombieDie(x, z) {
-  if (!ok() || !allow('die', 0.5)) return; voice(x, z, { f: rand(120, 145), dur: 0.9, gain: 1.2, path: ['a', 'uh', 'er'], pitch: [1.1, 0.9, 0.72], creak: 0.3, breath: 0.4, vib: 0.01, y: 1.0, strain: 1.3 });
+export function zombieDie(x, z, how) {
+  if (!ok() || !allow('die', 0.5)) return;
+  if (how === 'burn') voice(x, z, { f: rand(190, 240), dur: 1.5, gain: 1.25, path: ['ae', 'a', 'a', 'uh'], pitch: [1, 1.3, 1.2, 1.25, 0.7], creak: 0.25, breath: 0.5, vib: 0.05, vibHz: 9, strain: 2.4, tract: 0.95 });
+  else if (how === 'gurgle') { voice(x, z, { f: rand(95, 115), dur: 1.1, gain: 1.0, path: ['o', 'u', 'uh'], pitch: [1, 0.85, 0.95, 0.6], creak: 0.6, breath: 0.6, vib: 0.06, vibHz: 13, y: 1.0, strain: 1.2 }); }
+  else if (how === 'grunt') voice(x, z, { f: rand(130, 160), dur: 0.45, gain: 1.2, path: ['uh', 'er'], pitch: [1.2, 0.8], creak: 0.35, breath: 0.5, vib: 0.01, y: 1.0, strain: 1.8 });
+  else voice(x, z, { f: rand(120, 145), dur: 0.9, gain: 1.2, path: ['a', 'uh', 'er'], pitch: [1.1, 0.9, 0.72], creak: 0.3, breath: 0.4, vib: 0.01, y: 1.0, strain: 1.3 });
   const o = out(0.5, x, z, 0.15, 0.6); nz(o, { t: 0.5, dur: 0.6, type: 'bandpass', f0: 900, f1: 400, q: 0.8, gain: 0.35, attack: 0.15, buf: pink });
 }
+// a body hitting the floor: a dull low thump, the slap of cloth and limbs a moment later (k: 1 full fall, <1 knees)
+export function bodyfall(x, z, k = 1) {
+  if (!ok() || !allow('fall', 0.25)) return; const o = out(0.75 * Math.min(1.3, k), x, z, 0.22, 0.1), h = shaper(o, 1.3);
+  tone(h, { dur: 0.22 * k + 0.05, f0: rand(95, 120) / Math.max(0.8, k), f1: 38, gain: 1 }); nz(h, { dur: 0.09, f0: 900, f1: 120, gain: 0.9 });
+  if (k > 0.6) { nz(o, { t: rand(0.06, 0.1), dur: 0.12, type: 'bandpass', f0: rand(500, 800), f1: 220, q: 1.2, gain: 0.55, buf: pink }); tone(o, { t: rand(0.12, 0.2), dur: 0.08, f0: 140, f1: 60, gain: 0.45 }); nz(o, { t: 0.02, dur: 0.3, type: 'bandpass', f0: 2600, f1: 900, q: 0.6, gain: 0.12, attack: 0.03 }); }
+}
+// a head shot kill: a wet crack
+export function splat(x, z) { if (!ok() || !allow('flesh', 0.15)) return; const o = out(0.7, x, z, 0.12, 1.6), h = shaper(o, 1.6); nz(h, { dur: 0.035, type: 'highpass', f0: 3000, f1: 1600, gain: 0.9 }); tone(h, { dur: 0.07, f0: 420, f1: 120, gain: 0.6 }); nz(o, { t: 0.015, dur: 0.22, type: 'bandpass', f0: 900, f1: 320, q: 2.5, gain: 0.6, rate: 0.5 }); for (let i = 0; i < 3; i++) nz(o, { t: 0.08 + i * rand(0.04, 0.08), dur: 0.05, type: 'bandpass', f0: rand(1200, 2400), f1: 700, q: 3, gain: 0.25 }); }
 export function hurt() { if (!ok()) return; const o = out(0.95, undefined, undefined, 0.2), h = shaper(o, 1.8); tone(h, { dur: 0.22, f0: 160, f1: 55, gain: 1 }); nz(h, { dur: 0.14, f0: 1800, f1: 220, gain: 0.9 }); nz(o, { t: 0.02, dur: 0.18, type: 'bandpass', f0: 700, f1: 400, q: 3, gain: 0.5, rate: 0.6 }); }
 export function heartbeat() { if (!ok()) return; const o = out(0.75, undefined, undefined, 0); tone(o, { dur: 0.12, f0: 62, f1: 40, gain: 1 }); tone(o, { t: 0.22, dur: 0.14, f0: 55, f1: 36, gain: 0.8 }); }
 

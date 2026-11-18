@@ -35,7 +35,7 @@ for (const id in WEAPONS) { const d = WEAPONS[id]; UP[id] = { ...d, name: d.name
 export const wstat = (w) => (w.up ? UP[w.id] : WEAPONS[w.id]);
 
 // ---------------------------------------------------------------- hit scanning
-const _o = new THREE.Vector3(), _d = new THREE.Vector3(), _n = new THREE.Vector3(), _p = new THREE.Vector3(), _e = new THREE.Euler(0, 0, 0, 'YXZ');
+const _o = new THREE.Vector3(), _d = new THREE.Vector3(), _n = new THREE.Vector3(), _p = new THREE.Vector3(), _bw = new THREE.Vector3(), _e = new THREE.Euler(0, 0, 0, 'YXZ');
 const _lo = [0, 0, 0], _hi = [0, 0, 0], _oo = [0, 0, 0], _dd = [0, 0, 0];
 export function rayWorld(o, d, maxT = 200) {
   let best = maxT, nx = 0, ny = 0, nz = 0;
@@ -292,6 +292,8 @@ export function initWeapons() {
         let dmg = def.dmg * dmgK * (h.head ? def.head : 1);
         if (def.falloff) dmg *= clamp(1 - (h.t - def.falloff[0]) / (def.falloff[1] - def.falloff[0]), 0.2, 1);
         const res = G.zombies.damage(h.z, dmg, h.head, _d, _n.copy(_o).addScaledVector(_d, h.t));
+        // the shot carries blood through onto whatever is behind
+        if (Math.random() < (h.head ? 0.8 : 0.3) + Math.min(0.4, dmg / 400)) { _bw.copy(_o).addScaledVector(_d, h.t + 0.3); const wb = rayWorld(_bw, _d, 2.8); if (wb.hit) G.fx.wallBlood(_bw.addScaledVector(_d, wb.t), wb.nx, wb.ny, wb.nz, (h.head ? 1.25 : 0.85) * (1.2 - wb.t / 5)); }
         anyHit = true; if (res.killed && h.head) headKill = true;
         n++; dmgK *= 0.75; if (n >= def.pen) end = h.t;
       }

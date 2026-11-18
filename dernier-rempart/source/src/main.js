@@ -295,7 +295,7 @@ async function boot() {
   const probe = () => { render(); pctx.drawImage(canvas, 0, 0, 16, 9); const d = pctx.getImageData(0, 0, 16, 9).data; let s = 0, black = 0; for (let i = 0; i < d.length; i += 4) { const l = (d[i] + d[i + 1] + d[i + 2]) / 3; s += l; if (l < 1) black++; } return { mean: s / (d.length / 4), black }; };
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); G.contextLost = (G.contextLost || 0) + 1; G.lostDisplay = true; $('lost').hidden = false; });
   canvas.addEventListener('webglcontextrestored', () => { G.lostDisplay = false; $('lost').hidden = true; applyQuality(level === 'high' ? 'medium' : level); });
-  G.debug = { probe, view: dbgView, freeze: false, gun: buildGunModel, WEAPONS, THREE, startGame, input, simulate, setFree: (v) => { free = v; }, applyQuality, level: () => level, touch: () => touch };
+  G.debug = { rayWorld, probe, view: dbgView, freeze: false, gun: buildGunModel, WEAPONS, THREE, startGame, input, simulate, setFree: (v) => { free = v; }, applyQuality, level: () => level, touch: () => touch };
   window.__DR = G; window.__SND = Object.assign({}, SND, { state: () => 'n/a' });
 }
 boot().catch((e) => { console.error(e); $('load-note').textContent = 'Erreur au chargement : ' + (e && e.message ? e.message : e); });

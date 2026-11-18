@@ -7,6 +7,7 @@ import { aimBone, turnBone } from './rig.js';
 import { retargetClips, boneMap, bindPose } from './retarget.js';
 import { buildZombieSkins, ATLAS } from './zskin.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { chooseDeath, poseDeath } from './deaths.js';
 
 const MAX = 28, UP = new THREE.Vector3(0, 1, 0);
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3(), _f = new THREE.Vector3(), _r = new THREE.Vector3(), _t = new THREE.Vector3();
@@ -54,12 +55,14 @@ export function initZombies() {
     const T = TYPES[kind], model = skClone(T.model), holder = new THREE.Group();
     holder.rotation.order = 'YXZ'; holder.add(model); holder.visible = false; scene.add(holder);
     const bones = boneMap(model), meshes = [];
+    const relaxQ = ['Spine', 'Spine1', 'Spine2', 'Neck', 'LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg', 'LeftFoot', 'RightFoot'].filter((k) => bones[k]).map((k) => [bones[k], bones[k].quaternion.clone(), /Leg|Foot/.test(k)]);
     model.traverse((o) => { if (o.isSkinnedMesh) { o.castShadow = !/Eye|Teeth|visor/.test(o.name); o.receiveShadow = true; o.frustumCulled = false; o.userData.mat = o.material.name; meshes.push(o); } });
     const blob = new THREE.Mesh(blobGeo, G.mat.blob); blob.position.y = 0.02; blob.renderOrder = 2; scene.add(blob); blob.visible = false;
+    holder.updateMatrixWorld(true); const ankle = bones.LeftFoot ? Math.max(0.03, new THREE.Vector3().setFromMatrixPosition(bones.LeftFoot.matrixWorld).y) : 0.08;
     const mixer = new THREE.AnimationMixer(model);
     const act = { walk: mixer.clipAction(T.clips.Walk), run: mixer.clipAction(T.clips.Run), idle: mixer.clipAction(T.clips.Idle) };
     for (const k in act) { act[k].play(); act[k].setEffectiveWeight(0); }
-    return { kind, holder, model, bones, meshes, blob, mixer, act, on: false, hp: 0, state: '', x: 0, z: 0, y: 0, yaw: 0, speed: 1, t: 0, win: null, atk: -1, atkDone: false, stagger: 0, fall: 0, fallDir: 1, noHead: false, arms: 1, lean: 0, wob: rand(10), groan: rand(2, 6), type: 0, scale: 1, stuck: 0, lastX: 0, lastZ: 0, burn: 0, burnDps: 0, burnTick: 0, scorch: 0, w: { walk: 0, run: 0, idle: 1 } };
+    return { kind, relaxQ, ankle, headTop: bones.HeadTop_End || null, holder, model, bones, meshes, blob, mixer, act, on: false, hp: 0, state: '', x: 0, z: 0, y: 0, yaw: 0, speed: 1, t: 0, win: null, atk: -1, atkDone: false, stagger: 0, fall: 0, fallDir: 1, noHead: false, arms: 1, lean: 0, wob: rand(10), groan: rand(2, 6), type: 0, scale: 1, stuck: 0, lastX: 0, lastZ: 0, burn: 0, burnDps: 0, burnTick: 0, scorch: 0, w: { walk: 0, run: 0, idle: 1 } };
   }
   function dress(z) {
     if (z.kind === 'b') { for (const m of z.meshes) m.material = m.name.includes('visor') ? eyeMat : bruteMat; return; }
@@ -100,7 +103,7 @@ export function initZombies() {
     dress(z);
     z.bones.Head.scale.setScalar(1); z.bones.LeftForeArm.scale.setScalar(1); z.bones.RightForeArm.scale.setScalar(1);
     z.arms = 1; const lost = Math.random(); if (lost < 0.08) z.bones.LeftForeArm.scale.setScalar(0.001); else if (lost < 0.16) z.bones.RightForeArm.scale.setScalar(0.001);
-    z.settled = false; z.settleN = 0; z.flinch = 0; z.shock = 0; z.bleed = 0; z.kx = 0; z.kz = 0; z.holder.rotation.z = 0; z.crawl = false; for (const s of ['Left', 'Right']) z.bones[s + 'UpLeg'].scale.setScalar(1);
+    z.settled = false; z.settleN = 0; z.flinch = 0; z.trip = 0; z.shock = 0; z.bleed = 0; z.kx = 0; z.kz = 0; z.holder.rotation.z = 0; z.crawl = false; for (const s of ['Left', 'Right']) z.bones[s + 'UpLeg'].scale.setScalar(1);
     // each one moves in its own way: hunch, a limp, how the arms hang, a head lolling to one side
     z.lean = z.type === 2 ? rand(0.42, 0.62) : z.type === 1 ? rand(0.3, 0.5) : rand(0.3, 0.62);
     z.limp = z.type === 0 && Math.random() < 0.55 ? rand(0.45, 1) : z.type === 1 && Math.random() < 0.25 ? rand(0.3, 0.6) : 0; z.limpS = Math.random() < 0.5 ? 'Left' : 'Right';
@@ -121,17 +124,22 @@ export function initZombies() {
     for (const s of ['Left', 'Right']) z.bones[s + 'UpLeg'].scale.setScalar(0.001);
     z.crawl = true; z.speed = rand(0.55, 0.85); z.type = 0; z.bleed = 4; z.bleedBone = z.bones.Hips; z.atk = -1; SND.zombieDie(z.x, z.z);
   };
-  const DEAD_BONES = ['Spine', 'Spine1', 'Spine2', 'Neck', 'LeftArm', 'LeftForeArm', 'RightArm', 'RightForeArm', 'LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg'];
-  Z.kill = (z, head, dir) => {
+  const DEAD_BONES = ['Spine', 'Spine1', 'Spine2', 'Neck', 'Head', 'LeftArm', 'LeftForeArm', 'RightArm', 'RightForeArm', 'LeftHand', 'RightHand', 'LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg', 'LeftFoot', 'RightFoot'];
+  Z.kill = (z, head, dir, info) => {
     if (z.state === 'dead') return;
+    const wasCrawl = z.crawl;
+    if (!wasCrawl) z.mixer.update(0); // the pose it dies in
     // the collapse is applied on top of this pose every frame, so it never piles up
-    z.deathPose = DEAD_BONES.map((k) => [z.bones[k], z.bones[k].quaternion.clone()]);
-    z.twist = rand(-0.35, 0.35); z.thudDone = false; z.deadFlinch = 1;
-    z.state = 'dead'; z.t = 0; Z.alive--; z.fallDir = dir && (Math.sin(z.yaw) * dir.x + Math.cos(z.yaw) * dir.z) > 0 ? 1 : -1;
+    z.deathPose = DEAD_BONES.filter((k) => z.bones[k]).map((k) => [z.bones[k], z.bones[k].quaternion.clone()]);
+    z.twist = rand(-0.35, 0.35); z.thudDone = false;
+    const prev = z.state;
+    z.fallDir = dir && (Math.sin(z.yaw) * dir.x + Math.cos(z.yaw) * dir.z) > 0 ? 1 : -1;
+    if (!wasCrawl) { z.state = prev; z.dGround = undefined; chooseDeath(z, { head, dir, force: info ? info.force : 1, melee: info && info.melee, blast: info && info.blast }); }
+    z.state = 'dead'; z.t = 0; Z.alive--; z.holder.rotation.set(0, z.yaw, 0); z.kx = z.kz = 0;
     if (z.win && z.win.busy === z) z.win.busy = null;
-    if (head) { z.noHead = true; z.bones.Head.scale.setScalar(0.001); _a.setFromMatrixPosition(z.bones.Neck.matrixWorld); G.fx.blood(_a, UP, 26, 3.2); }
-    SND.zombieDie(z.x, z.z);
-    G.fx.pool(z.x + (dir ? dir.x : 0) * 0.5, z.z + (dir ? dir.z : 0) * 0.5);
+    if (head) { z.noHead = true; z.bones.Head.scale.setScalar(0.001); _a.setFromMatrixPosition(z.bones.Neck.matrixWorld); G.fx.blood(_a, UP, 26, 3.2); G.fx.gib(_a, _b.set(Math.random() - 0.5, 0.8, Math.random() - 0.5).normalize()); z.bleed = 2.2; z.bleedBone = z.bones.Neck; SND.splat(z.x, z.z); }
+    else SND.zombieDie(z.x, z.z, z.death === 'burn' ? 'burn' : z.death === 'knees' || z.death === 'crumple' ? 'gurgle' : z.death === 'back' || z.death === 'blast' ? 'grunt' : '');
+    if (z.death !== 'blast') G.fx.pool(z.x + (dir ? dir.x : 0) * 0.5, z.z + (dir ? dir.z : 0) * 0.5);
   };
 
   // returns { killed }
@@ -149,10 +157,14 @@ export function initZombies() {
       const imp = Math.min(2.4, (melee ? 2.6 : (dmg / z.maxHp) * 3.2)) / (z.brute ? 3 : 1), l = Math.hypot(dir.x, dir.z) || 1;
       z.kx = (z.kx || 0) + (dir.x / l) * imp; z.kz = (z.kz || 0) + (dir.z / l) * imp;
     }
+    // shot in the legs hard enough: a knee gives, it drops low for a moment and limps on (never the armoured brute)
+    if (point && !flame && !head && z.kind !== 'b' && z.state === 'chase' && !z.crawl && z.trip <= 0 && dmg >= z.maxHp * 0.12) {
+      _a.setFromMatrixPosition(z.bones.Hips.matrixWorld); if (point.y < _a.y - 0.05) { z.trip = 0.85; z.tripS = Math.random() < 0.5 ? 'Left' : 'Right'; }
+    }
     if (!flame && dir) { const side = Math.cos(z.yaw) * dir.x - Math.sin(z.yaw) * dir.z; z.flinch = Math.min(1.4, (z.flinch || 0) + (head ? 1.2 : 0.7)); z.flinchSide = side >= 0 ? 1 : -1; z.flinchHead = head; }
     if (flame > 0) { z.burn = Math.max(z.burn, 3); z.burnDps = flame; if (++z.scorch === 12) charred(z); }
     if (point) G.fx.blood(point, dir, head ? 12 : 7, head ? 2.6 : 1.8);
-    if (z.hp <= 0) { Z.kill(z, head, dir); game.onKill(z, head, melee); return { killed: true }; }
+    if (z.hp <= 0) { Z.kill(z, head, dir, { force: (z.hp + dmg) > 0 ? Math.min(6, dmg / z.maxHp) : 1, melee, blast: !!(dir && !point && !melee && !flame && dir.y > 0.1) }); game.onKill(z, head, melee); return { killed: true }; }
     if (!flame) { game.addPoints(10); SND.flesh(z.x, z.z); }
     return { killed: false };
   };
@@ -275,7 +287,7 @@ export function initZombies() {
         if (z.crawl && z.atk < 0 && pd < 1.6 && !hold && !frozen) { z.atk = 0; z.atkDone = false; SND.zombieAttack(z.x, z.z); }
         if (z.atk < 0 && hold) { armUp = 0.5 + Math.sin(G.time * 5 + z.wob) * 0.3; armW = 0.95; } // clawing at the edge of the safe zone
         else if (z.atk < 0) {
-          if (pd > 0.95) moveSpeed = z.speed * (z.stagger > 0 ? 0.35 : 1);
+          if (pd > 0.95) moveSpeed = z.speed * (z.stagger > 0 ? 0.35 : 1) * (z.trip > 0 ? 0.15 + 0.85 * Math.pow(1 - z.trip / 0.85, 2) : 1);
           if (pd < 1.35 && !frozen && Math.abs(p.y) < 1.2) { z.atk = 0; z.atkDone = false; SND.zombieAttack(z.x, z.z); }
         } else {
           z.atk += dt; const q = z.atk / 0.75;
@@ -285,19 +297,14 @@ export function initZombies() {
           moveSpeed = pd > 1.0 ? z.speed * 0.3 : 0;
         }
         // anti-stuck: teleport-free nudge via respawn if nothing happens for a long time
-        if (z.t > 4 && !frozen && !SZ) { const moved = Math.hypot(z.x - z.lastX, z.z - z.lastZ); z.stuck = moved < 0.4 && pd > 2.5 ? z.stuck + 1 : 0; z.lastX = z.x; z.lastZ = z.z; z.t = 0; if (z.stuck >= 4) { z.hp = 0; z.state = 'dead'; z.t = 2.6; Z.alive--; G.game.refund(); } }
+        if (z.t > 4 && !frozen && !SZ) { const moved = Math.hypot(z.x - z.lastX, z.z - z.lastZ); z.stuck = moved < 0.4 && pd > 2.5 ? z.stuck + 1 : 0; z.lastX = z.x; z.lastZ = z.z; z.t = 0; if (z.stuck >= 4) { z.hp = 0; Z.alive--; G.game.refund(); z.on = false; z.holder.visible = false; z.blob.visible = false; if (z.win && z.win.busy === z) z.win.busy = null; list.splice(i, 1); release(z); continue; } }
       } else if (z.state === 'dead' && z.crawl) {
         z.fall = 1; z.settled = true; armUp = 0; armW = 0;
         if (z.t > 4.8) { z.on = false; z.holder.visible = false; z.blob.visible = false; list.splice(i, 1); release(z); continue; }
       } else if (z.state === 'dead') {
-        z.fall = Math.min(1, z.fall + dt * 1.25);
-        const kneel = z.fallDir > 0 ? 1 : 0.3, buckle = Math.min(1, z.fall / 0.35) * kneel, tip = Math.max(0, (z.fall - 0.22) / 0.78), e = tip * tip * (3 - 2 * tip);
-        z.holder.rotation.x = z.fallDir * e * (Math.PI / 2 - 0.12); z.holder.rotation.z = z.twist * e;
-        z.y = -0.38 * Math.sin(buckle * Math.PI * 0.5) * (1 - e) + e * 0.2;
-        if (z.fall >= 1 && !z.thudDone) { z.thudDone = true; if (Math.hypot(z.x - p.x, z.z - p.z) < 18) SND.zstep(z.x, z.z, true); G.fx.dirt(z.x + Math.sin(z.yaw) * z.fallDir * 1.2, z.z + Math.cos(z.yaw) * z.fallDir * 1.2, 6); }
-        armUp = -0.2; armW = 0.5 * (1 - z.fall);
-        if (z.t > 3.4) { const k = Math.min(1, (z.t - 3.4) / 1.4); z.y = 0.2 - k * k * 0.75; }
-        if (z.t > 4.8) { z.on = false; z.holder.visible = false; z.blob.visible = false; list.splice(i, 1); release(z); continue; }
+        // posed further down; here only the clock: lie still a while, then sink through the floor and go
+        const gone = z.dRest + 2.6;
+        if (z.t > gone + 1.4) { z.on = false; z.holder.visible = false; z.blob.visible = false; list.splice(i, 1); release(z); continue; }
       }
       z.stagger = Math.max(0, z.stagger - dt);
       if (z.bleed > 0) { z.bleed -= dt; if (Math.random() < dt * 14) { _t.setFromMatrixPosition(z.bleedBone.matrixWorld); G.fx.blood(_t, UP, 2, 0.6); } }
@@ -329,15 +336,20 @@ export function initZombies() {
         if (z.shuf < 1) { const k = z.shuf; z.act.walk.setEffectiveWeight(z.w.walk * k); z.act.idle.setEffectiveWeight(z.w.idle + z.w.walk * (1 - k)); }
         z.act.walk.timeScale = (z.speed / (1.45 * Math.pow(z.shuf, 0.85))) * uneven; z.act.run.timeScale = z.speed / 3.9;
       }
-      const H = z.holder; H.position.set(z.x, z.y, z.z); H.rotation.y = z.yaw;
+      const H = z.holder, dying = z.state === 'dead' && !z.crawl;
+      if (dying) {
+        if (!z.settled) { if (poseDeath(z, z.t)) { z.settled = true; z.restY = H.position.y; } }
+        else if (z.t > z.dRest + 2.6) { const k = Math.min(1, (z.t - z.dRest - 2.6) / 1.4); H.position.y = z.restY - k * k * 0.75; z.y = H.position.y; }
+      } else { H.position.set(z.x, z.y, z.z); H.rotation.y = z.yaw; }
       if (z.crawl) { // body lies face down, chest at (x, z): the holder sits behind it, tipped forward
         H.position.x -= Math.sin(z.yaw) * 1.12; H.position.z -= Math.cos(z.yaw) * 1.12; H.position.y = 0.16 - (z.state === 'dead' && z.t > 3.4 ? Math.pow(Math.min(1, (z.t - 3.4) / 1.4), 2) * 0.6 : 0);
         H.rotation.x = 1.42 + (z.state === 'dead' ? 0.1 : Math.sin(G.time * 4 + z.wob) * 0.04); H.rotation.z = 0;
       }
       { const k = W.roomAt(z.x, z.z), outside = !W.indoor(z.x, z.z); if (outside !== z.outside) { z.outside = outside; for (const m of z.meshes) m.castShadow = outside && !/Eye|Teeth|visor/.test(m.name); } }
-      z.blob.position.set(z.x, 0.02, z.z); z.blob.scale.setScalar(z.state === 'dead' ? 1 + z.fall * 0.7 : 1); z.blob.visible = z.y > -1 && !(z.state === 'dead' && z.t > 2.8);
-      z.flinch = Math.max(0, (z.flinch || 0) - dt * 5);
-      if (z.state !== 'dead' || !z.settled) {
+      z.blob.position.set(z.x, 0.02, z.z); z.blob.scale.setScalar(z.state === 'dead' ? 1.5 : 1); z.blob.visible = z.y > -1 && !(dying && (z.t > z.dRest + 2.4 || z.y > 0.6));
+      z.flinch = Math.max(0, (z.flinch || 0) - dt * 5); if (z.trip > 0) z.trip = Math.max(0, z.trip - dt);
+      const tripK = z.trip > 0 && z.state === 'chase' && !z.crawl ? Math.sin((1 - z.trip / 0.85) * Math.PI) : 0; if (tripK > 0) { H.position.y -= 0.32 * tripK * z.scale; H.updateMatrixWorld(true); }
+      if (z.state !== 'dead' || (z.crawl && !z.settled)) {
         if (z.state === 'dead') { if (z.deathPose) for (const [b, q] of z.deathPose) b.quaternion.copy(q); } else z.mixer.update(dt);
         H.updateMatrixWorld(true);
         const B = z.bones, f = _f.set(Math.sin(z.yaw), 0, Math.cos(z.yaw)), r = _r.set(f.z, 0, -f.x);
@@ -353,16 +365,12 @@ export function initZombies() {
         } else if (z.state !== 'dead') {
           shamble(z, B, f, r, armUp, armW, dt);
           if (z.shock > 0) { for (const k of ['Spine1', 'Neck', 'LeftArm', 'RightArm']) turnBone(B[k], UP, rand(-0.35, 0.35)); }
+          if (tripK > 0) { // the hit knee folds toward the floor, the other bends to catch the weight, the body pitches over it
+            const a = z.tripS, b = a === 'Left' ? 'Right' : 'Left', k = tripK;
+            turnBone(B[a + 'UpLeg'], r, 0.15 * k); turnBone(B[a + 'Leg'], r, 1.5 * k); turnBone(B[b + 'UpLeg'], r, -0.85 * k); turnBone(B[b + 'Leg'], r, 0.9 * k);
+            turnBone(B.Spine, r, 0.3 * k); turnBone(B.Spine1, r, 0.2 * k); turnBone(B.Spine1, f, (a === 'Left' ? 1 : -1) * 0.18 * k); if (B.Head.scale.x > 0.5) turnBone(B.Neck, r, -0.35 * k);
+          }
           if (z.flinch > 0) { const k = Math.sin(Math.min(1, z.flinch) * Math.PI * 0.5); turnBone(B.Spine1, r, -k * 0.45); turnBone(B.Spine1, UP, z.flinchSide * k * 0.35); if (z.flinchHead && B.Head.scale.x > 0.5) turnBone(B.Neck, r, -k * 0.7); }
-        } else {
-          // ragdoll-ish collapse: knees fold, spine curls, arms go limp toward the floor
-          const tip = Math.max(0, (z.fall - 0.22) / 0.78), buckle = Math.min(1, z.fall / 0.35) * (z.fallDir > 0 ? 1 : 0.3) * (1 - tip), lim = Math.min(1, z.fall * 1.6);
-          for (const s of ['Left', 'Right']) { turnBone(B[s + 'UpLeg'], r, -0.75 * buckle * (s === 'Left' ? 1 : 0.8)); turnBone(B[s + 'Leg'], r, 1.15 * buckle * (s === 'Left' ? 0.9 : 1)); }
-          if (z.shock > 0) for (const k of ['Spine1', 'Neck', 'LeftForeArm', 'RightForeArm', 'LeftLeg']) turnBone(B[k], r, rand(-0.5, 0.5));
-          turnBone(B.Spine, r, z.fallDir * 0.35 * lim); turnBone(B.Spine2, f, z.twist * 0.6 * lim); if (B.Head.scale.x > 0.5) turnBone(B.Neck, r, z.fallDir * 0.6 * lim);
-          _t.copy(UP).multiplyScalar(-1).addScaledVector(f, -z.fallDir * 0.4).addScaledVector(r, 0.5).normalize(); aimBone(B.LeftArm, B.LeftForeArm, _t, lim * 0.85);
-          _t.copy(UP).multiplyScalar(-1).addScaledVector(f, -z.fallDir * 0.4).addScaledVector(r, -0.5).normalize(); aimBone(B.RightArm, B.RightForeArm, _t, lim * 0.85);
-          if (z.fall >= 1) { z.settleN = (z.settleN || 0) + 1; if (z.settleN > 2) z.settled = true; }
         }
       }
       // --- footsteps (shuffle for walkers, slaps for runners) and voice

@@ -23,9 +23,18 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
     boiterie, petits pas traînants pour les lents, bras tendus / un bras / bras ballants selon le zombie,
     tête penchée avec des à-coups, élan quand ils frappent, recul sous les gros tirs.
     Outil pour filmer la démarche : `source/tools/t/gaitsheet.sh walk|jog|run`.
+  - Morts variées (18/11) dans `source/src/deaths.js` : s'écroule (tir à la tête), tombe à genoux puis bascule,
+    trébuche en avant, projeté en arrière (gros dégâts), tourne sur lui-même, envolé par une explosion,
+    se débat en brûlant, s'assoit s'il est contre un mur. Le corps se pose toujours sur le sol.
+    Sons : chute du corps, craquement à la tête, râles différents selon la mort.
+    Outil pour filmer : `source/tools/t/deathsheet.sh back,knees,...`.
+  - Sang projeté sur les murs derrière un zombie touché (il coule un peu). Tir dans les jambes : le zombie
+    plonge sur un genou puis repart.
+  - Bug connu de l'outil de test (déjà là avant) : `tools/t/all.js` finit par une attente trop longue
+    de l'écran de fin ; tous les contrôles avant passent.
   - Testé sur téléphone par l'utilisateur : jouable mais plus dur. Le jeu vise surtout le PC
     (clavier + souris) ; le téléphone reste un bonus.
-  - Idées : continuer visuels, sons, zombies, armes et carte selon les envies.
+  - Idées : continuer visuels de la carte, sons d'ambiance, armes ; réactions des zombies aux coups non mortels.
   - Plus tard : un vrai « mode téléphone » (aide à la visée plus forte, tir automatique sous le viseur,
     zombies un peu plus lents et moins nombreux).
 - `errant/` : aventure dans le désert (le plus gros, ~310 Ko).

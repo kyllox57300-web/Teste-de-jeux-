@@ -64,6 +64,10 @@ export function initFx() {
     const m = new THREE.Mesh(pg, mat); m.visible = false; m.receiveShadow = true; m.renderOrder = 1; scene.add(m); pools.push({ m, t: 0, s: 1 });
   }
   let pi = 0;
+  // blood thrown onto walls and floor behind a zombie that is shot through: it spreads, then runs down a little
+  const wblood = [], wbg = new THREE.PlaneGeometry(1, 1), wbm = new THREE.MeshStandardMaterial({ color: 0x5e0805, alphaMap: G.tex.splat, transparent: true, depthWrite: false, roughness: 0.3, metalness: 0, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 });
+  for (let i = 0; i < 48; i++) { const m = new THREE.Mesh(wbg, wbm); m.visible = false; m.renderOrder = 1; scene.add(m); wblood.push({ m, t: 9, s: 1, run: 0 }); }
+  let wbi = 0;
   // floating dust inside the rooms
   const fire = new Particles(1400, true, { map: G.tex.fire, heat: true });
   // severed forearms: a short tumbling limb that lands and stays a while
@@ -89,6 +93,12 @@ export function initFx() {
     blood(p, dir, n = 8, speed = 2) {
       for (let i = 0; i < n; i++) solid.spawn(p.x, p.y, p.z, dir.x * speed * rand(0.2, 1) + rand(-1, 1) * speed * 0.45, Math.abs(dir.y) * speed + rand(-0.3, 1.4) * speed * 0.6, dir.z * speed * rand(0.2, 1) + rand(-1, 1) * speed * 0.45, rand(0.35, 0.8), rand(0.035, 0.085), 0.42, 0.02, 0.015, 0.95, 9.8, 0.6);
       for (let i = 0; i < 2; i++) solid.spawn(p.x, p.y, p.z, rand(-0.3, 0.3), rand(0, 0.4), rand(-0.3, 0.3), rand(0.25, 0.45), 0.16, 0.3, 0.02, 0.02, 0.4, 0, 1, 0.9);
+    },
+    wbList: () => wblood.filter((B) => B.m.visible).map((B) => B.m.position.toArray().map((v) => +v.toFixed(2)).join(',') + ' s' + B.s.toFixed(2)),
+    wallBlood(p, nx, ny, nz, k = 1) {
+      const B = wblood[wbi++ % wblood.length], m = B.m; m.position.set(p.x + nx * 0.01, p.y + ny * 0.01, p.z + nz * 0.01); _v.set(p.x + nx, p.y + ny, p.z + nz); m.lookAt(_v);
+      B.wall = Math.abs(ny) < 0.5; if (!B.wall) m.rotateZ(Math.random() * 6.28); B.s = rand(0.3, 0.62) * k; B.run = B.wall ? rand(0.2, 0.8) : 0; B.t = 0; B.y0 = m.position.y; m.scale.set(B.s * 0.4, B.s * 0.4, 1); m.visible = true;
+      for (let i = 0; i < 4; i++) solid.spawn(p.x + nx * 0.05, p.y, p.z + nz * 0.05, nx * rand(0.2, 0.8) + rand(-0.4, 0.4), rand(-0.6, 0.4), nz * rand(0.2, 0.8) + rand(-0.4, 0.4), rand(0.3, 0.6), rand(0.025, 0.05), 0.4, 0.02, 0.015, 0.9, 9.8, 0.6);
     },
     pool(x, z) { const P = pools[pi++ % pools.length]; P.m.position.set(x + rand(-0.3, 0.3), 0.012 + (pi % 36) * 0.0003, z + rand(-0.3, 0.3)); P.m.rotation.y = Math.random() * 6.28; P.s = rand(1.1, 1.9); P.t = 0; P.m.scale.setScalar(0.3); P.m.material.color.setHex(0x3a0503); P.m.material.roughness = 0.25; P.m.material.opacity = 0.95; P.m.visible = true; },
     dirt(x, z, n = 14) { for (let i = 0; i < n; i++) solid.spawn(x + rand(-0.3, 0.3), 0.05, z + rand(-0.3, 0.3), rand(-1, 1), rand(1, 3.2), rand(-1, 1), rand(0.5, 1), rand(0.05, 0.11), 0.11, 0.09, 0.06, 0.9, 9.8, 0.4); },
@@ -145,9 +155,10 @@ export function initFx() {
       for (const g of gibs) if (g.life > 0) { g.life -= dt; if (g.m.position.y > 0.05) { g.v.y -= 9.8 * dt; g.m.position.addScaledVector(g.v, dt); g.m.rotation.x += g.w.x * dt; g.m.rotation.z += g.w.z * dt; if (g.m.position.y <= 0.05) { g.m.position.y = 0.05; g.m.rotation.x = Math.PI / 2; if (Math.random() < 0.5) G.fx.pool(g.m.position.x, g.m.position.z); } } if (g.life <= 0) g.m.visible = false; }
       for (const L of arcs) if (L.visible) { L.life -= dt; L.material.opacity *= 0.8; if (L.life <= 0) L.visible = false; }
       for (const t of tracers) if (t.life > 0) { t.life -= dt; if (t.life <= 0) t.m.visible = false; }
+      for (const B of wblood) if (B.m.visible && B.t < 3) { B.t += dt; const k = 1 - Math.pow(1 - Math.min(1, B.t / 0.12), 3), r = B.run * Math.min(1, B.t / 2.5); B.m.scale.set(B.s * (0.4 + 0.6 * k), B.s * (0.4 + 0.6 * k) * (1 + r), 1); if (B.wall) B.m.position.y = B.y0 - 0.5 * B.s * r; }
       for (const P of pools) if (P.m.visible) { P.t += dt; const k = Math.min(1, P.t / 1.6); P.m.scale.setScalar(P.s * (0.3 + 0.7 * (1 - Math.pow(1 - k, 3)))); if (P.t > 40) { P.m.material.opacity = Math.max(0, 0.95 - (P.t - 40) * 0.1); if (P.t > 50) P.m.visible = false; } }
     },
-    clear() { for (const g of gibs) { g.life = 0; g.m.visible = false; } solid.clear(); glow.clear(); fire.clear(); for (const t of tracers) t.m.visible = false; for (const h of holes) h.visible = false; for (const P of pools) P.m.visible = false; },
+    clear() { for (const g of gibs) { g.life = 0; g.m.visible = false; } solid.clear(); glow.clear(); fire.clear(); for (const t of tracers) t.m.visible = false; for (const h of holes) h.visible = false; for (const P of pools) P.m.visible = false; for (const B of wblood) B.m.visible = false; },
   };
   G.fx = F;
   return F;
