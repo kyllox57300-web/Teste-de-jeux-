@@ -41,6 +41,14 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
   - Idées : améliorer les armes (sensations de tir, recul, nouvelles armes), détailler la crypte et le cimetière.
   - Plus tard : un vrai « mode téléphone » (aide à la visée plus forte, tir automatique sous le viseur,
     zombies un peu plus lents et moins nombreux).
+- `bitcoin-a-la-benne/` : jeu incrémental (fichier unique `jeu.html`, `index.html` redirige dessus).
+  - Fait (18/11) : 5 chapitres avec dialogues et vraie fin, 7 zones, 56 objets (4 raretés), 8 outils (niveau max),
+    8 employés (x2 à 10/25/50/100/150/200), vitrine (garder épiques/légendaires = bonus), vente auto, marché Bitcoin
+    avec graphique, 9 événements à 2-3 choix, 34 quêtes, 25 succès, prestige (Karma = +10 % valeur), sons et musique
+    Web Audio, paramètres, export/import, sauvegarde auto 10 s, gains hors ligne (50 %, 8 h max), tutoriel.
+  - Équilibrage simulé par un robot (`GAME` exposé dans la page) : fin en ~60-68 min en tapant vite, ~77 min en tapant
+    lentement ; après un prestige (7 Karma) ~35 min. Réglages : `ZONES` (cost), `EMPS`, `TOOLS`, `CFG`.
+  - À tester sur un vrai téléphone. Idées : plus d'événements, objets de collection par zone avec bonus de set.
 - `errant/` : aventure dans le désert (le plus gros, ~310 Ko).
 - `errant-3d/` : essai d'Errant avec personnages détaillés.
 - `croissant/` : L'Empire du Croissant (clicker). Code de sauvegarde pour transférer une partie.
