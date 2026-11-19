@@ -504,6 +504,8 @@ function updateFx(dt){
 /* =========================================================
    ÉVÉNEMENTS DU MOTEUR → EFFETS VISUELS
    ========================================================= */
+/** Rejoue une animation « une seule fois » déjà en cours (ex. Josiane applaudit deux ventes de suite) */
+function replay(g, name){ const u = g && g.userData; if(u && u.kay && u.cur === name && u.act[name]) u.act[name].reset().play(); }
 export function onFx(f){
   if(!R.ready) return;
   switch(f.t){
@@ -521,8 +523,9 @@ export function onFx(f){
     case 'newBig': { const o = W.bigs.find(b => b.id === f.id); if(o){ addBigMesh(o); puff(o.x, .5, o.z, 3); } break; }
     case 'newCont': { const o = W.conts.find(b => b.id === f.id); if(o && !R.conts.has(o.id)) addContMesh(o); break; }
     case 'thump': puff(f.x, .3, f.z, 2.2); debris(f.x, .3, f.z, 6, 0x9a8a70, 3); R.cam.shake = Math.max(R.cam.shake, .08); break;
-    case 'sellBig': case 'thud': { const g = R.bigs.get(f.id); if(g){ worldGroup.remove(g); R.bigs.delete(f.id); } const sp = C.sellPos(); debris(sp.x, 1, sp.z - 1, 20, 0xffcf3a, 5); puff(sp.x, .5, sp.z - 1, 3); break; }
-    case 'sell': { const sp = C.sellPos(); debris(sp.x, 1.2, sp.z - .5, Math.min(40, 6 + f.n * 2), 0xffcf3a, 4); sparkle(sp.x, 1.5, sp.z - .5, 10, 0xffe070); break; }
+    case 'sellBig': case 'thud': R.josJoy = 2; replay(R.josiane, 'Cheer'); { const g = R.bigs.get(f.id); if(g){ worldGroup.remove(g); R.bigs.delete(f.id); } const sp = C.sellPos(); debris(sp.x, 1, sp.z - 1, 20, 0xffcf3a, 5); puff(sp.x, .5, sp.z - 1, 3); break; }
+    case 'throw': R.throwT = .9; replay(R.kevin, 'Throw'); break;
+    case 'sell': R.josJoy = 1.6; replay(R.josiane, 'Cheer'); { const sp = C.sellPos(); debris(sp.x, 1.2, sp.z - .5, Math.min(40, 6 + f.n * 2), 0xffcf3a, 4); sparkle(sp.x, 1.5, sp.z - .5, 10, 0xffe070); break; }
     case 'opened': { const g = f.big ? R.bigs.get(f.id) : R.conts.get(f.id); if(g){ g.userData.openT = 0.001; const o = (f.big ? W.bigs : W.conts).find(b => b.id === f.id); if(o){ puff(o.x, 1, o.z, 2.5); sparkle(o.x, 1.2, o.z, 10, 0xffffff); } } break; }
     case 'quake': R.shock.position.set(f.x, .1, f.z); R.shockT = 0; R.cam.shake = .9; for(let i = 0; i < 6; i++) puff(f.x + (R2() - .5) * 8, .6, f.z + (R2() - .5) * 8, 4); break;
     case 'magnet': R.shock.position.set(f.x, .1, f.z); R.shockT = 0; R.shock.material.color.setHex(0x70b0ff); setTimeout(() => R.shock.material.color.setHex(0xffb050), 700); break;
@@ -626,7 +629,7 @@ export function frame(dt, time){
   const tier = C.toolTier();
   if(tier !== R.kevinTier){ if(R.kevinTool) ud.hand.remove(R.kevinTool); R.kevinTool = CH.toolModel(tier); holdTool(kv, R.kevinTool); ud.hand.add(R.kevinTool); R.kevinTier = tier; }
   if(ud.bag) ud.bag.scale.setScalar(0.7 + Math.min(1.2, S.up.sac * 0.1) + Math.min(.4, S.bag.length / Math.max(1, C.bagCap()) * .4));
-  animatePerson(kv, {moving, digging:digging || !!k.job, dig:k.dig, walk:k.walk, carry:!!k.carry, push:!!k.push, pick:k.pickT > 0, joy:R.joyT > 0, run:S.up.boots > 3}, time, dt);
+  animatePerson(kv, {moving, digging:digging || !!k.job, dig:k.dig, walk:k.walk, carry:!!k.carry, push:!!k.push, pick:k.pickT > 0, joy:R.joyT > 0, run:S.up.boots > 3, open:!!(k.job && k.job.type === 'open'), throw:R.throwT > 0}, time, dt);
   if(R.joyT > 0) R.joyT -= dt;
   kv.visible = R.cam.mode !== 'fps';
   R.digger.visible = inDigger && R.cam.mode !== 'fps';
@@ -637,7 +640,8 @@ export function frame(dt, time){
   R.brouette.visible = S.up.brou && !inDigger && !k.carry && R.cam.mode !== 'fps';
   if(R.brouette.visible){ R.brouette.position.set(k.x + Math.sin(k.ang) * .9, 0, k.z + Math.cos(k.ang) * .9); R.brouette.rotation.y = k.ang; }
   // --- Josiane ---
-  animatePerson(R.josiane, {moving:false, wave:Math.hypot(k.x - R.josiane.position.x, k.z - R.josiane.position.z) < 6}, time, dt);
+  if(R.josJoy > 0) R.josJoy -= dt; if(R.throwT > 0) R.throwT -= dt;
+  animatePerson(R.josiane, {moving:false, joy:R.josJoy > 0, wave:Math.hypot(k.x - R.josiane.position.x, k.z - R.josiane.position.z) < 6}, time, dt);
   R.josiane.lookAt(k.x, 0, k.z); R.josiane.rotation.x = 0; R.josiane.rotation.z = 0;
   // --- employés ---
   for(const [w, m] of R.workers){
@@ -711,7 +715,7 @@ const up1 = new THREE.Euler();
 /** Animation d'un personnage 3D KayKit : on choisit l'animation selon ce qu'il fait */
 function animateKay(g, s, dt){
   const u = g.userData;
-  const name = s.joy ? 'Cheer' : s.pick ? 'PickUp' : (s.carry || s.push) ? (s.moving ? 'Walking_A' : 'Idle')
+  const name = s.throw ? 'Throw' : s.joy ? 'Cheer' : s.open ? 'Use_Item' : s.pick ? 'PickUp' : (s.carry || s.push) ? (s.moving ? 'Walking_A' : 'Idle')
     : s.digging ? '2H_Melee_Attack_Chop' : s.moving ? (s.run ? 'Running_A' : 'Walking_A') : s.wave ? 'Interact' : 'Idle';
   playChar(g, name, name === 'Walking_A' ? 1.25 : name === '2H_Melee_Attack_Chop' ? 1.3 : 1);
   u.mixer.update(dt);

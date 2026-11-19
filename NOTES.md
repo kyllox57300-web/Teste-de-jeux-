@@ -70,8 +70,10 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
   - Bug corrigé (19/11) : Kévin restait bloqué en mode « pousser » un gros objet si le trajet vers Josiane était
     coupé (autre ordre, tas qui réapparaît) → il ne répondait plus. Maintenant il reprend la route ou Josiane rachète
     l'objet directement. Test : scratchpad push.js (pousse + coupure + chemin bloqué).
+  - 19/11 : 5 nouveaux gros objets (micro-ondes, lampadaire, fauteuil, commode, canapé ; modèles KayKit) → 11 dans la
+    série « Gros objets ». Josiane applaudit à chaque vente, Kévin fouille les contenants avec les mains et lance (ultime Hercule).
   - À tester sur un vrai téléphone (fluidité, taille des boutons, facilité à toucher les objets au sol).
-  - Idées : plus d'animations de Josiane, sons plus riches.
+  - Idées : sons plus riches, boutique de karma (refusée pour l'instant par l'utilisateur), objets à ramasser en modèles 3D.
 - `errant/` : aventure dans le désert (le plus gros, ~310 Ko).
 - `errant-3d/` : essai d'Errant avec personnages détaillés.
 - `croissant/` : L'Empire du Croissant (clicker). Code de sauvegarde pour transférer une partie.

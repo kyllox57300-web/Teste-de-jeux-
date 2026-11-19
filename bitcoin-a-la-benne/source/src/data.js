@@ -61,6 +61,12 @@ export const BIG = [
   {id:'moto',   n:'Moto de collection', e:'🏍️', w:3, m:25, model:'moto'},
   {id:'statue', n:'Statue en bronze',  e:'🗽', w:3, m:20, model:'statue'},
   {id:'safe',   n:'Coffre-fort',       e:'🔐', w:5, m:14, model:'safe', open:true, safe:true},
+  // nouveaux gros objets (modèles gratuits KayKit)
+  {id:'micro',  n:'Micro-ondes',       e:'♨️', w:1, m:5,  model:'micro'},
+  {id:'lamp',   n:'Lampadaire design', e:'💡', w:1, m:7,  model:'lamp'},
+  {id:'armchair', n:'Fauteuil en skaï', e:'💺', w:2, m:9, model:'armchair'},
+  {id:'cabinet', n:'Commode ancienne', e:'🗄️', w:3, m:18, model:'cabinet'},
+  {id:'couch',  n:'Canapé de mamie',   e:'🛋️', w:4, m:16, model:'couch'},
 ];
 /** Choses à ouvrir et fouiller (posées dans la décharge) */
 export const CONTAINERS = [

@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import {RoundedBoxGeometry} from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import {part, merged} from './models.js';
+import {propPart} from './props.js';
 
 /* ---------- Matériaux ---------- */
 export const SOFT = new THREE.MeshStandardMaterial({vertexColors:true, roughness:.78, metalness:0});
@@ -213,6 +214,9 @@ export function bigModel(kind){
       ...[0, 1, 2, 3, 4, 5, 6, 7].map(i => P(box(.012, .03, .01), 0x222222, [.42 + Math.cos(i * .785) * .1, .62 + Math.sin(i * .785) * .1, .11])), P(cyl(.025, .025, .05, 10), 0x222222, [.42, .62, .11], [Math.PI / 2, 0, 0]),
       P(cyl(.02, .02, .22, 8), 0xd0d0d0, [.42, .32, .1], [0, 0, Math.PI / 2]), P(cyl(.02, .02, .22, 8), 0xd0d0d0, [.42, .32, .1]),
       ...[[.1, .22], [.7, .22], [.1, .88], [.7, .88]].map(([x, y]) => P(sph(.02, 6, 5), 0x9aa0a8, [x, y, .07]))], METAL)); g.add(door); }
+  // nouveaux gros objets : modèles gratuits KayKit (CC0)
+  const KAY = {micro:['oven', {len:.75}], lamp:['lampStand', {h:1.8}], armchair:['armchair', {len:1.15}], cabinet:['cabinet', {len:1.5}], couch:['couch', {len:2.1}]};
+  if(KAY[kind]) g.add(mk([propPart(KAY[kind][0], KAY[kind][1])]));
   g.userData.door = door; return g;
 }
 export function contModel(kind){
