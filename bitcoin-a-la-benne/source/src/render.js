@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import * as M from './models.js';
 import * as CH from './chars.js';
 import {makeRobot, play as robotPlay, robotReady} from './robot.js';
+import {kayReady, makeChar, playChar, kenneyTruck, kenneyMoto} from './kaykit.js';
 import * as C from './core.js';
 import * as D from './data.js';
 const {CELL, COLS, ROWS, NQ, QROWS, GATE, QUARTERS, LOOT, RAR} = D;
@@ -40,6 +41,8 @@ export function initRender(canvas, quality){
   addEventListener('resize', resize);
   buildSky(); buildLights();
   // le robot animé se charge un instant après le démarrage : on remplace les robots provisoires
+  // les personnages et véhicules 3D se chargent un instant après : on remplace les modèles provisoires
+  kayReady.then(ok => { if(ok && R.ready) swapToKay(); });
   robotReady.then(ok => { if(!ok) return; for(const [w, m] of [...R.workers]) if(w.type === 'robot' && !m.userData.glb){ m.parent && m.parent.remove(m); R.workers.delete(w); addWorkerMesh(w); } });
   R.scene.fog = new THREE.Fog(0xcfe0e8, R.q.fogNear, R.q.fogFar);
 }
@@ -242,14 +245,32 @@ function buildDecor(){
   R.gulls = []; for(let i = 0; i < 6; i++){ const g = M.gullModel(); g.userData.ph = r() * 6; g.userData.rad = 12 + r() * 20; g.userData.h = 14 + r() * 8; g.userData.sp = .15 + r() * .15; g.userData.c = [r() * 30 - 15, r() * 100]; worldGroup.add(g); R.gulls.push(g); }
 }
 /* ---------- Personnages ---------- */
+function kevinModel(){
+  const g = makeChar('kevin'); if(!g) return CH.person(CH.LOOKS.kevin);
+  // sac à dos (grossit avec les améliorations) à la place de la cape
+  if(g.userData.bones.Rogue_Cape) g.userData.bones.Rogue_Cape.visible = false;
+  const bag = new THREE.Group(); bag.position.set(0, 1.0, -.27); g.add(bag); g.userData.bag = bag;
+  const b = new THREE.Mesh(new THREE.BoxGeometry(.42, .5, .22, 2, 2, 2), new THREE.MeshStandardMaterial({color:0x8a5a2e, roughness:.85}));
+  b.castShadow = true; bag.add(b);
+  const fl = new THREE.Mesh(new THREE.BoxGeometry(.44, .16, .24), new THREE.MeshStandardMaterial({color:0x6b4220, roughness:.9})); fl.position.y = .2; fl.castShadow = true; bag.add(fl);
+  return g;
+}
+function josianeModel(){ return makeChar('josiane') || CH.person(CH.LOOKS.josiane); }
+/** Remplace les personnages dessinés à la main par les modèles 3D animés (dès qu'ils sont chargés) */
+function swapToKay(){
+  if(R.kevin && !R.kevin.userData.kay){ const old = R.kevin; R.kevin = kevinModel(); worldGroup.remove(old); worldGroup.add(R.kevin); R.kevinTier = -1; R.kevinTool = null; }
+  if(R.josiane && !R.josiane.userData.kay){ const old = R.josiane, j = josianeModel(); j.position.copy(old.position); j.position.y = .42; j.traverse(o => { o.userData.kind = 'hut'; }); worldGroup.remove(old); worldGroup.add(j); R.josiane = j; }
+  if(R.truck && !R.truck.userData.kenney){ const t = kenneyTruck(); if(t){ t.userData.kenney = true; t.visible = R.truck.visible; worldGroup.remove(R.truck); worldGroup.add(t); R.truck = t; } }
+  for(const [w, m] of [...R.workers]) if(m.userData.hips){ worldGroup.remove(m); R.workers.delete(w); addWorkerMesh(w); }
+}
 function buildCharacters(){
-  R.kevin = CH.person(CH.LOOKS.kevin); worldGroup.add(R.kevin);
+  R.kevin = kevinModel(); worldGroup.add(R.kevin);
   R.kevinTool = null; R.kevinTier = -1;
   R.brouette = CH.brouetteModel(); R.brouette.visible = false; worldGroup.add(R.brouette);
   R.digger = M.diggerModel(); R.digger.visible = false; worldGroup.add(R.digger);
-  R.josiane = CH.person(CH.LOOKS.josiane);
-  R.josiane.position.set(cx(C.HUT.c + 1) + 1.0, 0, cz(C.HUT.r) + 0.6 + 2.95); R.josiane.traverse(o => { o.userData.kind = 'hut'; }); worldGroup.add(R.josiane);
-  R.truck = M.truckModel(); worldGroup.add(R.truck);
+  R.josiane = josianeModel();
+  R.josiane.position.set(cx(C.HUT.c + 1) + 1.0, R.josiane.userData.kay ? .42 : 0, cz(C.HUT.r) + 0.6 + 2.95); /* sur un tabouret derrière le comptoir */ R.josiane.traverse(o => { o.userData.kind = 'hut'; }); worldGroup.add(R.josiane);
+  R.truck = kenneyTruck() || M.truckModel(); worldGroup.add(R.truck);
   R.robo = M.roboModel(); R.robo.visible = false; worldGroup.add(R.robo);
   R.detRing = new THREE.Mesh(new THREE.RingGeometry(.9, 1.1, 32), new THREE.MeshBasicMaterial({color:0x7bd88f, transparent:true, opacity:0, depthWrite:false, side:THREE.DoubleSide}));
   R.detRing.rotation.x = -Math.PI / 2; worldGroup.add(R.detRing);
@@ -261,7 +282,7 @@ function addWorkerMesh(w){
   if(w.type === 'chien') m = CH.dogModel();
   else if(w.type === 'dozer') m = M.dozerModel(.75);
   else if(w.type === 'robot') m = makeRobot() || M.robotModel();
-  else { m = CH.person(CH.LOOKS[w.type] || CH.LOOKS.gege); const t = CH.toolModel(w.type === 'ferr' ? 1 : 0); t.rotation.x = -1.25; m.userData.hand.add(t); }
+  else { m = makeChar(w.type) || CH.person(CH.LOOKS[w.type] || CH.LOOKS.gege); const t = CH.toolModel(w.type === 'ferr' ? 1 : 0); holdTool(m, t); m.userData.hand.add(t); }
   m.userData.type = w.type; worldGroup.add(m); R.workers.set(w, m); return m;
 }
 
@@ -398,7 +419,7 @@ function addLootMesh(o){
 }
 const R2 = Math.random;
 function addBigMesh(o){
-  const g = CH.bigModel(o.kind); g.userData.kind = 'big'; g.userData.id = o.id; g.traverse(x => { x.userData.kind = 'big'; x.userData.id = o.id; });
+  const g = (o.kind === 'moto' && kenneyMoto()) || CH.bigModel(o.kind); g.userData.kind = 'big'; g.userData.id = o.id; g.traverse(x => { x.userData.kind = 'big'; x.userData.id = o.id; });
   if(o.open && g.userData.door) g.userData.door.rotation.y = -1.8;
   worldGroup.add(g); R.bigs.set(o.id, g);
 }
@@ -593,26 +614,26 @@ export function frame(dt, time){
   const kv = R.kevin, ud = kv.userData, moving = k.path.length > 0 || k.freeMove > 0, digging = !!k.target && !moving, inDigger = S.tool === 'digger';
   kv.position.set(k.x, 0, k.z); kv.rotation.y = k.ang;
   const tier = C.toolTier();
-  if(tier !== R.kevinTier){ if(R.kevinTool) ud.hand.remove(R.kevinTool); R.kevinTool = CH.toolModel(tier); R.kevinTool.rotation.x = -1.25; ud.hand.add(R.kevinTool); R.kevinTier = tier; }
-  ud.bag.scale.setScalar(0.7 + Math.min(1.2, S.up.sac * 0.1) + Math.min(.4, S.bag.length / Math.max(1, C.bagCap()) * .4));
-  animatePerson(kv, {moving, digging:digging || !!k.job, dig:k.dig, walk:k.walk, carry:!!k.carry, push:!!k.push, pick:k.pickT > 0, joy:R.joyT > 0}, time);
+  if(tier !== R.kevinTier){ if(R.kevinTool) ud.hand.remove(R.kevinTool); R.kevinTool = CH.toolModel(tier); holdTool(kv, R.kevinTool); ud.hand.add(R.kevinTool); R.kevinTier = tier; }
+  if(ud.bag) ud.bag.scale.setScalar(0.7 + Math.min(1.2, S.up.sac * 0.1) + Math.min(.4, S.bag.length / Math.max(1, C.bagCap()) * .4));
+  animatePerson(kv, {moving, digging:digging || !!k.job, dig:k.dig, walk:k.walk, carry:!!k.carry, push:!!k.push, pick:k.pickT > 0, joy:R.joyT > 0, run:S.up.boots > 3}, time, dt);
   if(R.joyT > 0) R.joyT -= dt;
   kv.visible = R.cam.mode !== 'fps';
   R.digger.visible = inDigger && R.cam.mode !== 'fps';
   if(inDigger){ R.digger.position.set(k.x, 0, k.z); R.digger.rotation.y = k.ang; const a = digging ? Math.sin(k.dig) : 0;
     R.digger.userData.arm1.rotation.x = .25 - a * .35; R.digger.userData.arm2.rotation.x = .9 + a * .6;
-    kv.position.set(k.x + Math.sin(k.ang) * -.3 + Math.cos(k.ang) * -.25, .55, k.z + Math.cos(k.ang) * -.3 - Math.sin(k.ang) * -.25); ud.legL.visible = ud.legR.visible = false; }
-  else { ud.legL.visible = ud.legR.visible = true; }
+    kv.position.set(k.x + Math.sin(k.ang) * -.3 + Math.cos(k.ang) * -.25, .55, k.z + Math.cos(k.ang) * -.3 - Math.sin(k.ang) * -.25); showLegs(ud, false); }
+  else showLegs(ud, true);
   R.brouette.visible = S.up.brou && !inDigger && !k.carry && R.cam.mode !== 'fps';
   if(R.brouette.visible){ R.brouette.position.set(k.x + Math.sin(k.ang) * .9, 0, k.z + Math.cos(k.ang) * .9); R.brouette.rotation.y = k.ang; }
   // --- Josiane ---
-  animatePerson(R.josiane, {moving:false, wave:Math.hypot(k.x - R.josiane.position.x, k.z - R.josiane.position.z) < 6}, time);
+  animatePerson(R.josiane, {moving:false, wave:Math.hypot(k.x - R.josiane.position.x, k.z - R.josiane.position.z) < 6}, time, dt);
   R.josiane.lookAt(k.x, 0, k.z); R.josiane.rotation.x = 0; R.josiane.rotation.z = 0;
   // --- employés ---
   for(const [w, m] of R.workers){
     m.position.set(w.x, 0, w.z); m.rotation.y = w.ang;
     const mv = w.path.length > 0, dg = !!w.target && !mv;
-    if(m.userData.hips) animatePerson(m, {moving:mv, digging:dg, dig:w.dig, walk:w.walk}, time);
+    if(m.userData.hips || m.userData.kay) animatePerson(m, {moving:mv, digging:dg, dig:w.dig, walk:w.walk}, time, dt);
     else if(m.userData.glb){ robotPlay(m, mv ? 'Walking' : dg ? 'Punch' : 'Idle'); m.userData.mixer.update(dt); }
     else if(m.userData.tail){ m.userData.head.position.y = .66 + (dg ? Math.sin(w.dig * 2) * .1 : 0); m.userData.head.rotation.x = dg ? .4 + Math.sin(w.dig * 2) * .2 : 0;
       m.userData.tail.rotation.z = Math.sin(time * 14) * .5; m.position.y = mv ? Math.abs(Math.sin(w.walk)) * .06 : 0; }
@@ -669,8 +690,29 @@ function updateFlies(dt, time){
   pos.needsUpdate = true;
 }
 /** Animation procédurale d'un personnage (épaules, coudes, hanches, genoux) */
-function animatePerson(g, s, time){
-  const u = g.userData; if(!u.hips) return;
+function showLegs(u, v){ if(u.legs) u.legs.forEach(l => { l.visible = v; }); else { u.legL.visible = u.legR.visible = v; } }
+/** Outil tenu en main : l'orientation dépend du type de personnage */
+function holdTool(g, t){
+  if(!g.userData.kay){ t.rotation.x = -1.25; return; }
+  // personnages KayKit : la main tient le bout du manche, l'outil part vers l'avant (+Y de la main)
+  if(t.userData.tier === 1){ t.rotation.set(0, 0, 0); t.position.set(0, .72, 0); } else { t.rotation.set(0, 0, Math.PI); t.position.set(0, 0, 0); }
+}
+const up1 = new THREE.Euler();
+/** Animation d'un personnage 3D KayKit : on choisit l'animation selon ce qu'il fait */
+function animateKay(g, s, dt){
+  const u = g.userData;
+  const name = s.joy ? 'Cheer' : s.pick ? 'PickUp' : (s.carry || s.push) ? (s.moving ? 'Walking_A' : 'Idle')
+    : s.digging ? '2H_Melee_Attack_Chop' : s.moving ? (s.run ? 'Running_A' : 'Walking_A') : s.wave ? 'Interact' : 'Idle';
+  playChar(g, name, name === 'Walking_A' ? 1.25 : name === '2H_Melee_Attack_Chop' ? 1.3 : 1);
+  u.mixer.update(dt);
+  const b = u.bones;
+  if(u.hand) u.hand.visible = !s.carry;
+  if(s.carry && b.upperarml){ b.upperarml.rotation.set(CARRY[0], CARRY[1], CARRY[2]); b.upperarmr.rotation.set(CARRY[0], -CARRY[1], -CARRY[2]); b.lowerarml.rotation.set(0, 0, 0); b.lowerarmr.rotation.set(0, 0, 0); }
+  if(s.push && b.spine){ b.spine.rotation.x += .35; }
+}
+const CARRY = [.3, 0, -.5]; // bras levés de chaque côté de la tête (objet porté au-dessus)
+function animatePerson(g, s, time, dt = 1 / 60){
+  const u = g.userData; if(u.kay) return animateKay(g, s, dt); if(!u.hips) return;
   const w = s.walk || time * 6, sw = s.moving ? Math.sin(w) : 0, base = u.baseY || .94;
   u.legL.rotation.x = sw * .65; u.legR.rotation.x = -sw * .65;
   if(u.kneeL){ u.kneeL.rotation.x = s.moving ? Math.max(0, Math.sin(w + 1.6)) * .95 : s.pick ? .9 : 0; u.kneeR.rotation.x = s.moving ? Math.max(0, Math.sin(w - 1.6)) * .95 : s.pick ? .9 : 0; }

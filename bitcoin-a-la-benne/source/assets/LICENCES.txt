@@ -1,2 +1,7 @@
 RobotExpressive.glb : modèle de Tomás Laulhé (Quaternius), licence CC0 1.0,
 récupéré depuis le dépôt three.js (examples/models/gltf/RobotExpressive).
+
+kaykit-*.glb : personnages « KayKit Adventurers Character Pack 1.0 » de Kay Lousberg (www.kaylousberg.com),
+licence CC0 1.0. Récupérés depuis github.com/KayKit-Game-Assets ; armes retirées, animations réduites.
+kenney-truck.glb, kenney-moto.glb : modèles de Kenney (www.kenney.nl), licence CC0 1.0,
+récupérés depuis le « Starter Kit Racing » (github.com/KenneyNL).

@@ -137,14 +137,14 @@ export function toolModel(tier){
     shaft(1.05, gold ? 0x7a4a2a : 0x9a6a3a);
     (gold ? metal : wood).push(P(tor(.065, .016, 6, 14, Math.PI), gold ? 0xf2c230 : 0x2a2a2a, [0, .33, 0]), P(cyl(.018, .018, .13, 8), gold ? 0xf2c230 : 0x2a2a2a, [0, .394, 0], [0, 0, Math.PI / 2]));
     metal.push(P(cyl(.03, .045, .14, 10), dark(bl, .85), [0, -.78, 0]),
-      P(new THREE.CylinderGeometry(.33, .33, .32, 14, 1, true, -.42, .84), bl, [0, -.98, -.31], [0, Math.PI, 0]),
-      P(new THREE.CylinderGeometry(.33, .33, .02, 14, 1, false, -.42, .84), dark(bl, .85), [0, -.83, -.31], [0, Math.PI, 0]));
+      P(new THREE.CylinderGeometry(.33, .33, .32, 14, 1, true, -.42, .84), bl, [0, -.98, .3], [0, Math.PI, 0]),
+      P(new THREE.CylinderGeometry(.33, .33, .02, 14, 1, false, -.42, .84), dark(bl, .85), [0, -.83, .3], [0, Math.PI, 0]));
     if(!gold) wood.push(...[[-.05, -.95], [.07, -1.05], [0, -1.08]].map(([x, y]) => P(sph(.03, 6, 5), 0x7a4a28, [x, y, .015], [0, 0, 0], [1, 1, .3])));
     if(gold) metal.push(P(new THREE.OctahedronGeometry(.045), 0x40d0ff, [0, -.93, .03]));
   }
   if(tier === 1){
     shaft(1.0, 0x8a5a30);
-    metal.push(P(tor(.32, .035, 8, 20, 1.6), 0x8e939a, [0, .02, 0], [0, 0, Math.PI / 2 - .8]), P(cone(.035, .16, 8), 0xb0b4ba, [.31, .12, 0], [0, 0, -1.2]), P(cone(.035, .16, 8), 0xb0b4ba, [-.31, .12, 0], [0, 0, 1.2]),
+    metal.push(P(tor(.32, .035, 8, 20, 1.6), 0x8e939a, [0, .02, 0], [0, 0, Math.PI / 2 - .8]), P(cone(.035, .16, 8), 0xb0b4ba, [.27, .2, 0], [0, 0, -1.9]), P(cone(.035, .16, 8), 0xb0b4ba, [-.27, .2, 0], [0, 0, 1.9]),
       P(rbox(.09, .1, .09, .02), 0x6a6e74, [0, .32, 0]));
   }
   if(tier === 2){
@@ -152,6 +152,7 @@ export function toolModel(tier){
       P(cyl(.02, .02, .4, 8), 0x555555, [0, .04, 0], [0, 0, Math.PI / 2]), P(cap(.03, .08, 8), 0x1a1a1a, [.21, .04, 0], [0, 0, Math.PI / 2]), P(cap(.03, .08, 8), 0x1a1a1a, [-.21, .04, 0], [0, 0, Math.PI / 2]),
       P(cyl(.025, .025, .3, 8), 0xa0a4aa, [0, -.66, 0]), P(cone(.026, .1, 8), 0xc0c4ca, [0, -.86, 0], [Math.PI, 0, 0]), P(tor(.12, .02, 6, 14, Math.PI * 1.3), 0x2a2a2a, [.12, -.2, -.05], [0, Math.PI / 2, 0]));
   }
+  g.userData.tier = tier;
   if(wood.length) g.add(mk(wood)); if(metal.length) g.add(mk(metal, METAL));
   g.traverse(m => { m.castShadow = true; });
   return g;

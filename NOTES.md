@@ -58,6 +58,10 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
     animés, vêtements (capuche, ceinture, baskets…), outils, brouette, chien, gros objets et contenants arrondis.
     Robot employé = modèle animé CC0 « RobotExpressive » (Quaternius, via le dépôt three.js) dans `source/assets/`.
     Kenney / OpenGameArt / Quaternius restent inaccessibles depuis l'environnement (seul GitHub l'est).
+  - 19/11 (suite) : vrais modèles 3D gratuits (CC0) trouvés sur GitHub et intégrés (`source/src/kaykit.js`) :
+    personnages animés KayKit (Kévin = capuche bleue, Josiane, Gégé, stagiaire, ferrailleuse ; 12 animations gardées),
+    camion et moto de Kenney. Les anciens personnages dessinés en code restent en secours. Jeu ≈ 3,3 Mo.
+    Banc d'essai des poses : `npx esbuild tools/bench-entry.js --bundle --loader:.glb=binary`.
   - À tester sur un vrai téléphone (fluidité, taille des boutons, facilité à toucher les objets au sol).
   - Idées : plus d'animations de Josiane, sons plus riches.
 - `errant/` : aventure dans le désert (le plus gros, ~310 Ko).
