@@ -3,6 +3,8 @@
    ========================================================= */
 import * as THREE from 'three';
 import * as M from './models.js';
+import * as CH from './chars.js';
+import {makeRobot, play as robotPlay, robotReady} from './robot.js';
 import * as C from './core.js';
 import * as D from './data.js';
 const {CELL, COLS, ROWS, NQ, QROWS, GATE, QUARTERS, LOOT, RAR} = D;
@@ -37,6 +39,8 @@ export function initRender(canvas, quality){
   resize();
   addEventListener('resize', resize);
   buildSky(); buildLights();
+  // le robot animé se charge un instant après le démarrage : on remplace les robots provisoires
+  robotReady.then(ok => { if(!ok) return; for(const [w, m] of [...R.workers]) if(w.type === 'robot' && !m.userData.glb){ m.parent && m.parent.remove(m); R.workers.delete(w); addWorkerMesh(w); } });
   R.scene.fog = new THREE.Fog(0xcfe0e8, R.q.fogNear, R.q.fogFar);
 }
 export function resize(){
@@ -239,12 +243,12 @@ function buildDecor(){
 }
 /* ---------- Personnages ---------- */
 function buildCharacters(){
-  R.kevin = M.person({shirt:0xf7931a, shirt2:0xd07810, logo:true, beard:0x6a4424, hair:0x6a4424, backpack:true}); worldGroup.add(R.kevin);
+  R.kevin = CH.person(CH.LOOKS.kevin); worldGroup.add(R.kevin);
   R.kevinTool = null; R.kevinTier = -1;
-  R.brouette = M.brouetteModel(); R.brouette.visible = false; worldGroup.add(R.brouette);
+  R.brouette = CH.brouetteModel(); R.brouette.visible = false; worldGroup.add(R.brouette);
   R.digger = M.diggerModel(); R.digger.visible = false; worldGroup.add(R.digger);
-  R.josiane = M.person({shirt:0x7a4b8a, apron:0x4f86c6, hat:'bun', hair:0xc8c8c8, glasses:true, pants:0x4a3a4a});
-  R.josiane.position.set(cx(C.HUT.c + 1) + 1.0, 0, cz(C.HUT.r) + 0.6 + 2.2); R.josiane.traverse(o => { o.userData.kind = 'hut'; }); worldGroup.add(R.josiane);
+  R.josiane = CH.person(CH.LOOKS.josiane);
+  R.josiane.position.set(cx(C.HUT.c + 1) + 1.0, 0, cz(C.HUT.r) + 0.6 + 2.95); R.josiane.traverse(o => { o.userData.kind = 'hut'; }); worldGroup.add(R.josiane);
   R.truck = M.truckModel(); worldGroup.add(R.truck);
   R.robo = M.roboModel(); R.robo.visible = false; worldGroup.add(R.robo);
   R.detRing = new THREE.Mesh(new THREE.RingGeometry(.9, 1.1, 32), new THREE.MeshBasicMaterial({color:0x7bd88f, transparent:true, opacity:0, depthWrite:false, side:THREE.DoubleSide}));
@@ -254,11 +258,10 @@ function buildCharacters(){
 }
 function addWorkerMesh(w){
   let m;
-  if(w.type === 'chien') m = M.dogModel();
+  if(w.type === 'chien') m = CH.dogModel();
   else if(w.type === 'dozer') m = M.dozerModel(.75);
-  else if(w.type === 'robot') m = M.robotModel();
-  else { const looks = {gege:{shirt:0x6b4a2e, hat:'beanie', hair:0xb03030, beard:0x9a9a9a, nose:0xd06060, pants:0x3b3b3b}, stag:{shirt:0x4d6b8a, hat:'cap', hair:0x3070c0, pants:0x2a2a2a}, ferr:{shirt:0x3a5a8a, hat:'helmet', hair:0xf0c020, vest:0xff8a20, pants:0x2a3a5a, beard:0x3a2a1a}};
-    m = M.person(looks[w.type] || looks.gege); const t = M.toolModel(w.type === 'ferr' ? 1 : 0); m.userData.hand.add(t); }
+  else if(w.type === 'robot') m = makeRobot() || M.robotModel();
+  else { m = CH.person(CH.LOOKS[w.type] || CH.LOOKS.gege); const t = CH.toolModel(w.type === 'ferr' ? 1 : 0); t.rotation.x = -1.25; m.userData.hand.add(t); }
   m.userData.type = w.type; worldGroup.add(m); R.workers.set(w, m); return m;
 }
 
@@ -395,12 +398,12 @@ function addLootMesh(o){
 }
 const R2 = Math.random;
 function addBigMesh(o){
-  const g = M.bigModel(o.kind); g.userData.kind = 'big'; g.userData.id = o.id; g.traverse(x => { x.userData.kind = 'big'; x.userData.id = o.id; });
+  const g = CH.bigModel(o.kind); g.userData.kind = 'big'; g.userData.id = o.id; g.traverse(x => { x.userData.kind = 'big'; x.userData.id = o.id; });
   if(o.open && g.userData.door) g.userData.door.rotation.y = -1.8;
   worldGroup.add(g); R.bigs.set(o.id, g);
 }
 function addContMesh(o){
-  const g = M.contModel(o.kind); g.userData.kind = 'cont'; g.userData.id = o.id; g.traverse(x => { x.userData.kind = 'cont'; x.userData.id = o.id; });
+  const g = CH.contModel(o.kind); g.userData.kind = 'cont'; g.userData.id = o.id; g.traverse(x => { x.userData.kind = 'cont'; x.userData.id = o.id; });
   g.position.set(o.x, 0, o.z); g.rotation.y = (o.id * 1.7) % 6.28; if(o.kind === 'trunk') g.rotation.y = Math.PI / 2 + 0.3;
   if(o.open) openDoor(g, o.kind, 1);
   worldGroup.add(g); R.conts.set(o.id, g);
@@ -519,14 +522,14 @@ function updateCamera(dt, time){
   if(c.mode === 'tps'){
     // la caméra se replace doucement derrière Kévin quand il marche (sauf si on vient de la tourner au doigt)
     if(moving && c.userT <= 0 && !k.freeMove){ let d = (k.ang + Math.PI) - c.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); c.yaw += d * Math.min(1, dt * .8); }
-    c.tx += (k.x - c.tx) * Math.min(1, dt * 6); c.tz += (k.z - c.tz) * Math.min(1, dt * 6); c.ty = 1.3;
+    const tg = c.lock || k; c.tx += (tg.x - c.tx) * Math.min(1, dt * 6); c.tz += (tg.z - c.tz) * Math.min(1, dt * 6); c.ty = c.lock && c.lock.y !== undefined ? c.lock.y : 1.3;
     const cp = Math.cos(c.pitch), dist = c.dist;
     R.camera.position.set(c.tx - Math.sin(c.yaw) * cp * dist, c.ty + Math.sin(c.pitch) * dist, c.tz - Math.cos(c.yaw) * cp * dist);
     R.camera.lookAt(c.tx, c.ty, c.tz);
   } else {
-    if(!R.viewTool || R.viewTier !== C.toolTier()){ if(R.viewTool) R.camera.remove(R.viewTool); R.viewTool = M.toolModel(C.toolTier()); R.viewTool.castShadow = false; R.viewTier = C.toolTier(); R.camera.add(R.viewTool); }
+    if(!R.viewTool || R.viewTier !== C.toolTier()){ if(R.viewTool) R.camera.remove(R.viewTool); R.viewTool = CH.toolModel(C.toolTier()); R.viewTool.traverse(o => { o.castShadow = false; }); R.viewTier = C.toolTier(); R.camera.add(R.viewTool); }
     const sw = k.target && !moving ? Math.max(0, Math.sin(k.dig)) : 0;
-    R.viewTool.position.set(.55, .5 - sw * .3, -.95 - sw * .2); R.viewTool.rotation.set(-.25 + sw * .8, Math.PI + .35, .1);
+    R.viewTool.position.set(.42, -.12 - sw * .2, -.75 - sw * .15); R.viewTool.rotation.set(-1.15 + sw * .7, .35, .25);
     R.camera.position.set(k.x, 1.65 + Math.abs(Math.sin(k.walk * .5)) * (moving ? .04 : 0), k.z);
     R.camera.lookAt(k.x + Math.sin(c.yaw) * Math.cos(c.pitch), 1.65 + Math.sin(c.pitch), k.z + Math.cos(c.yaw) * Math.cos(c.pitch));
   }
@@ -590,7 +593,7 @@ export function frame(dt, time){
   const kv = R.kevin, ud = kv.userData, moving = k.path.length > 0 || k.freeMove > 0, digging = !!k.target && !moving, inDigger = S.tool === 'digger';
   kv.position.set(k.x, 0, k.z); kv.rotation.y = k.ang;
   const tier = C.toolTier();
-  if(tier !== R.kevinTier){ if(R.kevinTool) ud.hand.remove(R.kevinTool); R.kevinTool = M.toolModel(tier); ud.hand.add(R.kevinTool); R.kevinTier = tier; }
+  if(tier !== R.kevinTier){ if(R.kevinTool) ud.hand.remove(R.kevinTool); R.kevinTool = CH.toolModel(tier); R.kevinTool.rotation.x = -1.25; ud.hand.add(R.kevinTool); R.kevinTier = tier; }
   ud.bag.scale.setScalar(0.7 + Math.min(1.2, S.up.sac * 0.1) + Math.min(.4, S.bag.length / Math.max(1, C.bagCap()) * .4));
   animatePerson(kv, {moving, digging:digging || !!k.job, dig:k.dig, walk:k.walk, carry:!!k.carry, push:!!k.push, pick:k.pickT > 0, joy:R.joyT > 0}, time);
   if(R.joyT > 0) R.joyT -= dt;
@@ -610,7 +613,9 @@ export function frame(dt, time){
     m.position.set(w.x, 0, w.z); m.rotation.y = w.ang;
     const mv = w.path.length > 0, dg = !!w.target && !mv;
     if(m.userData.hips) animatePerson(m, {moving:mv, digging:dg, dig:w.dig, walk:w.walk}, time);
-    else if(m.userData.head && w.type === 'chien'){ m.userData.head.position.y = .7 + (dg ? Math.sin(w.dig * 2) * .12 : 0); m.position.y = mv ? Math.abs(Math.sin(w.walk)) * .08 : 0; }
+    else if(m.userData.glb){ robotPlay(m, mv ? 'Walking' : dg ? 'Punch' : 'Idle'); m.userData.mixer.update(dt); }
+    else if(m.userData.tail){ m.userData.head.position.y = .66 + (dg ? Math.sin(w.dig * 2) * .1 : 0); m.userData.head.rotation.x = dg ? .4 + Math.sin(w.dig * 2) * .2 : 0;
+      m.userData.tail.rotation.z = Math.sin(time * 14) * .5; m.position.y = mv ? Math.abs(Math.sin(w.walk)) * .06 : 0; }
     else if(m.userData.arm){ m.userData.arm.rotation.x = dg ? -.6 + Math.max(0, Math.sin(w.dig)) * 1.2 : 0; }
     else if(w.type === 'dozer'){ m.position.y = dg ? Math.abs(Math.sin(w.dig * 2)) * .05 : 0; }
   }
@@ -663,20 +668,27 @@ function updateFlies(dt, time){
     const a = time * f.sp + f.ph; pos.setXYZ(i, h[0] + Math.cos(a) * f.rad + Math.sin(a * 2.3) * .2, heapH(h[2]) + f.h * .5 + Math.sin(a * 3.1) * .25, h[1] + Math.sin(a) * f.rad); });
   pos.needsUpdate = true;
 }
-/** Animation procédurale d'un personnage */
+/** Animation procédurale d'un personnage (épaules, coudes, hanches, genoux) */
 function animatePerson(g, s, time){
   const u = g.userData; if(!u.hips) return;
-  const w = s.walk || time * 6, sw = s.moving ? Math.sin(w * 1.0) : 0;
-  u.legL.rotation.x = sw * .7; u.legR.rotation.x = -sw * .7;
-  u.hips.position.y = .82 + (s.moving ? Math.abs(Math.sin(w)) * .05 : 0) + (s.joy ? Math.abs(Math.sin(time * 10)) * .35 : 0);
-  u.torso.rotation.x = s.pick ? .9 : s.push ? .45 : s.digging ? .25 + Math.max(0, Math.sin(s.dig)) * .25 : 0;
-  if(s.carry){ u.armL.rotation.set(-2.9, 0, -.2); u.armR.rotation.set(-2.9, 0, .2); }
-  else if(s.joy){ u.armL.rotation.set(-2.8 + Math.sin(time * 12) * .3, 0, -.4); u.armR.rotation.set(-2.8 - Math.sin(time * 12) * .3, 0, .4); }
-  else if(s.push){ u.armL.rotation.set(-1.4, 0, 0); u.armR.rotation.set(-1.4, 0, 0); }
-  else if(s.digging){ const a = Math.sin(s.dig); u.armR.rotation.set(-1.0 - a * 1.4, 0, 0); u.armL.rotation.set(-.9 - a * 1.2, 0, 0); }
-  else if(s.wave){ u.armL.rotation.set(-2.6, 0, -.3 + Math.sin(time * 8) * .35); u.armR.rotation.set(sw * .6, 0, 0); }
-  else { u.armL.rotation.set(-sw * .6, 0, 0); u.armR.rotation.set(sw * .6, 0, 0); }
-  u.head.rotation.y = Math.sin(time * .7 + g.id) * .15;
+  const w = s.walk || time * 6, sw = s.moving ? Math.sin(w) : 0, base = u.baseY || .94;
+  u.legL.rotation.x = sw * .65; u.legR.rotation.x = -sw * .65;
+  if(u.kneeL){ u.kneeL.rotation.x = s.moving ? Math.max(0, Math.sin(w + 1.6)) * .95 : s.pick ? .9 : 0; u.kneeR.rotation.x = s.moving ? Math.max(0, Math.sin(w - 1.6)) * .95 : s.pick ? .9 : 0; }
+  if(s.pick){ u.legL.rotation.x = u.legR.rotation.x = -.6; }
+  const breathe = s.moving ? 0 : Math.sin(time * 2.2) * .012;
+  u.hips.position.y = base + (s.moving ? Math.abs(Math.sin(w)) * .05 : 0) + (s.joy ? Math.abs(Math.sin(time * 10)) * .35 : 0) - (s.pick ? .22 : 0) + breathe;
+  u.torso.rotation.x = s.pick ? .75 : s.push ? .45 : s.digging ? .2 + Math.max(0, Math.sin(s.dig)) * .3 : (s.moving ? .08 : 0);
+  u.torso.rotation.y = s.moving ? sw * .08 : 0;
+  let eL = -.15, eR = -.15;
+  if(s.carry){ u.armL.rotation.set(-2.9, 0, -.25); u.armR.rotation.set(-2.9, 0, .25); eL = eR = -.35; }
+  else if(s.joy){ u.armL.rotation.set(-2.8 + Math.sin(time * 12) * .3, 0, -.5); u.armR.rotation.set(-2.8 - Math.sin(time * 12) * .3, 0, .5); eL = eR = -.2; }
+  else if(s.push){ u.armL.rotation.set(-1.35, 0, -.1); u.armR.rotation.set(-1.35, 0, .1); eL = eR = -.3; }
+  else if(s.digging){ const a = Math.sin(s.dig); u.armR.rotation.set(-.7 - a * 1.5, 0, .1); u.armL.rotation.set(-.6 - a * 1.3, 0, -.15); eR = -.5 + a * .35; eL = -.7 + a * .3; }
+  else if(s.pick){ u.armL.rotation.set(-1.1, 0, 0); u.armR.rotation.set(-1.2, 0, 0); eL = eR = -.3; }
+  else if(s.wave){ u.armL.rotation.set(-2.5, 0, -.3); eL = -.6 + Math.sin(time * 8) * .5; u.armR.rotation.set(0, 0, .05); }
+  else { u.armL.rotation.set(-sw * .55, 0, -.06); u.armR.rotation.set(sw * .55, 0, .06); eL = -.25 - Math.max(0, -sw) * .3; eR = -.25 - Math.max(0, sw) * .3; }
+  if(u.elbowL){ u.elbowL.rotation.x = eL; u.elbowR.rotation.x = eR; }
+  u.head.rotation.y = Math.sin(time * .7 + g.id) * .18; u.head.rotation.x = s.pick ? .3 : Math.sin(time * .5 + g.id) * .04;
 }
 
 /* =========================================================

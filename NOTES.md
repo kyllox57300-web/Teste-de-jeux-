@@ -54,8 +54,12 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
     Loup de la Benne, MacGyver + robot R0B0), XP/niveaux, album avec bonus de séries, commande de Josiane, combo, bonus de
     nuit, cycle jour/nuit (7 min), lampadaires, mouettes, mouches, fumée, vue 3e / 1re personne, ZQSD + souris,
     qualité basse/moyenne/haute/auto (baisse auto si ça rame), sauvegarde/hors ligne/export/prestige.
+  - 19/11 : personnages et accessoires refaits plus détaillés (`source/src/chars.js`) : visages, mains, coudes et genoux
+    animés, vêtements (capuche, ceinture, baskets…), outils, brouette, chien, gros objets et contenants arrondis.
+    Robot employé = modèle animé CC0 « RobotExpressive » (Quaternius, via le dépôt three.js) dans `source/assets/`.
+    Kenney / OpenGameArt / Quaternius restent inaccessibles depuis l'environnement (seul GitHub l'est).
   - À tester sur un vrai téléphone (fluidité, taille des boutons, facilité à toucher les objets au sol).
-  - Idées : vrais modèles 3D (Kenney) si le style « blocs » ne plaît pas, plus d'animations de Josiane, sons plus riches.
+  - Idées : plus d'animations de Josiane, sons plus riches.
 - `errant/` : aventure dans le désert (le plus gros, ~310 Ko).
 - `errant-3d/` : essai d'Errant avec personnages détaillés.
 - `croissant/` : L'Empire du Croissant (clicker). Code de sauvegarde pour transférer une partie.
