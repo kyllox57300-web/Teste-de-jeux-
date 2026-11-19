@@ -3,6 +3,7 @@
    ========================================================= */
 import * as THREE from 'three';
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import {propPart} from './props.js';
 
 /* ---------- Matériaux partagés ---------- */
 const matCache = new Map();
@@ -102,9 +103,7 @@ export function itemGeo(key){
    DÉCHETS DES TAS (géométries instanciées) — taille ~0,5 à 1 m
    ========================================================= */
 const DECO_DEFS = {
-  bag:()=>[part(G.ico(.36, 1), 0xffffff, [0, .2, 0], [0, 0, 0], [1, .8, .9]), part(G.cone(.08, .2, 5), 0xffffff, [0, .5, 0])],
   can:()=>[part(G.cyl(.09, .09, .28, 7), 0xd23a3a, [0, .14, 0]), part(G.cyl(.092, .092, .04, 7), 0xdddddd, [0, .27, 0])],
-  box:()=>[part(G.box(.6, .42, .48), 0xb98b55, [0, .21, 0]), part(G.box(.62, .04, .1), 0xd8c79a, [0, .43, 0])],
   bottle:()=>[part(G.cyl(.08, .08, .3, 6), 0x2f8a40, [0, .15, 0]), part(G.cyl(.03, .07, .12, 6), 0x2f8a40, [0, .36, 0])],
   paper:()=>[part(G.box(.5, .03, .38), 0xecebe2, [0, .02, 0])],
   tire:()=>[part(G.tor(.34, .14, 5, 10), 0x1c1c1f, [0, .14, 0], [Math.PI / 2, 0, 0]), part(G.cyl(.2, .2, .1, 8), 0x55585e, [0, .14, 0])],
@@ -116,13 +115,29 @@ const DECO_DEFS = {
   barrel:()=>[part(G.cyl(.22, .22, .6, 8), 0xb88a2a, [0, .3, 0]), part(G.cyl(.23, .23, .04, 8), 0x7a5a10, [0, .2, 0]), part(G.cyl(.23, .23, .04, 8), 0x7a5a10, [0, .42, 0])],
   duck:()=>[part(G.sph(.2), 0xf2d23a, [0, .15, 0], [0, 0, 0], [1.2, .8, 1]), part(G.sph(.12), 0xf2d23a, [.18, .3, 0]), part(G.cone(.05, .12, 5), 0xf08a20, [.32, .3, 0], [0, 0, -Math.PI / 2])],
   mattress:()=>[part(G.box(1.5, .22, .95), 0xffffff, [0, .11, 0]), part(G.box(1.46, .04, .91), 0xffffff, [0, .23, 0])],
-  pillow:()=>[part(G.box(.6, .16, .4), 0xefe6c8, [0, .08, 0])],
-  fridge:()=>[part(G.box(.75, 1.4, .7), 0xeef0f2, [0, .7, 0]), part(G.box(.04, .4, .04), 0x888888, [.3, .9, .36]), part(G.box(.76, .02, .71), 0xb0b4b8, [0, 1.0, 0])],
   cart:()=>[part(G.box(.8, .5, .55), 0xb7bcc2, [0, .45, 0]), part(G.box(.1, .5, .55), 0xc03030, [-.45, .45, 0]), part(G.cyl(.06, .06, .06, 6), 0x222222, [.3, .05, .22], [Math.PI / 2, 0, 0]), part(G.cyl(.06, .06, .06, 6), 0x222222, [-.3, .05, .22], [Math.PI / 2, 0, 0])],
   plank:()=>[part(G.box(1.4, .08, .22), 0x8a6a40, [0, .04, 0])],
   cd:()=>[part(G.cyl(.18, .18, .01, 14), 0xd8e4f0, [0, .01, 0])],
   pizza:()=>[part(G.box(.5, .06, .5), 0xd0a060, [0, .03, 0]), part(G.box(.4, .02, .03), 0xb07030, [0, .07, .1])],
   hdd:()=>[part(G.box(.3, .05, .42), 0x8d939b, [0, .03, 0]), part(G.cyl(.1, .1, .06, 10), 0xc3c8ce, [0, .04, -.04])],
+  // --- objets gratuits KayKit (CC0), voir props.js ---
+  bag:()=>[propPart('trashA', {len:.85, mix:[0xffffff, .82]}), part(G.cone(.07, .16, 5), 0xffffff, [0, .32, 0])],
+  box:()=>[propPart('boxA', {len:.6})],
+  boxB:()=>[propPart('boxB', {len:.55, r:[0, .4, 0]})],
+  fridge:()=>[propPart('fridgeK', {h:1.4})],
+  pillow:()=>[propPart('pillowK', {len:.6})],
+  crate:()=>[propPart('crate', {len:.7})],
+  books:()=>[propPart('books', {len:.55, r:[0, 0, .15]})],
+  jar:()=>[propPart('jar', {h:.42})],
+  ketchup:()=>[propPart('ketchup', {h:.42, r:[0, 0, 1.45], p:[0, .1, 0]})],
+  frame:()=>[propPart('frame', {h:.6, r:[-1.2, 0, 0], p:[0, .05, .2]})],
+  chair:()=>[propPart('chair', {h:.95, r:[0, 0, 1.35], p:[.45, 0, 0]})],
+  pot:()=>[propPart('pot', {len:.5})],
+  pan:()=>[propPart('pan', {len:.6})],
+  lampT:()=>[propPart('lampTable', {h:.5, r:[0, 0, 1.3], p:[.25, .1, 0]})],
+  micro:()=>[propPart('oven', {len:.6})],
+  bone:()=>[propPart('bone', {len:.45})],
+  tableS:()=>[propPart('tableS', {h:.6, r:[0, 0, Math.PI], p:[0, .6, 0]})],
 };
 /** Variantes de couleur (même géométrie, teinte différente) */
 const DECO_VARIANT = {bag:['bag', 0x2a2a30], bagG:['bag', 0x2f6a35], bagB:['bag', 0x2c5aa0], bagW:['bag', 0xd9d9d2], bagY:['bag', 0xd6b23a],
@@ -300,10 +315,14 @@ export function craneModel(){
   g.userData = {jib}; return g;
 }
 export function hookModel(){ return mesh(merged([part(G.box(.6, .3, .6), 0xf0b81c, [0, .15, 0]), part(G.tor(.18, .05, 4, 8, Math.PI * 1.4), 0x444444, [0, -.15, 0])])); }
+let lampArm = null, lampTip = .8;
 export function lampModel(){
   const g = new THREE.Group();
-  g.add(mesh(merged([part(G.cyl(.08, .1, 5, 6), 0x3a3d44, [0, 2.5, 0]), part(G.box(.9, .08, .1), 0x3a3d44, [.4, 4.95, 0])])));
-  const bulb = new THREE.Mesh(new THREE.BoxGeometry(.4, .12, .3), new THREE.MeshBasicMaterial({color:0x554a30})); bulb.position.set(.8, 4.88, 0); g.add(bulb);
+  // lampadaire KayKit (CC0) ; on tourne le bras du côté de l'ampoule
+  const geo = propPart('streetlight', {h:5.1});
+  if(lampArm === null){ const p = geo.attributes.position; let sx = 0, n = 0, lo = 0, hi = 0; for(let i = 0; i < p.count; i++){ lo = Math.min(lo, p.getX(i)); hi = Math.max(hi, p.getX(i)); if(p.getY(i) > 4.6){ sx += p.getX(i); n++; } } lampArm = sx / Math.max(1, n) < 0 ? Math.PI : 0; lampTip = Math.max(-lo, hi) - .2; }
+  const m = mesh(geo); m.rotation.y = lampArm; g.add(m);
+  const bulb = new THREE.Mesh(new THREE.BoxGeometry(.4, .12, .3), new THREE.MeshBasicMaterial({color:0x554a30})); bulb.position.set(lampTip, 4.62, 0); g.add(bulb);
   g.userData = {bulb}; return g;
 }
 export function shippingContainer(color){
@@ -311,12 +330,21 @@ export function shippingContainer(color){
   for(let i = 0; i < 12; i++) parts.push(part(G.box(2.44, 2.3, .08), new THREE.Color(color).multiplyScalar(.8).getHex(), [0, 1.3, -2.8 + i * .5]));
   return mesh(merged(parts));
 }
-export function carWreck(color){
+const CARS = ['carHatch', 'carSedan', 'carTaxi', 'carWagon'];
+export function carWreck(color, i = 0){
+  // voiture gratuite KayKit, rouillée et affaissée
+  return mesh(merged([propPart(CARS[i % CARS.length], {len:4.0, mix:[0x6a4028, .32 + (i % 3) * .08], tint:0xd8d0c8, r:[0, 0, (i % 2 ? 1 : -1) * .05]})]));
+}
+export function carWreckOld(color){
   return mesh(merged([part(G.box(1.8, .6, 3.6), color, [0, .5, 0]), part(G.box(1.6, .5, 1.7), color, [0, 1.05, -.1], [0, 0, .05]), part(G.box(1.5, .4, 1.6), 0x334050, [0, 1.05, -.08]),
     part(G.cyl(.32, .32, .25, 9), 0x1c1c1f, [-.9, .32, 1.2], [0, 0, Math.PI / 2]), part(G.cyl(.32, .32, .25, 9), 0x1c1c1f, [.9, .32, -1.2], [0, 0, Math.PI / 2])]));
 }
 export function tireStack(){ const p = []; for(let i = 0; i < 4; i++) p.push(part(G.tor(.42, .17, 6, 12), 0x1c1c1f, [(i % 2) * .06, .17 + i * .3, 0], [Math.PI / 2, 0, i])); return mesh(merged(p)); }
-export function treeModel(s){
+export function treeModel(s, v = 1){
+  // variété : sapins d'automne et arbres morts (KayKit, CC0), sinon notre sapin vert
+  if(v < .22) return mesh(merged([propPart('pineO', {h:5.2 * s, r:[0, v * 30, 0]})]));
+  if(v < .4) return mesh(merged([propPart('pineY', {h:4.6 * s, r:[0, v * 30, 0]})]));
+  if(v < .5) return mesh(merged([propPart(v < .45 ? 'treeDeadL' : 'treeDeadM', {h:4.2 * s, r:[0, v * 30, 0]})]));
   return mesh(merged([part(G.cyl(.15 * s, .22 * s, 1.4 * s, 6), 0x6b4a2a, [0, .7 * s, 0]), part(G.cone(1.3 * s, 2.2 * s, 7), 0x3a6b2c, [0, 2.2 * s, 0]), part(G.cone(1.0 * s, 1.8 * s, 7), 0x4b7f35, [0, 3.1 * s, 0]), part(G.cone(.7 * s, 1.4 * s, 7), 0x5a9040, [0, 3.9 * s, 0])]));
 }
 export function barrelFire(){ return mesh(merged([part(G.cyl(.4, .4, 1.0, 9), 0x6a5040, [0, .5, 0]), part(G.cyl(.42, .42, .06, 9), 0x3a2a20, [0, .7, 0]), part(G.cyl(.36, .36, .05, 9), 0x111111, [0, 1.0, 0])])); }
@@ -324,4 +352,4 @@ export function gullModel(){ const g = new THREE.Group(); const body = mesh(merg
   const wl = new THREE.Group(), wr = new THREE.Group(); wl.add(mesh(merged([part(G.box(.6, .02, .2), 0xe8e8e4, [.3, 0, 0]), part(G.box(.2, .025, .2), 0x333333, [.55, 0, 0])])));
   wr.add(mesh(merged([part(G.box(.6, .02, .2), 0xe8e8e4, [-.3, 0, 0]), part(G.box(.2, .025, .2), 0x333333, [-.55, 0, 0])]))); g.add(body, wl, wr); g.userData = {wl, wr}; g.traverse(o => { o.castShadow = false; }); return g; }
 export function fencePost(){ return part(G.box(.12, 2.0, .12), 0x5d4630, [0, 1.0, 0]); }
-export {part, G};
+export {part, G, propPart};

@@ -17,7 +17,7 @@ export const R = {renderer:null, scene:null, camera:null, quality:'med', q:null,
 const QUAL = {
   low:{pr:1, shadows:false, map:0, deco:2, decoR:24, decoShadow:false, aa:false, parts:120, fogNear:30, fogFar:95, lights:false},
   med:{pr:1.5, shadows:true, map:1024, deco:4, decoR:32, decoShadow:false, aa:true, parts:250, fogNear:40, fogFar:130, lights:false},
-  high:{pr:2, shadows:true, map:2048, deco:6, decoR:46, decoShadow:true, aa:true, parts:400, fogNear:50, fogFar:160, lights:true},
+  high:{pr:2, shadows:true, map:2048, deco:6, decoR:42, decoShadow:true, aa:true, parts:400, fogNear:50, fogFar:160, lights:true},
 };
 export function autoQuality(){
   const mobile = matchMedia('(pointer:coarse)').matches || Math.min(innerWidth, innerHeight) < 600;
@@ -222,12 +222,22 @@ function buildDecor(){
   // autour de la décharge : conteneurs, épaves, pneus, arbres, collines
   const r = rng(99), cols = [0xc0392b, 0x2f6fb8, 0x2f8a40, 0xd88a20, 0x7a4a8a];
   for(let i = 0; i < 14; i++){ const sc = M.shippingContainer(cols[i % 5]); const side = i % 2 ? 1 : -1; sc.position.set(side * (X1 + 5 + r() * 6), (i % 3 === 2 ? 2.6 : 0), Z0 + 6 + i * (Z1 - Z0 - 10) / 14); sc.rotation.y = r() * .4; worldGroup.add(sc); }
-  for(let i = 0; i < 12; i++){ const w = M.carWreck(cols[(i + 2) % 5]); const side = i % 2 ? 1 : -1; w.position.set(side * (X1 + 3 + r() * 3), 0, Z0 + 10 + r() * (Z1 - Z0)); w.rotation.y = r() * 6; worldGroup.add(w); }
+  for(let i = 0; i < 12; i++){ const w = M.carWreck(cols[(i + 2) % 5], i); const side = i % 2 ? 1 : -1; w.position.set(side * (X1 + 3 + r() * 3), 0, Z0 + 10 + r() * (Z1 - Z0)); w.rotation.y = r() * 6; worldGroup.add(w); }
   for(let i = 0; i < 10; i++){ const t = M.tireStack(); const side = i % 2 ? 1 : -1; t.position.set(side * (X1 + 2 + r() * 1.5), 0, Z0 + r() * (Z1 - Z0)); worldGroup.add(t); }
   const treeParts = [];
-  for(let i = 0; i < 90; i++){ const side = r() < .5 ? -1 : 1, x = side * (X1 + 14 + r() * 22), z = Z0 - 20 + r() * (Z1 - Z0 + 50), s = .8 + r() * .9; const t = M.treeModel(s); t.position.set(x, 0, z); t.updateMatrix(); const g = t.geometry.clone(); g.applyMatrix4(t.matrix); treeParts.push(g); }
-  for(let i = 0; i < 26; i++){ const x = X0 - 10 + r() * (X1 - X0 + 20), z = Z1 + 8 + r() * 25, s = .8 + r() * .8; if(Math.abs(x - cx(GATE)) < 4) continue; const t = M.treeModel(s); t.position.set(x, 0, z); t.updateMatrix(); const g = t.geometry.clone(); g.applyMatrix4(t.matrix); treeParts.push(g); }
-  for(let i = 0; i < 16; i++){ const x = X0 - 10 + r() * (X1 - X0 + 20), z = Z0 - 12 - r() * 20, s = .9 + r() * .8; const t = M.treeModel(s); t.position.set(x, 0, z); t.updateMatrix(); const g = t.geometry.clone(); g.applyMatrix4(t.matrix); treeParts.push(g); }
+  for(let i = 0; i < 90; i++){ const side = r() < .5 ? -1 : 1, x = side * (X1 + 14 + r() * 22), z = Z0 - 20 + r() * (Z1 - Z0 + 50), s = .8 + r() * .9; const t = M.treeModel(s, r()); t.position.set(x, 0, z); t.updateMatrix(); const g = t.geometry.clone(); g.applyMatrix4(t.matrix); treeParts.push(g); }
+  for(let i = 0; i < 26; i++){ const x = X0 - 10 + r() * (X1 - X0 + 20), z = Z1 + 8 + r() * 25, s = .8 + r() * .8; if(Math.abs(x - cx(GATE)) < 4) continue; const t = M.treeModel(s, r()); t.position.set(x, 0, z); t.updateMatrix(); const g = t.geometry.clone(); g.applyMatrix4(t.matrix); treeParts.push(g); }
+  for(let i = 0; i < 16; i++){ const x = X0 - 10 + r() * (X1 - X0 + 20), z = Z0 - 12 - r() * 20, s = .9 + r() * .8; const t = M.treeModel(s, r()); t.position.set(x, 0, z); t.updateMatrix(); const g = t.geometry.clone(); g.applyMatrix4(t.matrix); treeParts.push(g); }
+  // la ville au bout de la route + petits détails autour de la cabane (objets gratuits KayKit, CC0)
+  const city = [], blds = ['bldA', 'bldC', 'bldE', 'bldG'];
+  for(let i = 0; i < 22; i++){ const side = i % 2 ? 1 : -1, x = cx(GATE) + side * (7 + r() * 34), z = Z1 + 42 + Math.floor(i / 2) * 3.2 + r() * 8;
+    city.push(M.propPart(blds[i % 4], {len:9 + r() * 3, p:[x, 0, z], r:[0, Math.round(r() * 3) * Math.PI / 2, 0]})); }
+  for(let i = 0; i < 16; i++){ const side = i % 2 ? 1 : -1; city.push(M.propPart('bush', {h:1.1 + r() * .6, p:[side * (X1 + 1.2 + r() * .8), 0, Z0 + r() * (Z1 - Z0)]})); }
+  const hx = cx(C.HUT.c + 1), hz = cz(C.HUT.r) + .6;
+  city.push(M.propPart('dumpster', {len:2.6, p:[hx - 4.6, 0, hz + 1.2], r:[0, .2, 0]}), M.propPart('dumpster', {len:2.6, p:[hx - 4.4, 0, hz - 1.6], r:[0, -.1, 0]}),
+    M.propPart('benchH', {len:2.2, p:[hx + 4.2, 0, hz + 3.4], r:[0, Math.PI / 2, 0]}), M.propPart('hydrant', {h:.9, p:[cx(GATE) + 3.2, 0, cz(NQ * QROWS + 2)]}),
+    M.propPart('crate', {len:1, p:[hx + 3.6, 0, hz - 1.4]}), M.propPart('crate', {len:1, p:[hx + 3.7, .4, hz - 1.4], r:[0, .4, 0]}), M.propPart('boxA', {len:.8, p:[hx + 2.6, 0, hz - 1.9]}));
+  const cm = new THREE.Mesh(M.merged(city), M.VCOL); cm.castShadow = R.q.shadows; cm.receiveShadow = true; worldGroup.add(cm);
   const trees = new THREE.Mesh(M.merged(treeParts), M.VCOL); trees.castShadow = R.q.shadows; worldGroup.add(trees);
   // collines lointaines
   const hills = []; for(let i = 0; i < 26; i++){ const a = i / 26 * Math.PI * 2, d = 150 + r() * 40, h = 14 + r() * 26;

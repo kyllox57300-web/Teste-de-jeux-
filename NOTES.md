@@ -62,6 +62,11 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
     personnages animés KayKit (Kévin = capuche bleue, Josiane, Gégé, stagiaire, ferrailleuse ; 12 animations gardées),
     camion et moto de Kenney. Les anciens personnages dessinés en code restent en secours. Jeu ≈ 3,3 Mo.
     Banc d'essai des poses : `npx esbuild tools/bench-entry.js --bundle --loader:.glb=binary`.
+  - 19/11 (fin) : décor et déchets avec des objets gratuits KayKit (ville, meubles, restaurant, Halloween ; CC0) :
+    cartons, caisses, sacs, frigo, chaises, livres, pots… dans les tas, épaves de voitures, lampadaires, sapins d'automne,
+    arbres morts, buissons, bennes, ville au bout de la route. Conversion : `node tools/props.mjs` (liste dans
+    `tools/props-list.json`, packs clonés dans /home/user/kaykit-game-assets) → `assets/props.bin`, chargé par `src/props.js`.
+    Plus de triangles qu'avant (+5 à +20 % selon la vue) : surveiller la fluidité sur téléphone.
   - À tester sur un vrai téléphone (fluidité, taille des boutons, facilité à toucher les objets au sol).
   - Idées : plus d'animations de Josiane, sons plus riches.
 - `errant/` : aventure dans le désert (le plus gros, ~310 Ko).

@@ -1,0 +1,206 @@
+{
+"trashA": [
+"city",
+"trash_A"
+],
+"trashB": [
+"city",
+"trash_B"
+],
+"boxA": [
+"city",
+"box_A"
+],
+"boxB": [
+"city",
+"box_B"
+],
+"dumpster": [
+"city",
+"dumpster"
+],
+"hydrant": [
+"city",
+"firehydrant"
+],
+"bush": [
+"city",
+"bush"
+],
+"streetlight": [
+"city",
+"streetlight"
+],
+"carHatch": [
+"city",
+"car_hatchback",
+0.03
+],
+"carSedan": [
+"city",
+"car_sedan",
+0.03
+],
+"carTaxi": [
+"city",
+"car_taxi",
+0.03
+],
+"carWagon": [
+"city",
+"car_stationwagon",
+0.03
+],
+"watertower": [
+"city",
+"watertower"
+],
+"bldA": [
+"city",
+"building_A",
+0.02
+],
+"bldC": [
+"city",
+"building_C",
+0.02
+],
+"bldE": [
+"city",
+"building_E",
+0.02
+],
+"bldG": [
+"city",
+"building_G",
+0.02
+],
+"fridgeK": [
+"resto",
+"fridge_A",
+0.04
+],
+"crate": [
+"resto",
+"crate",
+0.06
+],
+"pot": [
+"resto",
+"pot_A"
+],
+"pan": [
+"resto",
+"pan_A",
+0.06
+],
+"jar": [
+"resto",
+"jar_A_large",
+0.08
+],
+"ketchup": [
+"resto",
+"ketchup",
+0.08
+],
+"oven": [
+"resto",
+"oven"
+],
+"plate": [
+"resto",
+"plate_dirty"
+],
+"chair": [
+"furn",
+"chair_A",
+0.05
+],
+"chairB": [
+"furn",
+"chair_B"
+],
+"armchair": [
+"furn",
+"armchair"
+],
+"couch": [
+"furn",
+"couch"
+],
+"lampStand": [
+"furn",
+"lamp_standing"
+],
+"lampTable": [
+"furn",
+"lamp_table"
+],
+"cabinet": [
+"furn",
+"cabinet_medium"
+],
+"pillowK": [
+"furn",
+"pillow_A",
+0.08
+],
+"books": [
+"furn",
+"book_set",
+0.05
+],
+"frame": [
+"furn",
+"pictureframe_medium"
+],
+"shelf": [
+"furn",
+"shelf_A_small"
+],
+"tableS": [
+"furn",
+"table_small",
+0.05
+],
+"treeDeadL": [
+"hall",
+"tree_dead_large"
+],
+"treeDeadM": [
+"hall",
+"tree_dead_medium"
+],
+"pineO": [
+"hall",
+"tree_pine_orange_large",
+0.05
+],
+"pineY": [
+"hall",
+"tree_pine_yellow_medium",
+0.05
+],
+"fenceBroken": [
+"hall",
+"fence_broken"
+],
+"bone": [
+"hall",
+"bone_A",
+0.08
+],
+"skull": [
+"hall",
+"skull"
+],
+"pumpkin": [
+"hall",
+"pumpkin_orange"
+],
+"benchH": [
+"hall",
+"bench"
+]
+}

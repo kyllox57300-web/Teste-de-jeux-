@@ -5,3 +5,6 @@ kaykit-*.glb : personnages « KayKit Adventurers Character Pack 1.0 » de Kay Lo
 licence CC0 1.0. Récupérés depuis github.com/KayKit-Game-Assets ; armes retirées, animations réduites.
 kenney-truck.glb, kenney-moto.glb : modèles de Kenney (www.kenney.nl), licence CC0 1.0,
 récupérés depuis le « Starter Kit Racing » (github.com/KenneyNL).
+props.bin : objets des packs KayKit « City Builder Bits », « Furniture Bits », « Restaurant Bits »
+et « Halloween Bits » de Kay Lousberg, licence CC0 1.0 (github.com/KayKit-Game-Assets),
+convertis en couleurs de sommets par tools/props.mjs.

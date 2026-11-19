@@ -11,19 +11,19 @@ export const GATE = 6;                 // colonne des portails entre quartiers
 /** Quartiers : couches des tas, solidité d'une couche, valeur de base, prix du portail, couleurs */
 export const QUARTERS = [
   {n:'Le Parking des Bennes',     e:'🗑️', L:[1,2], hp:14,     v:1.5,   cost:0,
-   col:{mound:0x8a7458, ground:0x9b8462}, deco:['bag','bag','can','box','bottle','paper','tire','bagG']},
+   col:{mound:0x8a7458, ground:0x9b8462}, deco:['bag','bag','can','box','bottle','paper','tire','bagG','boxB','ketchup','jar','crate']},
   {n:'La Colline des Sacs',       e:'🛍️', L:[2,3], hp:84,    v:9,     cost:150,
-   col:{mound:0x6f7d55, ground:0x8a7a58}, deco:['bag','bagG','bagB','bagW','bag','bagY','paper','bottle']},
+   col:{mound:0x6f7d55, ground:0x8a7a58}, deco:['bag','bagG','bagB','bagW','bag','bagY','paper','bottle','books','frame','boxB']},
   {n:'Le Cimetière Électronique', e:'🖥️', L:[2,4], hp:504,    v:54,    cost:3000,
-   col:{mound:0x666c7a, ground:0x77736c}, deco:['monitor','keyboard','pcb','monitor','can','box','tv','cable']},
+   col:{mound:0x666c7a, ground:0x77736c}, deco:['monitor','keyboard','pcb','monitor','can','box','tv','cable','boxB','crate']},
   {n:'Le Lac de Lixiviat',        e:'🧪', L:[3,4], hp:3000,   v:330,   cost:40000,
-   col:{mound:0x5a7a5c, ground:0x667458}, deco:['barrel','duck','tire','bottle','bag','barrelB','barrel']},
+   col:{mound:0x5a7a5c, ground:0x667458}, deco:['barrel','duck','tire','bottle','bag','barrelB','barrel','crate','pan']},
   {n:'La Montagne de Matelas',    e:'🛏️', L:[3,5], hp:18000,  v:2000,  cost:500000,
-   col:{mound:0xa3868b, ground:0x8a7466}, deco:['mattress','pillow','mattressP','box','bagW','mattress']},
+   col:{mound:0xa3868b, ground:0x8a7466}, deco:['mattress','pillow','mattressP','box','bagW','mattress','chair','frame','pillow']},
   {n:'Le Mont Ordure',            e:'🏔️', L:[4,6], hp:110000,  v:12000, cost:6e6,
-   col:{mound:0x84745a, ground:0x806c50}, deco:['tire','fridge','cart','box','barrel','tire','plank']},
+   col:{mound:0x84745a, ground:0x806c50}, deco:['tire','fridge','cart','box','barrel','tire','plank','tableS','crate','boxB']},
   {n:'La Fosse Originelle',       e:'🕳️', L:[5,6], hp:650000, v:72000, cost:7e7,
-   col:{mound:0x5f4e6b, ground:0x564a58}, deco:['cd','pizza','monitor','tire','bag','cd','hdd']},
+   col:{mound:0x5f4e6b, ground:0x564a58}, deco:['cd','pizza','monitor','tire','bag','cd','hdd','bone','ketchup','books']},
 ];
 
 /** Raretés */
