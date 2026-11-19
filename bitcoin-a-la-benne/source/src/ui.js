@@ -161,7 +161,7 @@ export function hud(){
     $('#detBars').innerHTML = [0,1,2,3,4].map(i => '<i style="height:' + (5 + i * 4) + 'px;background:' + (i < lv ? (lv >= 4 ? '#ff5d6c' : lv >= 2 ? '#ffd84f' : '#7bd88f') : '#0006') + '"></i>').join('');
     $('#detTxt').textContent = !C.DET.target ? 'Rien à proximité' : (C.DET.target.story ? '💽 ' : '💰 ') + ['Rien…', 'Très faible', 'Faible', 'Moyen', 'Fort', 'TRÈS FORT !'][lv]; }
   $('#buffs').innerHTML = (S.combo >= 2 ? '<span class="buff">🔥 Combo x' + S.combo + '</span>' : '') + (C.isNight() ? '<span class="buff">🌙 Nuit : chance +30 %</span>' : '') +
-    S.buffs.map(b => '<span class="buff ' + (b.neg ? 'neg' : '') + '">' + esc(b.label) + ' ' + Math.ceil(b.until - S.st.time) + ' s</span>').join('');
+    S.buffs.filter(b => b.label).map(b => '<span class="buff ' + (b.neg ? 'neg' : '') + '">' + esc(b.label) + ' ' + Math.ceil(b.until - S.st.time) + ' s</span>').join('');
   const top = 54 + $('#goal').offsetHeight + 6;
   for(const id of ['#det', '#buffs', '#toasts']) $(id).style.top = 'calc(' + top + 'px + env(safe-area-inset-top))';
   if(UI.sheet) refreshSheet();

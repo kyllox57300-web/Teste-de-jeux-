@@ -64,7 +64,7 @@ export function newState(meta){
     bag:[], tool:'shovel', xp:0, lvl:1, sp:0, skills:{},
     chapter:0, ended:false, endTime:0, chapterTimes:[],
     story:{c:0, r:0, found:false}, disk:{c:0, r:0, found:false}, side:0,
-    quest:0, flags:{}, buffs:[], nextEvent:160, cds:{}, combo:0, comboT:0, sales:0,
+    quest:0, flags:{}, buffs:[], weather:{type:'sun', until:0, next:240}, nextEvent:160, cds:{}, combo:0, comboT:0, sales:0,
     order:null, orderT:90, dayT:0.3,
     st:{time:0, finds:0, heaps:0, layers:0, taps:0, earned:0, sold:0, rares:0, epics:0, legs:0, events:0, buys:0, sells:0, bestTrade:0, worstTrade:0,
         trips:0, bigs:0, opened:0, safes:0, repaired:0, treasures:0, thrown:0, quakes:0, magnets:0},
@@ -693,6 +693,7 @@ export function update(dt){
   if(!S.order){ S.orderT -= dt; if(S.orderT <= 0) newOrder(); }
   else if(S.st.time > S.order.until){ toast('⌛ La commande de Josiane a expiré.'); S.order = null; S.orderT = 60; }
   // --- Événements ---
+  updateWeather(dt);
   if(S.st.time >= S.nextEvent){ S.nextEvent = S.st.time + rnd(110, 180); if(S.st.time > 150) emit('event', {ev:pick(EVENTS.filter(e => !e.cond || e.cond()))}); }
   // --- Détecteur ---
   if(S.up.det && (S.tool === 'det' || detTargets().some(t => t.story))){
@@ -817,6 +818,30 @@ function dumpTrash(n){
 }
 function markHeap(){ const {list} = reachableHeaps(W.kevin); const ok = list.filter(h => !(h.c === S.disk.c && h.r === S.disk.r)); if(!ok.length) return null;
   ok.sort((a, b) => a.d - b.d); const h = ok[Math.floor(R() * Math.min(6, ok.length))]; W.tiles[h.r][h.c].mark = true; emit('mark', {c:h.c, r:h.r}); return h; }
+/* =========================================================
+   MÉTÉO : pluie, brouillard, coups de vent (chacun change un peu le jeu)
+   ========================================================= */
+export const WEATHERS = {
+  rain:{e:'🌧️', n:'Pluie', start:'🌧️ Il pleut ! La pluie fait briller les objets : chance +30 %, mais l\'équipe ralentit.',
+    apply:d => { addBuff('luck', 1.3, d, '🌧️ Pluie : chance +30 %, équipe −15 %'); addBuff('emp', 0.85, d, ''); }},
+  fog:{e:'🌫️', n:'Brouillard', start:'🌫️ Brouillard ! Josiane voit mal les défauts : prix de vente +15 %.',
+    apply:d => { addBuff('money', 1.15, d, '🌫️ Brouillard : prix +15 %'); }},
+  wind:{e:'💨', n:'Coups de vent', start:'💨 Coups de vent ! Des objets s\'envolent des tas et atterrissent près de Kévin.',
+    apply:d => {}},
+};
+let windT = 0;
+function updateWeather(dt){
+  const w = S.weather || (S.weather = {type:'sun', until:0, next:240});
+  if(w.type !== 'sun' && S.st.time >= w.until){ toast(WEATHERS[w.type].e + ' Fin : ' + WEATHERS[w.type].n.toLowerCase() + '. Le soleil revient.'); w.type = 'sun'; w.next = S.st.time + rnd(100, 220); emit('weather', {w:'sun'}); }
+  else if(w.type === 'sun' && S.st.time >= w.next){
+    const type = pick(['rain', 'rain', 'fog', 'wind', 'wind']), d = Math.round(rnd(70, 120));
+    w.type = type; w.until = S.st.time + d; WEATHERS[type].apply(d); toast(WEATHERS[type].start, 'gold'); emit('weather', {w:type}); sfx('event');
+  }
+  // vent : de temps en temps un objet s'envole d'un tas voisin et retombe près de Kévin
+  if(w.type === 'wind'){ windT -= dt; if(windT <= 0){ windT = rnd(4, 8); const k = W.kevin;
+    let best = null, bd = 9; for(let r = Math.max(0, k.r - 3); r <= Math.min(NQ * QROWS - 1, k.r + 3); r++) for(let c = 0; c < COLS; c++){ const t = W.tiles[r][c]; if(!t.L || !S.unlocked[t.q]) continue; const d = Math.hypot(cx(c) - k.x, cz(r) - k.z); if(d < bd){ bd = d; best = [c, r, t.q]; } }
+    if(best) spawnLoot(rollItem(best[2]), cx(best[0]), 1.2, cz(best[1]), 2.2, k); } }
+}
 export const EVENTS = [
   {e:'🌪️', t:'Tempête de sacs plastiques !', d:'Le ciel devient noir. Des milliers de sacs volent vers vous.',
    ch:[['🏠 Tout le monde à l\'abri', ()=>{ addBuff('emp', 0, 30, '🏠 Équipe à l\'abri'); return 'Vous jouez aux cartes avec Josiane. L\'équipe s\'arrête 30 s, mais personne n\'est blessé.'; }],

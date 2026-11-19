@@ -615,6 +615,48 @@ function updateDayNight(){
 }
 
 /* =========================================================
+   MÉTÉO : gouttes de pluie, ciel gris, brouillard, papiers qui volent
+   ========================================================= */
+R.wx = {rain:0, fog:0, wind:0};
+const GRAY = new THREE.Color(0x7d858f), FOGW = new THREE.Color(0xc8ccd0);
+function buildWeather(){
+  const N = R.quality === 'low' ? 500 : 1400, pos = new Float32Array(N * 6);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  R.rain = new THREE.LineSegments(g, new THREE.LineBasicMaterial({color:0xdde8f4, transparent:true, opacity:0, depthWrite:false}));
+  R.rain.frustumCulled = false; R.rain.visible = false; R.scene.add(R.rain);
+  R.rainD = []; for(let i = 0; i < N; i++) R.rainD.push([Math.random() * 26 - 13, Math.random() * 16, Math.random() * 26 - 13, 14 + Math.random() * 6]);
+  const pg = new THREE.PlaneGeometry(.5, .36); pg.translate(0, 0, 0);
+  R.papers = new THREE.InstancedMesh(pg, new THREE.MeshLambertMaterial({color:0xf0eee4, side:THREE.DoubleSide}), 36);
+  R.papers.frustumCulled = false; R.papers.visible = false; R.scene.add(R.papers);
+  R.paperD = []; for(let i = 0; i < 36; i++) R.paperD.push({a:Math.random() * 6.28, r:1.5 + Math.random() * 9, h:.3 + Math.random() * 4, s:.6 + Math.random(), ph:Math.random() * 6});
+}
+const wm = new THREE.Matrix4(), wq = new THREE.Quaternion(), we = new THREE.Euler(), wp = new THREE.Vector3(), ws = new THREE.Vector3(1, 1, 1);
+function updateWeather(dt, time){
+  if(!R.rain) buildWeather();
+  const type = (C.S.weather && C.S.weather.type) || 'sun', k = W.kevin;
+  for(const key of ['rain', 'fog', 'wind']){ const target = type === key ? 1 : 0; R.wx[key] += (target - R.wx[key]) * Math.min(1, dt * .35); if(R.wx[key] < .002) R.wx[key] = 0; }
+  const {rain, fog, wind} = R.wx;
+  // ciel et lumière : plus gris, plus sombre
+  const gray = Math.min(1, rain * .65 + fog * .55);
+  if(gray > 0){ R.skyMat.uniforms.top.value.lerp(GRAY, gray); R.skyMat.uniforms.hor.value.lerp(fog > rain ? FOGW : GRAY, gray); R.skyMat.uniforms.bot.value.lerp(GRAY, gray);
+    R.scene.fog.color.lerp(fog > rain ? FOGW : GRAY, gray); R.sun.intensity *= 1 - rain * .55 - fog * .35; R.hemi.intensity *= 1 - rain * .15; }
+  R.scene.fog.near = R.q.fogNear + (6 - R.q.fogNear) * fog + (18 - R.q.fogNear) * rain * (1 - fog);
+  R.scene.fog.far = R.q.fogFar + (48 - R.q.fogFar) * fog + (95 - R.q.fogFar) * rain * (1 - fog);
+  // pluie : traits qui tombent autour de la caméra
+  R.rain.visible = rain > .01;
+  if(R.rain.visible){ const p = R.rain.geometry.attributes.position, cx0 = R.camera.position.x, cz0 = R.camera.position.z, slant = .12 + wind * .4;
+    R.rain.material.opacity = .75 * rain;
+    R.rainD.forEach((d, i) => { d[1] -= d[3] * dt; if(d[1] < 0){ d[1] += 16; d[0] = Math.random() * 26 - 13; d[2] = Math.random() * 26 - 13; }
+      const x = cx0 + d[0], z = cz0 + d[2]; p.setXYZ(i * 2, x, d[1], z); p.setXYZ(i * 2 + 1, x + slant * .7, d[1] + .9, z + slant * .3); });
+    p.needsUpdate = true; }
+  // vent : papiers qui tourbillonnent autour de Kévin
+  R.papers.visible = wind > .01 && !!k;
+  if(R.papers.visible){ R.paperD.forEach((d, i) => { d.a += dt * d.s * (.6 + wind); const x = k.x + Math.cos(d.a) * d.r + Math.sin(time * 3 + d.ph) * .5, z = k.z + Math.sin(d.a) * d.r * .7 - 2;
+      wp.set(x, d.h + Math.sin(time * 2 + d.ph) * .6, z); we.set(time * 4 * d.s + d.ph, time * 3 + d.ph, time * 5 * d.s); wq.setFromEuler(we); ws.setScalar(wind); wm.compose(wp, wq, ws); R.papers.setMatrixAt(i, wm); });
+    R.papers.instanceMatrix.needsUpdate = true; }
+}
+
+/* =========================================================
    IMAGE PAR IMAGE
    ========================================================= */
 const v3 = new THREE.Vector3();
@@ -622,7 +664,7 @@ export function frame(dt, time){
   if(!R.ready || !W.kevin) return;
   const S = C.S, k = W.kevin;
   animateHeaps(dt); cullDecos(false); updateFx(dt);
-  const night = updateDayNight();
+  const night = updateDayNight(); updateWeather(dt, time);
   // --- Kévin (et ses véhicules / outils) ---
   const kv = R.kevin, ud = kv.userData, moving = k.path.length > 0 || k.freeMove > 0, digging = !!k.target && !moving, inDigger = S.tool === 'digger';
   kv.position.set(k.x, 0, k.z); kv.rotation.y = k.ang;

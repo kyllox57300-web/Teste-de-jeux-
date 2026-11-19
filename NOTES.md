@@ -72,6 +72,8 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
     l'objet directement. Test : scratchpad push.js (pousse + coupure + chemin bloqué).
   - 19/11 : 5 nouveaux gros objets (micro-ondes, lampadaire, fauteuil, commode, canapé ; modèles KayKit) → 11 dans la
     série « Gros objets ». Josiane applaudit à chaque vente, Kévin fouille les contenants avec les mains et lance (ultime Hercule).
+  - 19/11 : météo (core.js `WEATHERS`, render.js `updateWeather`, audio `ambience`) : pluie (chance +30 %, équipe −15 %),
+    brouillard (prix +15 %), coups de vent (objets qui s'envolent vers Kévin). Toutes les 2 à 4 min, dure 70 à 120 s.
   - À tester sur un vrai téléphone (fluidité, taille des boutons, facilité à toucher les objets au sol).
   - Idées : sons plus riches, boutique de karma (refusée pour l'instant par l'utilisateur), objets à ramasser en modèles 3D.
 - `errant/` : aventure dans le désert (le plus gros, ~310 Ko).

@@ -192,6 +192,7 @@ function frame(now){
     C.S.dayT = 0.3 + Math.sin(now / 20000) * 0.05; R.cam.yaw = Math.PI + Math.sin(now / 9000) * 0.5; R.cam.pitch = 0.42; R.cam.dist = 24; R.cam.userT = 1;
   }
   if(C.S && W.kevin){ RD.frame(Math.min(dt, 0.1), now / 1000); U.uiFrame(Math.min(dt, 0.1)); }
+  A.ambience(UI.running ? R.wx.rain : 0, UI.running ? R.wx.wind : 0);
   requestAnimationFrame(frame);
 }
 addEventListener('visibilitychange', () => { if(document.hidden) save(); else A.resume(); });

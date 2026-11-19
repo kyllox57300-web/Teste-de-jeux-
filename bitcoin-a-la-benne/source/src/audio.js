@@ -53,6 +53,18 @@ export function sfx(n, x){
     case 'repair': noise(t, 0.08, 3000, 0.3, 3); tone(1100, t, 0.06, 'square', 0.05); break;
   }
 }
+/** Ambiance météo : bruit de pluie et souffle du vent (0 à 1 chacun) */
+export function ambience(rain, wind){
+  if(!AUD.ctx) return; const c = AUD.ctx, on = st().sound;
+  if(!AUD.amb){ if(!rain && !wind) return;
+    const mk = (type, f, q) => { const s = c.createBufferSource(); s.buffer = AUD.noise; s.loop = true; const fl = c.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+      const g = c.createGain(); g.gain.value = 0; s.connect(fl); fl.connect(g); g.connect(AUD.out); s.start(); return {g, fl}; };
+    AUD.amb = {rain:mk('highpass', 1200, .5), wind:mk('bandpass', 400, 1.2)}; }
+  const t = c.currentTime;
+  AUD.amb.rain.g.gain.setTargetAtTime(on ? rain * .18 : 0, t, .5);
+  AUD.amb.wind.g.gain.setTargetAtTime(on ? wind * (.25 + Math.sin(t * .7) * .12) : 0, t, .3);
+  AUD.amb.wind.fl.frequency.setTargetAtTime(300 + Math.sin(t * .45) * 180 + wind * 150, t, .5);
+}
 const PROG = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]], PENTA = [69, 72, 74, 76, 79, 81];
 export function musicUpdate(){
   if(!AUD.ctx) return; const on = st().music;
