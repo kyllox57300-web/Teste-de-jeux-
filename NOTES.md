@@ -67,6 +67,9 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
     arbres morts, buissons, bennes, ville au bout de la route. Conversion : `node tools/props.mjs` (liste dans
     `tools/props-list.json`, packs clonés dans /home/user/kaykit-game-assets) → `assets/props.bin`, chargé par `src/props.js`.
     Plus de triangles qu'avant (+5 à +20 % selon la vue) : surveiller la fluidité sur téléphone.
+  - Bug corrigé (19/11) : Kévin restait bloqué en mode « pousser » un gros objet si le trajet vers Josiane était
+    coupé (autre ordre, tas qui réapparaît) → il ne répondait plus. Maintenant il reprend la route ou Josiane rachète
+    l'objet directement. Test : scratchpad push.js (pousse + coupure + chemin bloqué).
   - À tester sur un vrai téléphone (fluidité, taille des boutons, facilité à toucher les objets au sol).
   - Idées : plus d'animations de Josiane, sons plus riches.
 - `errant/` : aventure dans le désert (le plus gros, ~310 Ko).

@@ -284,7 +284,8 @@ function clearJob(){ const k = W.kevin; k.job = null; k.target = null; k.after =
 /** Kévin va creuser le tas (c, r) */
 export function orderDig(c, r, quiet){
   const k = W.kevin, t = tile(c, r); if(!t || !t.L) return false;
-  if(k.carry || k.push){ if(!quiet) toast('Posez d\'abord l\'objet que vous portez (chez Josiane).', 'bad'); return false; }
+  if(k.push){ if(!quiet) pushing(); return false; }
+  if(k.carry){ if(!quiet) toast('Posez d\'abord l\'objet que vous portez (chez Josiane).', 'bad'); return false; }
   clearJob(); k.prefQ = t.q;
   if(adjacentOK(k.c, k.r, c, r)){ k.target = {c, r}; return true; }
   const path = findPath(k.c, k.r, (pc, pr) => adjacentOK(pc, pr, c, r));
@@ -303,14 +304,15 @@ function walkToPoint(x, z, then, near){
   goTo(k, path, then, endOK ? [x, z] : null);
   return true;
 }
-export function orderMove(x, z){ const k = W.kevin; if(k.push) return false; clearJob(); return walkToPoint(x, z, null, 0.3); }
+export function orderMove(x, z){ if(pushing()) return false; clearJob(); return walkToPoint(x, z, null, 0.3); }
 export function orderPickLoot(id){
-  const o = W.loot.find(l => l.id === id); if(!o) return false; clearJob();
+  const o = W.loot.find(l => l.id === id); if(!o || pushing()) return false; clearJob();
   return walkToPoint(o.x, o.z, () => tryPick(o, true), 0.3);
 }
 export function orderSell(){
   const k = W.kevin;
   if(k.carry && has('CU')) return throwToHut();
+  if(pushing()) return false;
   if(!S.bag.length && !k.carry){ toast('Le sac est vide.'); return false; }
   const back = k.target ? {...k.target} : k.goal ? {...k.goal} : null;
   clearJob();
@@ -321,7 +323,7 @@ export function orderSell(){
 }
 /** Toucher un gros objet : le porter, le pousser (trop lourd) ou le fouiller (frigo/coffre-fort) */
 export function orderBig(id){
-  const k = W.kevin, o = W.bigs.find(b => b.id === id); if(!o || o.state !== 'ground') return false;
+  const k = W.kevin, o = W.bigs.find(b => b.id === id); if(!o || o.state !== 'ground' || pushing()) return false;
   const B = BIG.find(b => b.id === o.kind);
   if(k.carry){ toast('Vous portez déjà un objet.'); return false; }
   if(S.tool === 'crane' && S.up.crane) return craneGrab(o);
@@ -330,16 +332,29 @@ export function orderBig(id){
     if(B.open && !o.open){ startOpen(o, true); return; }
     if(B.w <= carryCap()){ o.state = 'carried'; k.carry = o; sfx('lift'); say(k, B.w >= 3 ? 'HNNNGH !' : 'Hop !', 1.5); emit('lift', {id:o.id}); S.flags.carried = true; }
     else { // trop lourd : Kévin le pousse jusqu'à la cabane
-      const sp = sellPos(), path = findPath(k.c, k.r, (c, r) => c === SELL.c && r === SELL.r);
-      if(!path){ toast('🚧 Pas de chemin jusqu\'à la cabane.', 'bad'); return; }
+      if(!findPath(k.c, k.r, (c, r) => c === SELL.c && r === SELL.r)){ toast('🚧 Pas de chemin jusqu\'à la cabane.', 'bad'); return; }
       o.state = 'pushed'; k.push = o; say(k, 'Trop lourd… je le pousse !', 2);
-      goTo(k, path, () => { k.push = null; o.state = 'ground'; sellBigObj(o); }, [sp.x, sp.z]);
+      pushToHut();
     }
   }, 1.9);
 }
+/** Kévin pousse un gros objet jusqu'à Josiane. Si le trajet est coupé (autre ordre, tas qui réapparaît…),
+ *  on recalcule ; si aucun chemin n'existe, Josiane vient le chercher : Kévin n'est jamais bloqué. */
+function pushToHut(){
+  const k = W.kevin, o = k.push; if(!o) return;
+  const done = () => { if(k.push !== o) return; k.push = null; o.state = 'ground'; if(W.bigs.includes(o)) sellBigObj(o); };
+  const sp = sellPos();
+  if(Math.hypot(k.x - sp.x, k.z - sp.z) < 2.5){ done(); return; }
+  const path = findPath(k.c, k.r, (c, r) => c === SELL.c && r === SELL.r);
+  if(!path){ done(); return; }
+  k.job = null; k.target = null; k.autoT = undefined; k.goal = null;
+  goTo(k, path, done, [sp.x, sp.z]);
+}
+/** Pendant qu'il pousse, Kévin ne fait rien d'autre : on le rappelle au joueur et on reprend la route */
+function pushing(){ const k = W.kevin; if(!k.push) return false; toast('🛒 Kévin pousse ' + BIG.find(b => b.id === k.push.kind).n + ' jusqu\'à Josiane…'); if(!k.path.length) pushToHut(); return true; }
 /** Ouvrir / fouiller un contenant */
 export function orderCont(id){
-  const o = W.conts.find(b => b.id === id); if(!o || o.open) return false;
+  const o = W.conts.find(b => b.id === id); if(!o || o.open || pushing()) return false;
   if(W.kevin.carry){ toast('Posez d\'abord ce que vous portez.'); return false; }
   clearJob();
   return walkToPoint(o.x, o.z, () => startOpen(o, false), 1.7);
@@ -374,6 +389,7 @@ export function setTool(t){
 }
 /** Détecteur : creuser un trou à un endroit précis */
 export function orderDetectDig(x, z){
+  if(pushing()) return false;
   clearJob();
   return walkToPoint(x, z, () => { W.kevin.job = {type:'hole', x, z, t:1.1}; }, 0.3);
 }
@@ -624,6 +640,7 @@ export function update(dt){
   } else if(!moving && !k.target && !full && k.autoT !== undefined && !k.carry){
     k.autoT -= dt; if(k.autoT <= 0){ k.autoT = undefined; autoNext(k); }
   }
+  if(k.push && !moving && !k.path.length) pushToHut(); // trajet coupé : on repart vers Josiane
   if(k.push){ const o = k.push; o.x = k.x + Math.sin(k.ang) * 1.1; o.z = k.z + Math.cos(k.ang) * 1.1; o.rot = k.ang; }
   if(k.pickT > 0) k.pickT -= dt;
   if(!moving && full && k.bubbleT <= -3) say(k, S.up.truck ? 'J\'attends le camion…' : 'Sac plein ! Direction Josiane ?', 3);
