@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#141924">
+  <meta name="description" content="Dernière Sirène, jeu de stratégie. Défendez douze villes et évacuez les civils.">
+  <title>Dernière Sirène</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main id="app" class="app title">
+    <div id="stage" class="stage">
+      <canvas id="world" aria-label="Carte tactique 3D"></canvas>
+      <div id="pins" aria-hidden="true"></div>
+      <div class="stage-vignette" aria-hidden="true"></div>
+    </div>
+    <header id="topbar" class="topbar"></header>
+    <div id="screen"></div>
+    <section id="hud" class="hud" hidden>
+      <div id="metrics" class="metrics"></div>
+      <section id="brief" class="brief" aria-live="polite"></section>
+      <div class="radar">
+        <canvas id="radar" width="125" height="95" aria-label="Minicarte. Touchez pour recentrer la caméra."></canvas>
+        <div><span class="dot civilian"></span> Civils <span class="dot infection"></span> Infection</div>
+      </div>
+      <div class="camera" aria-label="Caméra">
+        <button data-action="zoom-in" aria-label="Rapprocher">+</button>
+        <button data-action="zoom-out" aria-label="Éloigner">−</button>
+        <button data-action="rotate" aria-label="Tourner">⟳</button>
+        <button data-action="resetcam" aria-label="Recentrer">⌖</button>
+      </div>
+      <aside id="dock" class="dock"></aside>
+    </section>
+    <div id="modal" class="modal" hidden></div>
+    <div id="toast" class="toast" role="status" hidden></div>
+    <input id="file" type="file" accept="application/json,.json" hidden>
+  </main>
+  <noscript>Activez JavaScript pour jouer à Dernière Sirène.</noscript>
+  <script defer src="./game.js"></script>
+</body>
+</html>

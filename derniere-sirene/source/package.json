@@ -1,7 +1,16 @@
 {
-  "dependencies": {
+  "name": "derniere-sirene",
+  "private": true,
+  "scripts": {
+    "build": "esbuild main.mjs --bundle --format=iife --target=es2022 --minify --legal-comments=eof --outfile=../game.js",
+    "test": "node ../tools/sim.mjs",
+    "qa": "node ../tools/browser.mjs"
+  },
+  "devDependencies": {
     "esbuild": "0.28.2",
-    "playwright-core": "1.65.1",
+    "playwright-core": "1.65.1"
+  },
+  "dependencies": {
     "three": "0.187.0"
   }
 }
