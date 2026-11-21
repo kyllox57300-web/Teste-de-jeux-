@@ -11,8 +11,8 @@ La **Campagne** propose douze missions, des renforts à débloquer et un récit 
 ## Jouer
 
 - Pendant la préparation, placez des défenses sur les rues. Les défenses retirées sont remboursées. Tracez des couloirs vers les zones sûres pour attirer les civils loin des infectés.
-- Sélectionnez **Zone sûre**, puis glissez d’un coin à l’autre sur la carte. Le tracé utilise les cases accessibles et reliées. L’aperçu indique sa capacité et son prix. Un toucher simple place un refuge compact.
-- Sélectionnez **Mur** et glissez sur les rues, ou utilisez **Ceinturer** après avoir sélectionné un refuge. Avec **Porte**, touchez un mur pour le convertir en passage pour les civils. Les infectés doivent le détruire avant d’entrer. Les murs et les portes se posent pendant la préparation.
+- Sélectionnez **Zone sûre**, puis **Main levée**. Tracez le contour sur la carte et relâchez pour le fermer. Le mode rectangle reste accessible en désactivant **Main levée**. L’aperçu affiche le prix et la capacité, qui dépend des rues et espaces accessibles dans la zone.
+- Utilisez **Ceinturer** pour construire un mur continu sur le contour, ou choisissez **Mur** pour tirer une ligne à la main. Les points verts indiquent où les rues traversent le mur. Avec **Porte**, touchez l’un de ces points pour laisser entrer les civils. Une ouverture devient accessible aux infectés quand ils brisent le mur ou la porte. Les murs et portes se posent pendant la préparation.
 - Après « Prêt », appelez des renforts, tracez de nouveaux couloirs ou faites exploser les charges posées. Les tirs et les explosions attirent certains infectés. Une frappe qui touche des civils réduit le score.
 - Sélectionnez **Ordres** ou appuyez sur **M**. Choisissez des soldats, un sniper ou un lance-flammes, puis une rue vide. L’escouade rejoint sa nouvelle position par les rues et reprend le tir à l’arrivée.
 - À Metz, vous pouvez ouvrir un **Refuge avancé** en cours de mission. Touchez le compteur **Infectés** pour recentrer la caméra sur la horde ou chercher les derniers groupes.

@@ -108,8 +108,12 @@ export class View {
     this.flare=batch(this.dynamic,'ball',520,lit);
     this.outbreak=batch(this.dynamic,'flat',W*H,basic(0xffffff,{side:T.DoubleSide,transparent:true,opacity:.61,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));
     this.outbreak.renderOrder=1;
-    this.zoneFill=batch(this.dynamic,'flat',4096,basic(0xffffff,{side:T.DoubleSide,transparent:true,opacity:.38,depthWrite:false}));
+    this.zoneFill=new T.Mesh(new T.BufferGeometry(),basic(0xffffff,{vertexColors:true,side:T.DoubleSide,transparent:true,opacity:.32,depthWrite:false}));
     this.zoneFill.renderOrder=2;
+    this.zoneFill.frustumCulled=false;
+    this.zoneFill.visible=false;
+    this.dynamic.add(this.zoneFill);
+    this.areas=[];
     this.zoneOutline=batch(this.dynamic,'box',4600,lit);
     this.hover=new T.Mesh(geom.ring,basic(0xffd081,{side:T.DoubleSide,transparent:true,opacity:.72,depthWrite:false}));
     this.hover.rotation.x=-Math.PI/2;
@@ -172,11 +176,28 @@ export class View {
     this.focus.set(x,0,z);
     this.cameraAt();
   }
-  pick(x,y,snap=true) {
+  worldAt(x,y,height=0) {
     const rect=this.canvas.getBoundingClientRect();
     this.ray.setFromCamera({x:(x-rect.left)/rect.width*2-1,y:1-(y-rect.top)/rect.height*2},this.camera);
-    if(!this.ray.ray.intersectPlane(this.floor,this.vec)) return -1;
-    const xx=Math.round(this.vec.x),zz=Math.round(this.vec.z);
+    this.floor.constant=-height;
+    return this.ray.ray.intersectPlane(this.floor,this.vec)?[this.vec.x,this.vec.z]:null;
+  }
+  planHeight() { return this.tactical&&this.map.art?1.46:.034; }
+  drawPoint(x,y) {
+    const p=this.worldAt(x,y,this.planHeight());
+    if(!p) return null;
+    const {w,h}=this.grid;
+    return [T.MathUtils.clamp(p[0],-.5,w-.5),T.MathUtils.clamp(p[1],-.5,h-.5)];
+  }
+  wallAt(game,x,y) {
+    const plane=this.tactical&&this.map.art?this.planHeight()+.08:.24;
+    const limit=T.MathUtils.clamp(this.zoom/Math.max(240,this.height)*8,.23,1.08);
+    return game.walls.nearest(this.worldAt(x,y,plane),limit);
+  }
+  pick(x,y,snap=true) {
+    const p=this.worldAt(x,y);
+    if(!p) return -1;
+    const xx=Math.round(p[0]),zz=Math.round(p[1]);
     const {w,h,cell}=this.grid;
     if(xx<0||zz<0||xx>=w||zz>=h) return -1;
     const here=cell(xx,zz);
@@ -186,7 +207,7 @@ export class View {
       const i=cell(x,z);
       if(!open(this.map.cells,i)) continue;
       const [a,b]=this.location(i);
-      const d=Math.hypot(a-this.vec.x,b-this.vec.z);
+      const d=Math.hypot(a-p[0],b-p[1]);
       if(d<distance) {closest=i;distance=d;}
     }
     return closest;
@@ -217,6 +238,8 @@ export class View {
     this.commandOrigin=-1;
     this.activeZone=null;
     this.placementPreview=null;
+    this.hoverWall=null;
+    this.showEntrances=false;
     this.hover.visible=false;
     this.city.scale.y=this.tactical?.69:1;
     this.light=atmos[game.mission.light]||atmos.dusk;
@@ -380,7 +403,7 @@ export class View {
       this.cityParts(game);
       this.last=game.bridgeDamage.size;
     }
-    const bodies=[],heads=[],contacts=[],gear=[],marks=[],trace=[],particles=[],hot=[],routes=[],heat=[],zones=[],outline=[];
+    const bodies=[],heads=[],contacts=[],gear=[],marks=[],trace=[],particles=[],hot=[],routes=[],heat=[],areas=[],outline=[];
     const detail=this.setting!=='low'||this.zoom<18;
     for(const list of [game.civs,game.zombies]) for(const p of list) {
       if(bodies.length+contacts.length>=4096) break;
@@ -401,10 +424,14 @@ export class View {
       }
     }
     const flatPlan=this.tactical&&!!this.map.art;
-    const planHeight=flatPlan?1.46:.034;
+    const planHeight=this.planHeight();
     for(const u of game.units.values()) {
       this.unit(gear,marks,hot,u,now);
-      if(u.tiles?.length>1) this.drawArea(u.tiles,zones,outline,u===this.activeZone?0x7df5d2:0x53d2ab,planHeight);
+      if(u.contour) {
+        const c=u===this.activeZone?0x82f7d1:0x44c69a;
+        areas.push({points:u.contour,c,y:planHeight});
+        for(const s of u.edge) if(!game.walls.sections.has(s.key)) this.segment(outline,s.a,s.b,planHeight+.03,.024,.062,c);
+      }
       if(flatPlan&&defenses[u.id]?.barrier) {
         const [x,z]=this.location(u.i);
         const a=u.angle;
@@ -414,17 +441,36 @@ export class View {
         } else placeAt(outline,x,z,planHeight+.08,1,.023,.10,0xd5dce3,a);
       }
     }
+    for(const wall of game.walls.sections.values()) {
+      const focused=this.hoverWall===wall;
+      const c=focused?0xffcf8d:0xd8e3e8;
+      if(wall.id==='gate') {
+        const [x,z]=wall.a,[u,v]=wall.b;
+        const at=k=>[x+(u-x)*k,z+(v-z)*k];
+        const pieces=[[wall.a,at(.22)],[at(.78),wall.b]];
+        for(const [a,b] of pieces) {
+          this.segment(gear,a,b,.225,.45,.17,0x54bd9f);
+          if(flatPlan) this.segment(outline,a,b,planHeight+.08,.025,.16,focused?c:0x72ffd0);
+        }
+        this.segment(gear,wall.a,wall.b,.47,.055,.15,0x75edc3);
+      } else {
+        this.segment(gear,wall.a,wall.b,.21,.42,.17,0xa1b3ba);
+        if(flatPlan||focused) this.segment(outline,wall.a,wall.b,flatPlan?planHeight+.08:.46,.025,.13,c);
+      }
+      if(this.showEntrances&&wall.id==='wall') for(const [x,z] of game.walls.openings(wall)) {
+        placeAt(outline,x,z,flatPlan?planHeight+.11:.48,.16,.025,.16,0x64efbc,Math.PI/4);
+      }
+    }
     if(this.placementPreview) {
       const p=this.placementPreview;
       const c=p.error?0xf58970:0xa5ffe1;
-      this.drawArea(p.tiles,zones,outline,c,planHeight+.018);
       if(p.kind==='safe') {
-        const [ax,az]=this.grid.point(p.from),[bx,bz]=this.grid.point(p.to);
-        const w=Math.abs(bx-ax)+1,h=Math.abs(bz-az)+1,x=(ax+bx)/2,z=(az+bz)/2;
-        for(const sign of [-1,1]) {
-          placeAt(outline,x,z+sign*h/2,planHeight+.063,w,.019,.048,c);
-          placeAt(outline,x+sign*w/2,z,planHeight+.063,.048,.019,h,c);
-        }
+        const path=p.contour;
+        if(p.validShape) areas.push({points:path,c,y:planHeight+.025});
+        for(let i=1;i<path.length;i++) this.segment(outline,path[i-1],path[i],planHeight+.062,.025,.085,c);
+        if(path.length>2) this.segment(outline,path.at(-1),path[0],planHeight+.059,.018,.052,c);
+      } else {
+        for(const s of p.segments) this.segment(outline,s.a,s.b,planHeight+.08,.024,.12,c);
       }
     }
     for(const m of game.marches) {
@@ -487,22 +533,35 @@ export class View {
       if(this.lampMesh.instanceColor) this.lampMesh.instanceColor.needsUpdate=true;
       this.slowFrame=now;
     }
-    for(const [mesh,array] of [[this.people,bodies],[this.heads,heads],[this.contacts,contacts],[this.gear,gear],[this.radars,marks],[this.trails,trace],[this.debris,particles],[this.flare,hot],[this.outbreak,this.map.art?[]:heat],[this.diffusion,this.map.art?heat:[]],[this.guides,routes],[this.zoneFill,zones],[this.zoneOutline,outline]]) {
+    this.paintAreas(areas);
+    for(const [mesh,array] of [[this.people,bodies],[this.heads,heads],[this.contacts,contacts],[this.gear,gear],[this.radars,marks],[this.trails,trace],[this.debris,particles],[this.flare,hot],[this.outbreak,this.map.art?[]:heat],[this.diffusion,this.map.art?heat:[]],[this.guides,routes],[this.zoneOutline,outline]]) {
       if(mesh) fill(mesh,array.length>mesh.instanceMatrix.count?array.slice(0,mesh.instanceMatrix.count):array);
     }
     this.renderer.render(this.scene,this.camera);
   }
-  drawArea(tiles,fill,outline,c,y) {
-    const {w,h,point}=this.grid;
-    const selected=new Set(tiles);
-    for(const i of tiles) {
-      const [x,z]=point(i);
-      fill.push([x,y,z,1,1,1,c,0,-Math.PI/2]);
-      if(x===0||!selected.has(i-1)) placeAt(outline,x-.5,z,y+.031,.076,.019,1,c);
-      if(x===w-1||!selected.has(i+1)) placeAt(outline,x+.5,z,y+.031,.076,.019,1,c);
-      if(z===0||!selected.has(i-w)) placeAt(outline,x,z-.5,y+.031,1,.019,.076,c);
-      if(z===h-1||!selected.has(i+w)) placeAt(outline,x,z+.5,y+.031,1,.019,.076,c);
+  segment(items,a,b,y,height,width,c) {
+    const dx=b[0]-a[0],dz=b[1]-a[1];
+    placeAt(items,(a[0]+b[0])/2,(a[1]+b[1])/2,y,Math.hypot(dx,dz)+.023,height,width,c,-Math.atan2(dz,dx));
+  }
+  paintAreas(areas) {
+    if(areas.length===this.areas.length&&areas.every(({points,c,y},i)=>
+        points===this.areas[i].points&&c===this.areas[i].c&&y===this.areas[i].y)) return;
+    this.areas=areas;
+    const positions=[],colors=[];
+    for(const {points,c,y} of areas) {
+      const polygon=points.map(([x,z])=>new T.Vector2(x,z));
+      color.set(c);
+      for(const face of T.ShapeUtils.triangulateShape(polygon,[])) for(const i of face) {
+        positions.push(polygon[i].x,y,polygon[i].y);
+        colors.push(color.r,color.g,color.b);
+      }
     }
+    this.zoneFill.geometry.dispose();
+    const geometry=new T.BufferGeometry();
+    geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));
+    geometry.setAttribute('color',new T.Float32BufferAttribute(colors,3));
+    this.zoneFill.geometry=geometry;
+    this.zoneFill.visible=positions.length>0;
   }
   unit(gear,marks,hot,u,now,position=this.location(u.i),facing=u.angle) {
     const [x,z]=position, id=u.id;

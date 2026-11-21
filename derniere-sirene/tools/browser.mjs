@@ -37,8 +37,8 @@ try {
     camera.position.set(cx+Math.sin(angle)*Math.cos(tilt)*zoom,zoom*Math.sin(tilt),cz+Math.cos(angle)*Math.cos(tilt)*zoom);
     camera.lookAt(cx,0,cz);
     camera.updateMatrixWorld();
-    return (x,z)=>{
-      const p=new Vector3(x,0,z).project(camera);
+    return (x,z,height=0)=>{
+      const p=new Vector3(x,height,z).project(camera);
       return [box.x+(p.x+1)/2*box.width,box.y+(1-p.y)/2*box.height];
     };
   }
@@ -48,12 +48,23 @@ try {
     await radar.click({position:{x:(x+.5)*box.width/grid.w,y:(z+.5)*box.height/grid.h}});
     for(let i=0;i<steps;i++) await page.getByRole('button',{name:'Rapprocher'}).click();
   }
-  async function touchDrag(cdp,[x,y],[toX,toY]) {
+  async function touchStroke(cdp,points) {
+    const [[x,y]]=points;
     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});
-    for(let i=1;i<=8;i++) await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',
-      touchPoints:[{x:x+(toX-x)*i/8,y:y+(toY-y)*i/8,id:1}]});
+    for(let j=1;j<points.length;j++) {
+      const [a,b]=points[j-1],[c,d]=points[j];
+      for(let i=1;i<=4;i++) await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',
+        touchPoints:[{x:a+(c-a)*i/4,y:b+(d-b)*i/4,id:1}]});
+    }
     await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   }
+  async function mouseStroke(page,points) {
+    await page.mouse.move(...points[0]);
+    await page.mouse.down();
+    for(const p of points.slice(1)) await page.mouse.move(...p,{steps:5});
+  }
+  const credits=async page=>Number(await page.locator('.metric.cash strong').textContent());
+  const priceAt=text=>Number(text.match(/(\d+) cr/)?.[1]);
   const context=await browser.newContext({viewport:{width:1440,height:900},acceptDownloads:true});
   const desktop=await context.newPage();
   observe(desktop);
@@ -68,35 +79,45 @@ try {
   await desktop.getByRole('link',{name:/OpenStreetMap/}).waitFor();
   await snap(desktop,'08-metz');
   const atlas=new Game(metz);
+  const model=new Game(metz);
   const zoneFocus=[46,39];
+  const shape=[[44,37],[46,35.65],[48.75,36.45],[49.55,38.75],[47.75,41.75],[43.7,41.4],[43.15,38.8]];
+  const zone=model.drawZone(shape);
+  assert.ok(zone&&model.surround(zone));
+  const gateSection=[...model.walls.sections.values()].find(s=>s.a[0]>49&&s.a[1]<38&&model.walls.openings(s).length);
+  const gatePoint=model.walls.openings(gateSection)[0];
   await center(desktop,atlas.grid,zoneFocus,5);
   const buildPoint=await projector(desktop,true,atlas.grid,zoneFocus,.84**5);
   await desktop.getByRole('button',{name:'Zone sûre',exact:true}).click();
-  await desktop.mouse.move(...buildPoint(44,37));
-  await desktop.mouse.down();
-  await desktop.mouse.move(...buildPoint(48,41),{steps:12});
-  assert.match(await desktop.locator('#detail').textContent(),/233 places · 290 cr/);
+  await mouseStroke(desktop,[buildPoint(44,37),buildPoint(48,41)]);
+  const rect=atlas.planZone(atlas.grid.cell(44,37),atlas.grid.cell(48,41));
+  assert.match(await desktop.locator('#detail').textContent(),new RegExp(rect.cap+' places'));
   await desktop.mouse.up();
-  assert.equal(await desktop.locator('.metric.cash strong').textContent(),'1550');
-  await desktop.getByRole('button',{name:'Ceinturer'}).click();
-  assert.equal(await desktop.locator('.metric.cash strong').textContent(),'1190');
-  await desktop.mouse.click(...buildPoint(43,37));
-  assert.equal(await desktop.locator('.metric.cash strong').textContent(),'1165');
-  await snap(desktop,'11-zone-fortifiee');
-  const example=atlas.drawZone(atlas.grid.cell(44,37),atlas.grid.cell(48,41));
-  atlas.surround(example);
-  const firstWall=atlas.map.homes.find(i=>{
-    const [x,z]=atlas.grid.point(i);
-    return x>47&&x<52&&z>43&&z<47&&atlas.legal('wall',i)
-      &&atlas.grid.adjacent[i].some(j=>atlas.legal('wall',j));
-  });
-  const secondWall=atlas.grid.adjacent[firstWall].find(j=>atlas.legal('wall',j));
+  assert.equal(await credits(desktop),atlas.money-rect.price);
+  await desktop.getByRole('button',{name:'Retirer',exact:true}).click();
+  await desktop.mouse.click(...buildPoint(...atlas.grid.point(rect.anchor)));
+  assert.equal(await credits(desktop),atlas.money);
+  await desktop.getByRole('button',{name:'Zone sûre',exact:true}).click();
+  await desktop.getByRole('button',{name:'Main levée',exact:true}).click();
+  await mouseStroke(desktop,shape.map(([x,z])=>buildPoint(x,z,1.46)));
+  assert.match(await desktop.locator('#detail').textContent(),new RegExp(zone.cap+' places'));
+  await desktop.mouse.up();
+  const afterZone=await credits(desktop);
+  assert.equal(afterZone,atlas.money-zone.paid);
+  const fenceButton=desktop.getByRole('button',{name:'Ceinturer'});
+  const perimeterPrice=priceAt(await fenceButton.getAttribute('title'));
+  await fenceButton.click();
+  assert.equal(await credits(desktop),afterZone-perimeterPrice);
+  await desktop.mouse.click(...buildPoint(...gatePoint,1.56));
+  assert.equal(await credits(desktop),afterZone-perimeterPrice-atlas.wallGatePrice());
+  await snap(desktop,'13-zone-main-levee');
+  const beforeWall=await credits(desktop);
   await desktop.getByRole('button',{name:'Mur',exact:true}).click();
-  await desktop.mouse.move(...buildPoint(...atlas.grid.point(firstWall)));
-  await desktop.mouse.down();
-  await desktop.mouse.move(...buildPoint(...atlas.grid.point(secondWall)),{steps:6});
+  await mouseStroke(desktop,[[48.12,43.15],[50.01,44.7],[51.7,44.35]].map(([x,z])=>buildPoint(x,z,1.46)));
+  const drawPrice=priceAt(await desktop.locator('#detail').textContent());
+  assert.ok(drawPrice>0);
   await desktop.mouse.up();
-  assert.equal(await desktop.locator('.metric.cash strong').textContent(),'1075');
+  assert.equal(await credits(desktop),beforeWall-drawPrice);
   await desktop.getByRole('button',{name:'Pause',exact:true}).click();
   await desktop.getByRole('button',{name:'Recommencer',exact:true}).click();
   await desktop.getByRole('button',{name:'Examiner la carte'}).click();
@@ -214,13 +235,18 @@ try {
   const mobileBuildPoint=await projector(phone,true,atlas.grid,zoneFocus,.84**4);
   const cdp=await mobileContext.newCDPSession(phone);
   await phone.getByRole('button',{name:'Zone sûre',exact:true}).tap();
-  await touchDrag(cdp,mobileBuildPoint(44,37),mobileBuildPoint(48,41));
-  assert.equal(await phone.locator('.metric.cash strong').textContent(),'1550');
-  await phone.getByRole('button',{name:'Ceinturer'}).tap();
-  await phone.waitForFunction(()=>document.querySelector('.metric.cash strong').textContent==='1190',{},{timeout:5000});
-  await phone.touchscreen.tap(...mobileBuildPoint(43,37));
-  assert.equal(await phone.locator('.metric.cash strong').textContent(),'1165');
-  await snap(phone,'12-zone-mobile');
+  await phone.getByRole('button',{name:'Main levée',exact:true}).tap();
+  await touchStroke(cdp,shape.map(([x,z])=>mobileBuildPoint(x,z,1.46)));
+  const drawn=await credits(phone);
+  assert.equal(drawn,atlas.money-zone.paid);
+  const fortify=phone.getByRole('button',{name:'Ceinturer'});
+  const fortifyPrice=priceAt(await fortify.getAttribute('title'));
+  await fortify.tap();
+  const enclosed=drawn-fortifyPrice;
+  await phone.waitForFunction(value=>Number(document.querySelector('.metric.cash strong').textContent)===value,enclosed,{timeout:5000});
+  await phone.touchscreen.tap(...mobileBuildPoint(...gatePoint,1.56));
+  assert.equal(await credits(phone),enclosed-atlas.wallGatePrice());
+  await snap(phone,'14-zone-main-levee-mobile');
   await phone.getByRole('button',{name:'Recentrer'}).tap();
   await phone.getByRole('button',{name:'Rapprocher'}).tap();
   await snap(phone,'10-metz-mobile');

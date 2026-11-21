@@ -3,7 +3,7 @@ import { Game } from '../source/game.mjs';
 import { containment, missions, specials, endless, metz, terrain as t } from '../source/data.mjs';
 import { adjacent, baseGrid, dist, field, open, validCustom } from '../source/city.mjs';
 import { available, defaults, finish, learn, parseSave, skillPoints } from '../source/progress.mjs';
-import { stroke } from '../source/placement.mjs';
+import { wallSections,within } from '../source/placement.mjs';
 
 function defend(g, offset=0) {
   const { cells,start,end,homes }=g.map;
@@ -96,18 +96,19 @@ function verifyFortifications() {
   for(let z=8;z<=10;z++) for(let x=10;x<=12;x++) layout[cell(x,z)]=t.park;
   const g=new Game({...missions[0],layout,start:cell(20,9),end:cell(3,9)});
   const initial=g.money, from=cell(10,8), to=cell(12,10);
-  const free=cell(14,9), fence=cell(13,9), entrance=cell(9,9);
-  const path=stroke(g.grid,from,to);
-  assert.ok(path.every((i,n)=>n===0||g.grid.adjacent[path[n-1]].includes(i)));
-  assert.equal(path.at(-1),to);
-  const preview=g.planZone(from,to);
+  const west=cell(9,9), inside=cell(10,9), east=cell(13,9), innerEast=cell(12,9);
+  const outline=[[9.53,7.65],[11.65,7.42],[12.55,8.08],[12.7,10.55],[10.4,10.65],[9.62,10.12]];
+  const loop=wallSections(outline,true);
+  assert.ok(loop.every((s,i)=>s.b===loop[(i+1)%loop.length].a));
+  const preview=g.planZone(outline);
   assert.equal(preview.tiles.length,9);
   assert.equal(preview.cap,53);
+  assert.match(g.planZone([[10,8],[12,10],[12,8],[10,10]]).error,/croise/);
   g.money=preview.price-1;
-  assert.equal(g.drawZone(from,to),null);
+  assert.equal(g.drawZone(outline),null);
   assert.equal(g.zoneAt(from),undefined);
   g.money=initial;
-  const zone=g.drawZone(from,to);
+  const zone=g.drawZone(outline);
   assert.equal(g.money,initial-preview.price);
   assert.equal(g.zoneAt(from),zone);
   assert.equal(g.zoneAt(to),zone);
@@ -115,37 +116,46 @@ function verifyFortifications() {
   assert.ok(g.sell(from));
   assert.equal(g.money,initial);
   assert.equal(g.zoneAt(to),undefined);
-  const rebuilt=g.drawZone(from,to);
-  assert.ok(g.drawWalls([free,free,cell(14,8)]));
-  assert.equal(g.money,initial-preview.price-g.cost('wall'));
-  assert.ok(g.sell(free));
-  assert.deepEqual(new Set(g.fortification(rebuilt).tiles),new Set([entrance,fence]));
+  const rebuilt=g.drawZone(outline);
+  const line=[[13.63,8.64],[13.63,9.41]];
+  const lineCost=g.planWalls(line).price;
+  assert.ok(g.drawWalls(line));
+  assert.equal(g.money,initial-preview.price-lineCost);
+  const section=g.walls.obstruction(east,cell(14,9));
+  assert.ok(section);
+  assert.ok(g.sellWall(section));
+  assert.equal(g.walls.obstruction(east,cell(14,9)),null);
+  const perimeter=g.fortification(rebuilt);
   assert.ok(g.surround(rebuilt));
+  assert.equal(g.money,initial-preview.price-perimeter.price);
+  assert.ok(!g.surround(rebuilt));
+  assert.ok(g.walls.obstruction(east,innerEast));
+  assert.equal(g.civilPass(inside,west),false);
   const balance=g.money;
-  assert.ok(g.place('gate',entrance));
-  assert.equal(balance-g.money,g.cost('gate')-g.cost('wall'));
+  const door=g.walls.obstruction(inside,west);
+  assert.ok(g.gateWall(door));
+  assert.equal(balance-g.money,g.wallGatePrice());
   assert.equal(g.fortification(rebuilt).gates,1);
-  assert.equal(g.units.get(entrance).id,'gate');
-  assert.equal(g.units.get(fence).id,'wall');
+  assert.equal(g.walls.obstruction(inside,west).id,'gate');
 
   g.prepare();
   g.zombies.length=0;
   const civilian=g.person(cell(8,9),{speed:2.5,wait:0});
   g.civs=[civilian];
   g.routes();
-  assert.equal(g.civilPass(entrance),true);
-  assert.equal(g.civilPass(fence),false);
+  assert.equal(g.civilPass(inside,west),true);
+  assert.equal(g.civilPass(innerEast,east),false);
   const visited=new Set();
   for(let i=0;i<80&&!civilian.dead;i++) {
     g.time+=.08;
     g.moveCiv(civilian,.08);
     visited.add(civilian.i);
   }
-  assert.ok(visited.has(entrance));
+  assert.ok(visited.has(west));
   assert.equal(rebuilt.sheltered,1);
 
-  g.spawn(cell(8,9));
-  const z=g.zombies[0], door=g.units.get(entrance);
+  g.spawn(west);
+  const z=g.zombies[0];
   g.routes();
   g.moveFoe(z,.08);
   assert.equal(z.target,z.i);
@@ -153,12 +163,32 @@ function verifyFortifications() {
   g.time=z.attackAt;
   door.hp=1;
   g.moveFoe(z,.08);
-  assert.equal(g.units.get(entrance),undefined);
+  assert.equal(g.walls.obstruction(inside,west),null);
   assert.equal(g.zoneAt(from),rebuilt);
   g.collapse(rebuilt,to);
   assert.equal(g.zoneAt(from),undefined);
   assert.equal(g.zoneAt(to),undefined);
   assert.equal(g.lost,1);
+
+  const city=new Game(metz);
+  const block=[[44,37],[46,35.65],[48.75,36.45],[49.55,38.75],[47.75,41.75],[43.7,41.4],[43.15,38.8]];
+  const refuge=city.drawZone(block);
+  assert.ok(refuge&&city.surround(refuge));
+  let crossings=0;
+  for(let a=0;a<city.map.cells.length;a++) for(const b of city.grid.adjacent[a]) {
+    if(b<=a||!city.civilPass(a)||!city.civilPass(b)||within(city.location(a),block)===within(city.location(b),block)) continue;
+    crossings++;
+    assert.ok(city.walls.obstruction(a,b),`Ouverture dans l’enceinte à Metz entre ${a} et ${b}`);
+  }
+  assert.ok(crossings>=5);
+
+  // A path that meets a corner and then runs along the wall used to bypass the last section.
+  const square=new Game({...missions[0],layout:new Array(w*h).fill(t.road),start:cell(21,9),end:cell(1,9),budget:3000,pop:22});
+  const corner=[[10.5,11.5],[12,11],[13,9.5],[13,7.5],[11.5,6.5],[9.5,6.5],[8,7.5],[7.5,9.5],[9,11]];
+  const compound=square.drawZone(corner);
+  assert.ok(compound&&square.surround(compound));
+  assert.ok(square.walls.obstruction(cell(13,9),cell(13,10)));
+  assert.equal(square.civilPass(cell(13,9),cell(13,10)),false);
 }
 
 const verify=!process.argv.includes('--explore');

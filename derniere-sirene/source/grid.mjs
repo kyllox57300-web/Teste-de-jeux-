@@ -22,7 +22,7 @@ export function createGrid(w,h) {
     }
     while(cursor<length) {
       const i=queue[cursor++];
-      for(const j of adjacent[i]) if(values[j]===30000&&passable(j)) {
+      for(const j of adjacent[i]) if(values[j]===30000&&passable(j,i)) {
         values[j]=values[i]+1;
         queue[length++]=j;
       }
