@@ -16,7 +16,7 @@ export class Fortifications {
     if(a===b||!this.edges.size) return null;
     const crossings=this.edges.get(this.edge(a,b));
     if(!crossings) return null;
-    for(const wall of crossings) if(!civilian||wall.id!=='gate') return wall;
+    for(const wall of crossings) if(!civilian||wall.id!=='gate'||wall.closed) return wall;
     return null;
   }
   plan(sections) {
@@ -80,7 +80,7 @@ export class Fortifications {
   openings(wall) {
     return wall.entrances.filter((_,i)=>{
       const neighbors=this.edges.get(wall.edges[i]);
-      for(const other of neighbors) if(other!==wall&&other.id!=='gate') return false;
+      for(const other of neighbors) if(other!==wall&&(other.id!=='gate'||other.closed)) return false;
       return true;
     });
   }

@@ -17,6 +17,7 @@ const speeds=[0,.5,1,2,4];
 const speedName=v=>v===0?'Ⅱ':v===.5?'×0,5':'×'+v;
 const colors=['#414c61','#75839d','#245872','#4e705e','#b9a083'];
 const tools=[...Object.keys(support)];
+const structureNames={safe:'Zone sûre',wall:'Mur',gate:'Porte',barricade:'Barricade'};
 const sectors=[metz,...containment];
 const citySupport={...support,safe:{...defenses.safe,name:'Refuge avancé',info:'Ouvre un refuge desservi par les navettes.'}};
 const pointers=new Map();
@@ -246,10 +247,20 @@ function showHUD(rebuild=false) {
     dom.dock.innerHTML=`<div class="dock-head"><div><span class="eyebrow">${live?'Épidémie':'Préparation'}</span><h2>${escape(game.mission.name)}</h2></div><span class="clock" id="clock"></span></div>
       <div class="kit" aria-label="${live?'Renforts':'Défenses'}">${Object.entries(items).map(([id,info],n)=>`<button class="tool" data-action="tool" data-value="${id}" title="${info.info}" aria-label="${info.name}"><span class="icon" aria-hidden="true">${info.icon}</span><span><span class="tool-label">${info.name}</span><span class="tool-price" id="price-${id}">${live&&support[id]?(n+1)+' · ':''}${game.cost(id)} cr</span></span></button>`).join('')}</div>
       <div class="tool-detail" id="detail"></div>
-      <div class="tools-extra"><button class="small" data-action="tool" data-value="guide" aria-label="Tracer un couloir">Couloir</button>
+      <div class="tool-detail fort-status" id="fort-status" hidden>
+        <div><strong id="fort-name"></strong><span id="fort-percent"></span></div>
+        <progress id="fort-health" max="100" aria-label="Intégrité"></progress>
+        <small id="fort-state"></small>
+      </div>
+      <div class="tools-extra" id="normal-tools"><button class="small" data-action="tool" data-value="guide" aria-label="Tracer un couloir">Couloir</button>
       <button id="erase-guide" class="small" data-action="erase" aria-label="Effacer le couloir" hidden>Effacer</button>
       <button id="shape" class="small" data-action="shape" aria-pressed="false" hidden>Main levée</button>
-      ${live?button('Ordres','tool','small','command')+button('Détoner','tool','small','boom'):button('Retirer','tool','small','sell')+'<button id="fortify" class="small" data-action="fortify" hidden>Ceinturer</button>'}</div>
+      ${live?button('Ordres','tool','small','command')+button('Fortifs','tool','small','inspect')+button('Détoner','tool','small','boom'):button('Retirer','tool','small','sell')+'<button id="fortify" class="small" data-action="fortify" hidden>Ceinturer</button>'}</div>
+      <div class="tools-extra" id="fort-controls" hidden>
+        <button id="gate-control" class="small" data-action="toggle-gate" hidden></button>
+        <button id="repair" class="small" data-action="repair">Réparer</button>
+        <button class="small" data-action="inspect-back">Retour</button>
+      </div>
       <footer><div class="speed" aria-label="Vitesse">${speeds.map(v=>button(speedName(v),'speed','',v)).join('')}</div>${live?(game.mission.metro?'<button id="confirm-rescue" class="button mint" data-action="confirm-rescue" hidden>Valider le bilan</button>':''):button('Prêt · lancer l’épidémie','ready','button primary')}</footer>`;
   }
   const metrics=[['cash','Crédits',game.money],['rescue','À l’abri',game.sheltered+'/'+game.mission.pop],['infect','Infectés',game.remaining],['','Victimes',game.lost]];
@@ -300,7 +311,8 @@ function showHUD(rebuild=false) {
     guide:'Glissez sur les rues pour tracer un itinéraire vers la croix verte. Sur mobile, utilisez deux doigts pour déplacer la carte.',
     sell:'Touchez une défense pour la retirer et récupérer son coût.',
     boom:'Touchez une charge posée pour la déclencher.',
-    command:view.commandOrigin<0?'Choisis une escouade au sol.':'Désigne une rue libre. L’escouade cesse le tir pendant son déplacement.'
+    command:view.commandOrigin<0?'Choisis une escouade au sol.':'Désigne une rue libre. L’escouade cesse le tir pendant son déplacement.',
+    inspect:'Touche un mur, une porte ou une zone sûre pour voir son état.'
   }[selected])||(live?'Choisissez un renfort, puis sa cible sur la carte.':'Cliquez sur une rue pour placer la défense choisie.');
   for(const btn of dom.dock.querySelectorAll('[data-action="tool"]')) {
     const id=btn.dataset.value;
@@ -315,6 +327,7 @@ function showHUD(rebuild=false) {
     $('price-'+id).textContent=locked?'Compétence':noair?'Indisponible':cd>0?'⏱ '+cd+' s':needed<cost?`dès ${needed} cr`:(live&&support[id]?(tools.indexOf(id)+1)+' · ':'')+cost+' cr';
   }
   if($('confirm-rescue')) $('confirm-rescue').hidden=!game.canConfirm;
+  showFortification();
   for(const btn of dom.dock.querySelectorAll('[data-action="speed"]')) {
     btn.classList.toggle('active',Number(btn.dataset.value)===speed);
     btn.setAttribute('aria-label', Number(btn.dataset.value)===0?'Mettre en pause':'Vitesse '+btn.textContent);
@@ -326,8 +339,35 @@ function showHUD(rebuild=false) {
     4:['Crédits, renforts et pause','Sélectionnez un renfort, puis sa cible. Évitez les civils avec les attaques de zone.']
   };
   const hint=hints[tut];
-  if(live&&game.clearedAt!==null) dom.brief.innerHTML=`<strong>Ville assainie</strong><p>${game.canConfirm?'Objectif atteint. Continue les évacuations ou valide le bilan.':'Ouvre des refuges et laisse les navettes atteindre le quota.'}</p>`;
-  else dom.brief.innerHTML=hint?`<strong>${hint[0]}</strong><p>${hint[1]}</p>`:status?`<strong>${escape(status)}</strong>`:!live?`<strong>${escape(game.mission.zone)}</strong><p>${escape(game.mission.rule||(game.mission.metro?'Prévois plusieurs refuges et protège les accès.':game.mission.containment?'Interdiction de placer des défenses dans le périmètre orange.':'Protégez les accès aux refuges. Le temps est arrêté.'))}</p>`:'';
+  let brief='';
+  if(live&&game.latestBreach) brief=`<strong>Brèche · ${structureNames[game.latestBreach.id]} détruit${['safe','gate','barricade'].includes(game.latestBreach.id)?'e':''}</strong>
+    ${button('Voir la brèche','locate-breach','small breach-focus')}`;
+  else if(live&&game.clearedAt!==null) brief=`<strong>Ville assainie</strong><p>${game.canConfirm?'Objectif atteint. Continue les évacuations ou valide le bilan.':'Ouvre des refuges et laisse les navettes atteindre le quota.'}</p>`;
+  else brief=hint?`<strong>${hint[0]}</strong><p>${hint[1]}</p>`:status?`<strong>${escape(status)}</strong>`:!live?`<strong>${escape(game.mission.zone)}</strong><p>${escape(game.mission.rule||(game.mission.metro?'Prévois plusieurs refuges et protège les accès.':game.mission.containment?'Interdiction de placer des défenses dans le périmètre orange.':'Protégez les accès aux refuges. Le temps est arrêté.'))}</p>`:'';
+  if(dom.brief.innerHTML!==brief) dom.brief.innerHTML=brief;
+}
+function showFortification() {
+  if(!game.hasStructure(view.inspected)||selected!=='inspect') view.inspected=null;
+  const u=view.inspected;
+  $('fort-status').hidden=!u;
+  $('detail').hidden=!!u;
+  $('normal-tools').hidden=!!u;
+  $('fort-controls').hidden=!u;
+  if(!u) return;
+  const hp=Math.floor(u.hp/u.maxHp*100);
+  $('fort-name').textContent=structureNames[u.id];
+  $('fort-percent').textContent=hp+' %';
+  $('fort-health').value=hp;
+  $('fort-health').className=hp<35?'critical':hp<68?'warning':'';
+  $('fort-state').textContent=u.id==='gate'?(u.closed?'Porte fermée':'Passage ouvert aux civils')
+    :u.id==='safe'?`${u.sheltered}/${u.cap} personnes à l’abri`:hp<100?'Section endommagée':'Section intacte';
+  const gate=$('gate-control');
+  gate.hidden=u.id!=='gate';
+  gate.textContent=u.closed?'Ouvrir la porte':'Fermer la porte';
+  const repair=$('repair'), pending=game.repairs.get(u), quote=game.repairPlan(u);
+  repair.disabled=!quote||quote.price>game.money;
+  repair.textContent=pending?`Réparation · ${Math.ceil(pending.until-game.time)} s`:quote?`Réparer · ${quote.price} cr`:'Réparer';
+  repair.title=quote?`Restaure ${Math.ceil(quote.gain)} points d’intégrité en 3 secondes.`:'Réparation';
 }
 function minimumGateCost() {
   let price=game.cost('gate');
@@ -342,7 +382,7 @@ function projectionLabel() {
   dom.app.classList.toggle('tactical',view.tactical);
 }
 function choose(id) {
-  if(id==='guide' || id==='boom' || id==='sell' || id==='command') selected=selected===id?'':id;
+  if(id==='guide' || id==='boom' || id==='sell' || id==='command'||id==='inspect') selected=selected===id?'':id;
   else if(game.combat&&id==='safe'&&game.mission.metro&&game.money>=game.cost(id)) selected=id;
   else if(game.combat
     ?support[id]&&canUse(id,game.skills)&&game.cost(id)<=game.money&&!(game.cd[id]>game.time)&&!(game.mission.noair&&support[id].air)
@@ -353,6 +393,16 @@ function choose(id) {
 }
 function tapMap(x,y) {
   const i=view.pick(x,y);
+  if(game.combat&&(selected==='inspect'||!selected)) {
+    const structure=view.wallAt(game,x,y)||game.structureAt(i);
+    if(structure) {
+      selected='inspect';
+      view.inspected=structure;
+      showHUD();
+      return;
+    }
+    if(selected==='inspect') return;
+  }
   if(selected==='gate'||selected==='sell') {
     const wall=view.wallAt(game,x,y);
     if(wall) {
@@ -461,6 +511,12 @@ function dispatch(action,value) {
   if(action==='difficulty') {save.opts.level=value;writeSave();menu();}
   if(action==='learn'&&learn(save,value)) {writeSave();menu();notify('Compétence acquise.');}
   if(action==='tool') choose(value);
+  if(action==='toggle-gate'&&game.toggleGate(view.inspected)) {
+    notify(view.inspected.closed?'Porte fermée. Les civils cherchent un autre accès.':'Porte rouverte aux civils.');
+    showHUD();
+  }
+  if(action==='repair'&&game.startRepair(view.inspected)) showHUD();
+  if(action==='inspect-back') {view.inspected=null;showHUD();}
   if(action==='shape') {
     freehand=!freehand;
     notify(freehand?'Trace le contour à main levée. Relâche pour le fermer.':'Mode rectangle · glisse d’un coin à l’autre.');
@@ -480,6 +536,11 @@ function dispatch(action,value) {
   if(action==='rotate') {view.angle+=Math.PI/4;view.cameraAt();}
   if(action==='resetcam') view.reset();
   if(action==='projection') {view.switchProjection();projectionLabel();}
+  if(action==='locate-breach'&&game.latestBreach) {
+    const [x,z]=game.latestBreach.point;
+    view.focus.set(x,0,z);
+    view.zoomBy(view.zoom>26?26/view.zoom:1);
+  }
   if(action==='locate'&&game.remaining) {
     const {cell,dist}=game.grid;
     const origin=cell(Math.round(view.focus.x),Math.round(view.focus.z));
@@ -561,6 +622,7 @@ window.addEventListener('keydown',e=>{
   if(e.key==='8') choose('guide');
   if(e.key==='9') {speed=speed?0:save.opts.speed;showHUD();}
   if(e.code==='KeyM'&&game.combat) choose('command');
+  if(e.code==='KeyI'&&game.combat) choose('inspect');
   const dirs={ArrowLeft:[45,0],ArrowRight:[-45,0],ArrowUp:[0,45],ArrowDown:[0,-45]};
   if(dirs[e.key]) {e.preventDefault();view.pan(...dirs[e.key]);}
 });
@@ -634,7 +696,7 @@ canvas.addEventListener('pointermove',e=>{
   const at=location(e), before=pointers.get(e.pointerId);
   const i=view.pick(at.x,at.y);
   if(e.pointerType==='mouse') {
-    view.hoverWall=selected==='gate'||selected==='sell'?view.wallAt(game,at.x,at.y):null;
+    view.hoverWall=selected==='gate'||selected==='sell'||selected==='inspect'?view.wallAt(game,at.x,at.y):null;
     view.highlight(view.hoverWall?-1:i,selected,game.legal(selected,i)||selected==='guide'||selected==='sell'||selected==='boom'
       ||selected==='command'&&(game.canMove(i)||view.commandOrigin>=0&&open(game.map.cells,i)&&!game.units.has(i)));
   }
@@ -714,12 +776,19 @@ function mapOverlay() {
   }
   ctx.strokeStyle='#fff2c5';
   ctx.strokeRect(view.focus.x*sx-3,view.focus.z*sz-3,9,9);
+  ctx.strokeStyle='#ff987a';
+  for(const {point:[x,z]} of game.breaches) ctx.strokeRect((x+.4)*sx-2.5,(z+.4)*sz-2.5,5,5);
 }
 function pins() {
   const safe=[...game.units.values()].filter(u=>u.id==='safe');
   const pinData=safe.map(u=>[game.location(u.i),`✚ ${u.sheltered}/${u.cap}`,view.activeZone===u?'chosen':'']);
   if(game.clearedAt===null) pinData.push([game.location(game.map.start),game.phase==='prep'||game.mission.containment?'◬ FOYER':'◬ V'+game.wave,'hot']);
   if(game.map.breach!=null) pinData.push([game.location(game.map.breach),'◬ BRÈCHE','hot']);
+  for(const breach of game.breaches) pinData.push([breach.point,'! RUPTURE','rupture']);
+  const inspected=view.inspected;
+  if(game.hasStructure(inspected)&&inspected.id!=='safe') {
+    pinData.push([game.structurePosition(inspected),`${structureNames[inspected.id]} · ${Math.floor(inspected.hp/inspected.maxHp*100)} %`,'chosen']);
+  }
   if(game.map.art) for(const [label,x,z] of game.map.art.labels) pinData.push([[x,z],label,'geo']);
   while(dom.pins.children.length<pinData.length) dom.pins.append(document.createElement('div'));
   while(dom.pins.children.length>pinData.length) dom.pins.lastChild.remove();

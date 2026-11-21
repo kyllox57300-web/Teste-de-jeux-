@@ -94,7 +94,7 @@ function verifyFortifications() {
   const layout=new Array(w*h).fill(t.block);
   for(let x=1;x<=22;x++) layout[cell(x,9)]=t.road;
   for(let z=8;z<=10;z++) for(let x=10;x<=12;x++) layout[cell(x,z)]=t.park;
-  const g=new Game({...missions[0],layout,start:cell(20,9),end:cell(3,9)});
+  const g=new Game({...missions[0],layout,start:cell(20,9),end:cell(3,9),budget:1500});
   const initial=g.money, from=cell(10,8), to=cell(12,10);
   const west=cell(9,9), inside=cell(10,9), east=cell(13,9), innerEast=cell(12,9);
   const outline=[[9.53,7.65],[11.65,7.42],[12.55,8.08],[12.7,10.55],[10.4,10.65],[9.62,10.12]];
@@ -138,8 +138,32 @@ function verifyFortifications() {
   assert.equal(g.fortification(rebuilt).gates,1);
   assert.equal(g.walls.obstruction(inside,west).id,'gate');
 
+  const soldier=cell(6,9);
+  assert.ok(g.place('soldier',soldier));
   g.prepare();
   g.zombies.length=0;
+  assert.ok(g.order(soldier,from));
+  assert.ok(g.toggleGate(door));
+  assert.equal(g.civilPass(inside,west),false);
+  assert.equal(g.walkRoute(cell(8,9),inside),null);
+  assert.equal(g.walls.obstruction(inside,west),door);
+  for(let i=0;i<45;i++) {g.time+=.08;g.march(.08);}
+  assert.equal(g.marches[0].i,west);
+  assert.ok(g.toggleGate(door));
+  assert.ok(g.walkRoute(cell(8,9),inside));
+  for(let i=0;i<45;i++) {g.time+=.08;g.march(.08);}
+  assert.equal(g.units.get(from)?.id,'soldier');
+  door.hp=door.maxHp-110;
+  const repairBudget=g.money, job=g.repairPlan(door);
+  assert.ok(g.startRepair(door));
+  assert.ok(!g.startRepair(door));
+  assert.equal(g.money,repairBudget-job.price);
+  g.time=g.repairs.get(door).until-.01;
+  g.finishRepairs();
+  assert.equal(door.hp,door.maxHp-110);
+  g.time+=.02;
+  g.finishRepairs();
+  assert.equal(door.hp,door.maxHp);
   const civilian=g.person(cell(8,9),{speed:2.5,wait:0});
   g.civs=[civilian];
   g.routes();
@@ -162,13 +186,20 @@ function verifyFortifications() {
   assert.ok(door.hp<door.maxHp);
   g.time=z.attackAt;
   door.hp=1;
+  const moneyBeforeBreach=g.money;
+  assert.ok(g.startRepair(door));
   g.moveFoe(z,.08);
   assert.equal(g.walls.obstruction(inside,west),null);
+  assert.equal(g.money,moneyBeforeBreach);
+  assert.ok(!g.repairs.has(door));
+  assert.equal(g.latestBreach.id,'gate');
+  assert.deepEqual(g.latestBreach.point,g.structurePosition(door));
   assert.equal(g.zoneAt(from),rebuilt);
   g.collapse(rebuilt,to);
   assert.equal(g.zoneAt(from),undefined);
   assert.equal(g.zoneAt(to),undefined);
   assert.equal(g.lost,1);
+  assert.equal(g.latestBreach.id,'safe');
 
   const city=new Game(metz);
   const block=[[44,37],[46,35.65],[48.75,36.45],[49.55,38.75],[47.75,41.75],[43.7,41.4],[43.15,38.8]];

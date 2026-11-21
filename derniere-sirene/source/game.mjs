@@ -22,6 +22,8 @@ export class Game {
     this.units=new Map();
     this.zoneCells=new Map();
     this.walls=new Fortifications(this.grid,i=>this.location(i),i=>open(this.map.cells,i));
+    this.repairs=new Map();
+    this.breaches=[];
     this.marches=[];
     this.reinf=[];
     this.guide=[];
@@ -79,12 +81,51 @@ export class Game {
   get remaining() { return this.zombies.length; }
   get combat() { return this.phase==='live'; }
   get canConfirm() { return this.combat&&this.clearedAt!==null&&this.evacuated>=this.quota; }
+  get latestBreach() { return this.breaches.at(-1); }
   zoneAt(i) { return this.zoneCells.get(i); }
   baseCapacity() { return (this.mission.cap||defenses.safe.cap)+(this.has('bunks')?8:0); }
   canBuild(i) { return open(this.map.cells,i)&&this.grid.dist(this.map.start,i)>(this.mission.containment?2:0); }
   civilPass(i,from=i) {
-    const structure=defenses[this.units.get(i)?.id];
-    return open(this.map.cells,i)&&(!structure?.barrier||structure.passCivil===true)&&!this.walls.obstruction(from,i,true);
+    const u=this.units.get(i),structure=defenses[u?.id];
+    return open(this.map.cells,i)&&(!structure?.barrier||(structure.passCivil===true&&!u.closed))&&!this.walls.obstruction(from,i,true);
+  }
+  structureAt(i) {
+    const u=this.units.get(i);
+    return defenses[u?.id]?.barrier?u:this.zoneAt(i);
+  }
+  hasStructure(u) {
+    return !!u&&(u.edges?this.walls.sections.get(u.key)===u:this.structureAt(u.i)===u);
+  }
+  structurePosition(u) {
+    return u.edges?[(u.a[0]+u.b[0])/2,(u.a[1]+u.b[1])/2]:this.location(u.i);
+  }
+  toggleGate(gate) {
+    if(!this.combat||!this.hasStructure(gate)||gate.id!=='gate') return false;
+    gate.closed=!gate.closed;
+    this.routeClock=0;
+    this.emit('gate',gate.i);
+    return true;
+  }
+  repairPlan(u) {
+    if(!this.hasStructure(u)||!this.combat||u.hp>=u.maxHp||this.repairs.has(u)) return null;
+    const gain=Math.min(120,u.maxHp-u.hp);
+    return {gain,price:Math.max(5,Math.ceil(gain*.35))};
+  }
+  startRepair(u) {
+    const plan=this.repairPlan(u);
+    if(!plan||plan.price>this.money) return false;
+    this.money-=plan.price;
+    this.repairs.set(u,{...plan,until:this.time+3});
+    return true;
+  }
+  finishRepairs() {
+    for(const [u,repair] of this.repairs) if(repair.until<=this.time) {
+      this.repairs.delete(u);
+      if(this.hasStructure(u)) {
+        u.hp=Math.min(u.maxHp,u.hp+repair.gain);
+        this.emit('repair',u.i);
+      } else this.money+=repair.price;
+    }
   }
   wallGatePrice() { return this.cost('gate')-this.cost('wall'); }
   gateCost(i) {
@@ -224,19 +265,25 @@ export class Game {
   canMove(i) { return this.combat&&mobile.has(this.units.get(i)?.id); }
   order(from,to) {
     if(!this.canMove(from)||!open(this.map.cells,to)||this.units.has(to)||this.marches.some(m=>m.to===to)) return false;
+    const route=this.walkRoute(from,to);
+    if(!route) return false;
+    const u=this.units.get(from);
+    const [x,z]=this.location(from);
+    this.units.delete(from);
+    this.marches.push({u,to,route,next:1,x,z,i:from,target:route[1],ox:0,oz:0,angle:u.angle,retryAt:0});
+    this.routeClock=0;
+    return true;
+  }
+  walkRoute(from,to) {
+    if(!this.civilPass(to)) return null;
     const paths=this.grid.field([to],(i,j)=>this.civilPass(i,j));
-    if(paths[from]>=30000) return false;
+    if(paths[from]>=30000) return null;
     const route=[from];
     for(let i=from;i!==to;) {
       i=this.grid.adjacent[i].find(j=>paths[j]<paths[i]&&this.civilPass(j,i));
       route.push(i);
     }
-    const u=this.units.get(from);
-    const [x,z]=this.location(from);
-    this.units.delete(from);
-    this.marches.push({u,to,route,next:1,x,z,i:from,target:route[1],ox:0,oz:0,angle:u.angle});
-    this.routeClock=0;
-    return true;
+    return route;
   }
   march(dt) {
     for(const m of this.marches) {
@@ -256,6 +303,14 @@ export class Game {
         this.emit('collapse',m.i,m.u.id);
         continue;
       }
+      if(!m.route) {
+        if(m.retryAt>this.time) continue;
+        m.route=this.walkRoute(m.i,m.to);
+        m.retryAt=this.time+1;
+        if(!m.route) continue;
+        m.next=1;
+        m.target=m.route[1];
+      }
       if(this.travel(m,dt,2.55)) continue;
       if(m.i===m.to) {
         m.u.i=m.to;
@@ -264,7 +319,15 @@ export class Game {
         this.emit('build',m.to,m.u.id);
         m.done=true;
         this.routeClock=0;
-      } else m.target=m.route[++m.next];
+      } else {
+        const next=m.route[++m.next];
+        if(this.civilPass(next,m.i)) m.target=next;
+        else {
+          m.target=m.i;
+          m.route=null;
+          m.retryAt=0;
+        }
+      }
     }
     if(this.marches.some(m=>m.done)) this.marches=this.marches.filter(m=>!m.done);
   }
@@ -382,6 +445,15 @@ export class Game {
     this.shout(i,13,5);
   }
   collapse(u,at=u.i) {
+    const repair=this.repairs.get(u);
+    if(repair) {
+      this.money+=repair.price;
+      this.repairs.delete(u);
+    }
+    if(this.hasStructure(u)) {
+      this.breaches.push({id:u.id,point:this.structurePosition(u),until:this.time+18});
+      if(this.breaches.length>4) this.breaches.shift();
+    }
     if(u.edges) {
       this.walls.remove(u);
       this.emit('collapse',u.i,u.id);
@@ -592,6 +664,7 @@ export class Game {
       if(z.attackAt<=this.time) {
         z.attackAt=this.time+.65;
         target.hp-=spec.damage*this.difficulty.factor*.65;
+        target.lastHit=this.time;
         this.emit('hit',target.i);
         if(target.hp<=0) this.collapse(target,target===here?z.i:target.i);
       }
@@ -600,6 +673,8 @@ export class Game {
   step(dt) {
     if(!this.combat) return;
     this.time+=dt;
+    while(this.breaches.length&&this.breaches[0].until<=this.time) this.breaches.shift();
+    if(this.repairs.size) this.finishRepairs();
     if(this.wave<=this.mission.waves && this.time>=this.nextWave) {
       this.spawnWave();
       this.nextWave+=this.mission.id==='survival'?19:15.5;

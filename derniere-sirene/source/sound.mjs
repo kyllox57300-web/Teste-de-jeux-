@@ -61,6 +61,8 @@ export class Audio {
         for(let n=0;n<12;n++) this.voice(70-n*2,37,.18,.027,'triangle',n*.11);
       }
       if(types.has('build')||types.has('level')) this.voice(520,680,.14,.029,'triangle');
+      if(types.has('gate')) this.voice(210,95,.16,.029,'triangle');
+      if(types.has('repair')) this.voice(410,655,.25,.03,'triangle');
       if(types.has('convoy')||types.has('secure')) {
         this.voice(385,420,.21,.031,'triangle');
         this.voice(582,630,.33,.027,'triangle',.18);
