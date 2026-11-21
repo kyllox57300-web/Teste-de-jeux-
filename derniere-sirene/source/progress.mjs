@@ -50,8 +50,8 @@ export function parseSave(raw) {
     if(!Number.isInteger(r.stars)||r.stars<1||r.stars>3||!Number.isInteger(r.saved)||r.saved>pop||r.saved<0||!Number.isInteger(r.score)||r.score<0) break;
     data.records[id]={stars:r.stars,saved:r.saved,score:r.score};
   }
-  for(const id of input.skills) if(typeof id==='string') learn(data,id);
   for(const id of input.badges) if(typeof id==='string') award(data,id);
+  for(const id of input.skills) if(typeof id==='string') learn(data,id);
   data.survival=Number.isSafeInteger(input.survival)&&input.survival>0?input.survival:0;
   data.seen=input.seen===true;
   for(const {name,layout,start,end,seed} of input.cities.slice(0,20).filter(c=>c && typeof c==='object')) {

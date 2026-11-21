@@ -59,10 +59,17 @@ h1,h2,h3,p { margin-top:0 }
 .heading p,.dialog p { margin:0; color:var(--muted); line-height:1.52 }
 .tabs { border-bottom:1px solid var(--line); padding-bottom:11px; margin-bottom:17px }
 .tab.active { background:#ffcd8720; border-color:#cca56e; color:var(--amber) }
+.campaign-map { position:relative; width:100%; min-height:106px; height:clamp(108px,12vw,170px); margin-bottom:14px; border:1px solid #54636b; border-radius:8px; overflow:hidden }
+.campaign-map canvas { display:block; width:100%; height:100% }
+.map-node { position:absolute; left:var(--x); top:var(--y); transform:translate(-50%,-50%); width:34px; min-height:34px; padding:0; border-radius:50%; border:1px solid #89999f; background:#273748; color:#e2e9e9; font:700 .68rem var(--mono); }
+.map-node:disabled { opacity:.82 }
+.map-node.next { color:#221c18; background:var(--amber); border-color:#fff0d0; box-shadow:0 0 0 4px #ffd18729 }
+.map-node.cleared { color:#14302b; background:var(--mint); border-color:#b3fbe4 }
 .matrix { display:grid; gap:12px; grid-template-columns:repeat(3,minmax(0,1fr)) }
 .mission-card,.tree-card,.badge-card,.city-card { background:linear-gradient(140deg,#293242,#1d2632); border:1px solid var(--line); border-radius:9px; padding:16px; text-align:left; }
 .mission-card { min-height:152px; position:relative; overflow:hidden; display:flex; flex-direction:column; align-items:start; justify-content:space-between; gap:13px; }
 .mission-card:hover:not(:disabled),.city-card button:hover { border-color:var(--amber); }
+.mission-card:disabled { opacity:.68 }
 .mission-card::after { content:""; position:absolute; pointer-events:none; width:115px; height:115px; right:-17px; bottom:-38px; border-radius:50%; border:1px solid #ddf6ff22; box-shadow:0 0 0 12px #ddf6ff11,0 0 0 25px #ddf6ff15,0 0 0 39px #ddf6ff0a }
 .mission-card.island,.mission-card.port { background:linear-gradient(140deg,#224252,#1d2632) }
 .mission-card.industry { background:linear-gradient(140deg,#3e3542,#292732) }
@@ -160,7 +167,7 @@ h1,h2,h3,p { margin-top:0 }
   .dock-head .eyebrow { font-size:.58rem; letter-spacing:.07em }
   .clock { font-size:.67rem; }
   .kit { display:flex; gap:5px; min-height:45px; overflow:auto; touch-action:pan-x; scrollbar-width:thin; }
-  .tool { flex:0 0 96px; min-height:41px; padding:4px; grid-template-columns:18px 1fr }
+  .tool { flex:0 0 108px; min-height:41px; padding:4px; grid-template-columns:18px 1fr }
   .tool-label { font-size:.66rem }
   .tool-price { font-size:.61rem }
   .tool-detail { min-height:0; font-size:.69rem; padding:4px 6px; }
@@ -185,6 +192,8 @@ h1,h2,h3,p { margin-top:0 }
   .editor { grid-template-columns:1fr; gap:12px }
   #editor-grid { width:100% }
   .shell .content { padding-bottom:34px }
+  .campaign-map { min-height:78px; height:84px }
+  .map-node { width:24px; min-height:24px; font-size:.59rem }
   .mission-card { padding:12px; min-height:132px; }
 }
 @media (max-width:690px) and (max-height:615px) {

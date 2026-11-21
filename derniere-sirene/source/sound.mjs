@@ -54,7 +54,7 @@ export class Audio {
       if(types.has('infect')&&time>(this.lastGrowl||0)) {
         this.voice(89,46,.31,.032,'sawtooth');this.lastGrowl=time+.31;
       }
-      if(types.has('siren')||types.has('boss')||types.has('wave')) {
+      if(types.has('siren')||types.has('boss')||types.has('wave')||types.has('breach')) {
         this.voice(280,490,.42,.041,'triangle');this.voice(490,260,.63,.042,'triangle',.37);
       }
       if(types.has('support')&&events.some(e=>e.id==='heli'||e.id==='air')) {

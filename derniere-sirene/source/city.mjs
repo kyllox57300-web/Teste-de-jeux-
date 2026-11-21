@@ -55,7 +55,9 @@ export function generate(mission) {
   const start = cell(22, mission.seed%2===0 ? 4 : 13);
   const end = cell(2,10);
   cells[start] = cells[end] = t.road;
-  return {cells,start,end,homes:homesFor(cells,start),seed:mission.seed};
+  const rear = mission.seed%2===0 ? 16 : 1;
+  const breach=typeof mission.id==='number'&&mission.id>=5 ? cell(mission.id>=9?16:19,rear) : null;
+  return {cells,start,end,breach,homes:homesFor(cells,start),seed:mission.seed};
 }
 
 function homesFor(cells, start) {

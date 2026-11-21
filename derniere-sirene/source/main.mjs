@@ -12,6 +12,7 @@ const button=(text,action,cls='button',value='')=>`<button class="${cls}" data-a
 const clock=t=>`${String(Math.floor(t/60)).padStart(2,'0')}:${String(Math.floor(t%60)).padStart(2,'0')}`;
 const stars=n=>'★'.repeat(n)+'☆'.repeat(3-n);
 const routeTabs=[['campaign','Campagne'],['special','Opérations spéciales'],['survival','Survie'],['tree','Compétences'],['badges','Succès'],['editor','Éditeur']];
+const estuary=[[5,62],[13,68],[21,51],[29,41],[37,59],[45,56],[53,34],[61,46],[69,64],[77,57],[85,39],[94,41]];
 const speeds=[0,.5,1,2,4];
 const speedName=v=>v===0?'Ⅱ':v===.5?'×0,5':'×'+v;
 const colors=['#414c61','#75839d','#245872','#4e705e','#b9a083'];
@@ -84,12 +85,46 @@ function card(m,action,value,locked=false,score=0) {
     ${m.rule?`<small>${escape(m.rule)}</small>`:locked?'<small>Mission précédente requise</small>':`<span class="stars" aria-label="${score} étoiles">${stars(score)}</span>`}
   </button>`;
 }
+function campaignMap() {
+  return `<div class="campaign-map" aria-label="Itinéraire des opérations"><canvas id="estuary" width="1000" height="164" aria-hidden="true"></canvas>
+    ${missions.map(({id,name})=>{
+      const [x,y]=estuary[id], label=String(id+1).padStart(2,'0');
+      return `<button class="map-node ${save.records[id]?'cleared':available(save,id)?'next':''}" style="--x:${x}%;--y:${y}%" data-action="mission" data-value="${id}" title="${escape(name)}" aria-label="Secteur ${label}" ${available(save,id)?'':'disabled'}>${label}</button>`;
+    }).join('')}
+  </div>`;
+}
+function paintEstuary() {
+  const ctx=$('estuary').getContext('2d');
+  ctx.fillStyle='#172d3b';ctx.fillRect(0,0,1000,164);
+  for(const side of [-1,1]) {
+    ctx.beginPath();ctx.moveTo(-40,82+side*28);
+    ctx.bezierCurveTo(210,102+side*39,290,27+side*50,490,70+side*34);
+    ctx.bezierCurveTo(620,97+side*48,740,108+side*28,1010,39+side*48);
+    ctx.lineTo(1010,side>0?165:-1);ctx.lineTo(-40,side>0?165:-1);ctx.closePath();
+    ctx.fillStyle=side>0?'#283a3c':'#263640';ctx.fill();
+    ctx.strokeStyle='#577067';ctx.lineWidth=1.4;ctx.stroke();
+  }
+  for(let x=35;x<1000;x+=45) {
+    ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,164);ctx.strokeStyle='#bed1e216';ctx.lineWidth=1;ctx.stroke();
+  }
+  for(let y=12;y<164;y+=23) {
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(1000,y);ctx.stroke();
+  }
+  ctx.lineWidth=2;
+  ctx.lineJoin='round';
+  for(let i=1;i<estuary.length;i++) {
+    const [a,b]=estuary[i-1], [x,y]=estuary[i];
+    ctx.beginPath();ctx.moveTo(a*10,b*1.64);ctx.lineTo(x*10,y*1.64);
+    ctx.strokeStyle=available(save,i)?'#8fe4c4':'#929ca282';
+    ctx.setLineDash(available(save,i)?[]:[5,4]);ctx.stroke();
+  }
+}
 function menu() {
   const titles={campaign:'Carte des missions',special:'Opérations spéciales',survival:'Survie infinie',tree:'Arbre de compétences',badges:'Succès',editor:'Éditeur de ville'};
   const total=Object.values(save.records).reduce((a,b)=>a+b.stars,0);
   const captions={campaign:`${Object.keys(save.records).length} / 12 terminées · ${total} / 36 étoiles`,special:'Des règles qui changent la défense.',survival:`Record · ${save.survival} vague${save.survival===1?'':'s'}`,tree:`${skillPoints(save)} point(s) disponible(s). Une première victoire rapporte un point.`,badges:`${save.badges.length} / ${badges.length} déverrouillés`,editor:'Dessinez votre ville, testez-la et sauvegardez-la sur cet appareil.'};
   let body='';
-  if(page==='campaign') body=`<div class="matrix">${missions.map(m=>card(m,'mission',m.id,!available(save,m.id),save.records[m.id]?.stars||0)).join('')}</div>`;
+  if(page==='campaign') body=campaignMap()+`<div class="matrix">${missions.map(m=>card(m,'mission',m.id,!available(save,m.id),save.records[m.id]?.stars||0)).join('')}</div>`;
   if(page==='special') body=`<div class="matrix">${specials.map(m=>card(m,'mission',m.id)).join('')}</div>`;
   if(page==='survival') body=`<div class="matrix">${card(endless,'mission',endless.id)}</div>`;
   if(page==='tree') body=`<div class="matrix tree-grid">${tree.map(branch=>`<section class="tree-card"><h3>${branch.icon} ${branch.name}</h3>${branch.nodes.map(([id,name,help],i)=>{
@@ -111,6 +146,7 @@ function menu() {
   dom.screen.innerHTML=`<section class="shell"><div class="content"><div class="heading"><div><div class="eyebrow">Poste de commandement</div><h1>${titles[page]}</h1><p>${captions[page]}</p></div>${diffSelect}</div>
     <nav class="tabs" aria-label="Modes de jeu">${routeTabs.map(([id,name])=>button(name,'nav','tab '+(id===page?'active':''),id)).join('')}</nav>${body}
   </div></section>`;
+  if(page==='campaign') paintEstuary();
   if(page==='editor') wireEditor();
 }
 function startEdit(source=null,index=-1) {
@@ -229,7 +265,9 @@ function showHUD(rebuild=false) {
 }
 function choose(id) {
   if(id==='guide' || id==='boom' || id==='sell') selected=selected===id?'':id;
-  else if(game.combat?game.legal(id,game.map.end):defenses[id]&&canUse(id,game.skills)&&game.cost(id)<=game.money) selected=id;
+  else if(game.combat
+    ?support[id]&&canUse(id,game.skills)&&game.cost(id)<=game.money&&!(game.cd[id]>game.time)&&!(game.mission.noair&&support[id].air)
+    :defenses[id]&&canUse(id,game.skills)&&game.cost(id)<=game.money) selected=id;
   showHUD();
 }
 function mapAction(i,append=false) {
@@ -270,7 +308,7 @@ function settings() {
 function showModal(kind,title,html) {
   modal=kind;
   dom.modal.hidden=false;
-  dom.modal.innerHTML=`<section class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div class="eyebrow">Dernière Sirène</div><h2 id="dialog-title">${title}</h2>${html}</section>`;
+  dom.modal.innerHTML=`<section class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div class="eyebrow">Dernière Sirène</div><h2 id="dialog-title">${escape(title)}</h2>${html}</section>`;
   dom.modal.querySelector('button')?.focus();
 }
 function closeModal() {
@@ -374,7 +412,10 @@ window.addEventListener('keydown',e=>{
   if(e.code==='Space'&&!e.target.closest('button')) {
     e.preventDefault();speed=speed?0:save.opts.speed;showHUD();
   }
-  if(/^[1-9]$/.test(e.key)&&game.combat) choose(tools[Number(e.key)-1]);
+  if(/^[1-6]$/.test(e.key)&&game.combat) choose(tools[Number(e.key)-1]);
+  if(e.key==='7'&&game.combat) choose('boom');
+  if(e.key==='8') choose('guide');
+  if(e.key==='9') {speed=speed?0:save.opts.speed;showHUD();}
   const dirs={ArrowLeft:[45,0],ArrowRight:[-45,0],ArrowUp:[0,45],ArrowDown:[0,-45]};
   if(dirs[e.key]) {e.preventDefault();view.pan(...dirs[e.key]);}
 });
@@ -469,6 +510,7 @@ function mapOverlay() {
 function pins() {
   const safe=[...game.units.values()].filter(u=>u.id==='safe');
   const pinData=[...safe.map(u=>[u.i,`✚ ${u.sheltered}/${u.cap}`,'']),[game.map.start,game.phase==='prep'?'◬ FOYER':'◬ V'+game.wave,'hot']];
+  if(game.map.breach!=null) pinData.push([game.map.breach,'◬ BRÈCHE','hot']);
   while(dom.pins.children.length<pinData.length) dom.pins.append(document.createElement('div'));
   while(dom.pins.children.length>pinData.length) dom.pins.lastChild.remove();
   pinData.forEach(([i,text,cls],index)=>{
@@ -497,9 +539,9 @@ function loop(nowMs) {
     if(game.events.length) {
       view.addEffects(game.events);
       audio.tick(game.events,save.opts,game.combat,!modal);
-      const alert=game.events.find(e=>e.type==='boss'||e.type==='collapse');
+      const alert=game.events.find(e=>e.type==='boss'||e.type==='collapse'||e.type==='breach');
       if(alert) {
-        status=alert.type==='boss'?'Contact lourd · L’Amiral entre en ville.':'Position perdue · Défense submergée.';
+        status={boss:'Contact lourd · L’Amiral entre en ville.',collapse:'Position perdue · Défense submergée.',breach:'Brèche · Une seconde horde entre en ville.'}[alert.type];
         setTimeout(()=>{if(page==='mission') status='';},4500);
       }
       game.events.length=0;

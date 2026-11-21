@@ -129,7 +129,9 @@ export class Game {
     const {count,id,waves,boss}=this.mission;
     const wave=this.wave;
     const rank=typeof id==='number'?id:(id==='survival'?this.wave+2:6);
-    const starts=[this.map.start,...adjacent[this.map.start].filter(i=>open(this.map.cells,i))];
+    const origin=this.map.start;
+    const starts=[origin,...adjacent[origin].filter(i=>open(this.map.cells,i))];
+    const breach=!first&&this.map.breach!=null&&wave%2===1 ? this.map.breach : null;
     const number=first ? count : (id==='survival' ? 10+wave*5 : Math.round(count*(.28+.055*wave)));
     const amount=Math.round(number*this.difficulty.factor);
     for(let n=0;n<amount;n++) {
@@ -139,7 +141,7 @@ export class Game {
       if (r>.76 && rank>=2) kind='brute';
       if (r>.88 && rank>=4) kind='bomb';
       if (r>.94 && rank>=5) kind='spit';
-      this.spawn(starts[n%starts.length],kind);
+      this.spawn(breach!==null&&n%5<2 ? breach : starts[n%starts.length],kind);
     }
     if ((!first && boss && wave===Math.ceil(waves*.62)) || (id==='survival' && wave>0 && wave%5===0)) {
       this.spawn(this.map.start,'boss');
@@ -149,6 +151,7 @@ export class Game {
     if(id==='survival' && this.wave>=5) this.flags.add('wave5');
     if(id==='survival' && this.wave>=10) this.flags.add('wave10');
     if(!first) this.emit('wave',this.map.start,this.wave);
+    if(breach!==null) this.emit('breach',breach);
     this.routeClock=0;
   }
   damage(z,hit,u=null) {
@@ -184,6 +187,7 @@ export class Game {
         const u=this.units.get(j);
         if(u) this.collapse(u);
       }
+      this.routeClock=0;
     }
     this.emit(kind,i);
     this.shout(i,13,5);
@@ -322,7 +326,7 @@ export class Game {
       const goal=clamp(this.safeField[c.i]-this.safeField[i],-2,2);
       const escape=clamp(this.threat[i]-danger,-2,2)*(danger<5?5:danger<8?1.5:.35);
       const guide=clamp(this.guideField[c.i]-this.guideField[i],-2,2);
-      const score=goal*(here?5:3)+escape+(here?Number(this.guideRoute.has(i))*1.2:guide*.9)+(shelter?.sheltered===shelter?.cap?.valueOf() && shelter?.id==='safe'?1:0)+this.rng()*.7;
+      const score=goal*(here?5:3)+escape+(here?Number(this.guideRoute.has(i))*1.2:guide*.9)+this.rng()*.7;
       if(score>high) { best=i; high=score; }
     }
     if(high>0 || (danger<4 && high>-1) || this.rng()<.11) c.target=best;
@@ -396,7 +400,9 @@ export class Game {
     this.zombies=this.zombies.filter(z=>z.hp>0);
     this.civs=this.civs.filter(c=>!c.dead);
     for(let i=0;i<this.fog.length;i++) if(this.fog[i]>.015) this.fog[i]*=Math.pow(.77,dt);
-    if(!this.civs.length && !this.sheltered) this.phase='lost';
+    const overrun=this.mission.id==='survival' && this.zombies.length>0 && !this.units.size
+      && !this.reinf.some(r=>['para','tank','heli'].includes(r.id));
+    if((!this.civs.length && !this.sheltered) || overrun) this.phase='lost';
     const final=this.wave>this.mission.waves;
     if(this.combat && final && !this.zombies.length) {
       this.evacuated+=this.civs.length;

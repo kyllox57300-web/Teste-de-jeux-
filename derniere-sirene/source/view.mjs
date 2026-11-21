@@ -16,6 +16,7 @@ const atmos={
   night:{fog:0x121c34,sky:0x9cb7ff,sun:0x98bbff,energy:1.3,ambient:1.67,x:15,y:19,z:-16},
   day:{fog:0x374c60,sky:0xc6e2ff,sun:0xffebca,energy:2.45,ambient:2.75,x:-13,y:22,z:-10}
 };
+const daylight=[atmos.day,atmos.dusk,atmos.night];
 const tint={safe:0x50e4bc,soldier:0x86cbd4,watch:0x9ad4ea,sniper:0x9faeff,flame:0xffad61,turret:0x71c8dd,mortar:0xb2a6e8,wall:0x798c9c,barricade:0xcb894d,gate:0x77ae91,mines:0xffbc68,explosive:0xff7454,tank:0x8eb399,para:0x9dd6e8,heli:0x73caae};
 const geom={
   box:new T.BoxGeometry(1,1,1),
@@ -73,6 +74,7 @@ export class View {
     this.renderer.shadowMap.type=T.PCFShadowMap;
     this.scene=new T.Scene();
     this.scene.fog=new T.FogExp2(0x252c42,.016);
+    this.skyBlend=new T.Color();
     this.camera=new T.PerspectiveCamera(44,1,.12,105);
     this.focus=new T.Vector3(cx,0,cz);
     this.angle=.16; this.tilt=.96; this.zoom=27;
@@ -195,7 +197,7 @@ export class View {
     const pal=palettes[theme]||palettes.city;
     const city=theme==='city', factory=theme==='industry', port=theme==='port';
     const night=light==='night', green=theme==='rural'||theme==='suburb';
-    const solids=[],lum=[],ground=[],cones=[],balls=[],water=[];
+    const solids=[],lum=[],ground=[],cones=[],balls=[],water=[],lamps=[],tanks=[];
     placeAt(ground,cx,cz,-.28,W+.72,.35,H+.72,0x323c4e);
     placeAt(ground,cx,cz,-.56,W+.25,.2,H+.25,0x485166);
     placeAt(ground,cx,cz,-.87,185,.2,185,0x222c43);
@@ -233,6 +235,15 @@ export class View {
           if(tall) placeAt(solids,x+.14,z-.14,height+.32,.035,.31,.035,0xd0aeb2);
         }
         if(port && r<.29) for(let n=0;n<3;n++) placeAt(solids,x,z,height+.18+n*.04,width*.85,.09,.26,pal[(n+2)%pal.length]);
+        if(factory && r>.66) {
+          placeAt(tanks,x+.18,z+.15,height+.36,.31,.57,.31,0x9b9695);
+          placeAt(tanks,x+.18,z+.15,height+.67,.37,.07,.37,0x4e5361);
+        }
+        if(port && z>=14 && r>.63) {
+          placeAt(solids,x-.25,z,height+.56,.08,1,.08,0xe8ae6f);
+          placeAt(solids,x+.07,z,height+1.02,.76,.08,.08,0xd69f63);
+          placeAt(solids,x+.39,z,height+.76,.023,.48,.023,0x57596d);
+        }
         for(let floor=.24;floor<height-.03;floor+=.29) for(const off of [-.18,.03,.23]) {
           const window=rng()>(night?.44:.86)?0xffcb79:0x555e76;
           placeAt(lum,x+off,z+depth/2+.008,floor,.105,.094,.014,window);
@@ -260,7 +271,7 @@ export class View {
         }
         if(r>.87) {
           placeAt(solids,x-.39,z+.37,.26,.027,.52,.027,0x2d3446);
-          placeAt(lum,x-.35,z+.37,.53,.11,.031,.068,0xffc17b);
+          placeAt(lamps,x-.35,z+.37,.53,.11,.031,.068,0xffc17b);
         }
         if(r<.075) {
           const angle=east?Math.PI/2:0;
@@ -272,11 +283,15 @@ export class View {
     this.waterItems=water;
     this.waterMesh=batch(this.city,'box',water.length||1,lit);
     fill(this.waterMesh,water);
+    this.lampItems=lamps;
+    this.lampMesh=batch(this.city,'box',lamps.length||1,lit);
+    fill(this.lampMesh,lamps);
     fill(batch(this.city,'box',ground.length,shaded),ground);
     fill(batch(this.city,'box',solids.length,shaded,true),solids);
     fill(batch(this.city,'box',lum.length,lit),lum);
     fill(batch(this.city,'cone',cones.length||1,shaded,true),cones);
     fill(batch(this.city,'ball',balls.length||1,shaded,true),balls);
+    fill(batch(this.city,'round',tanks.length||1,shaded,true),tanks);
   }
   highlight(i,id,allowed) {
     this.hover.visible=i>=0 && !!id;
@@ -290,7 +305,7 @@ export class View {
   }
   addEffects(events) {
     for(const {type,i,id,from} of events) {
-      if(['wave','boss','gas','blast','infected','flame','shot','spit','infect','collapse','rescue','support','siren','level','build'].includes(type)) {
+      if(['wave','breach','boss','gas','blast','infected','flame','shot','spit','infect','collapse','rescue','support','siren','level','build'].includes(type)) {
         this.fx.push({type,i,id,from,age:0,seed:Math.random()*1000});
       }
     }
@@ -299,14 +314,18 @@ export class View {
   render(game,now,dt,title=false, paused=false) {
     this.resize();
     if(title) { this.angle=-.52+Math.sin(now*.19)*.085; this.cameraAt(); }
-    const light=this.light;
-    const pulse=game.combat ? game.time/150 : 0;
-    const dark=.87+.13*Math.cos(pulse*Math.PI);
-    this.sun.color.set(light.sun);
-    this.sun.position.set(cx+light.x,light.y,cz+light.z);
-    this.sun.intensity=light.energy*dark;
-    this.sky.color.set(light.sky);
-    this.sky.intensity=light.ambient*(.9+.1*dark);
+    const progression=Math.max(0,game.time-12)/93;
+    const segment=(daylight.indexOf(this.light)+Math.floor(progression))%daylight.length;
+    const light=daylight[segment], next=daylight[(segment+1)%daylight.length];
+    const cycle=T.MathUtils.smoothstep(progression%1,0,1);
+    const mix=T.MathUtils.lerp;
+    this.sun.color.set(light.sun).lerp(this.skyBlend.set(next.sun),cycle);
+    this.sun.position.set(cx+mix(light.x,next.x,cycle),mix(light.y,next.y,cycle),cz+mix(light.z,next.z,cycle));
+    this.sun.intensity=mix(light.energy,next.energy,cycle);
+    this.sky.color.set(light.sky).lerp(this.skyBlend.set(next.sky),cycle);
+    this.sky.intensity=mix(light.ambient,next.ambient,cycle);
+    this.scene.background.set(light.fog).lerp(this.skyBlend.set(next.fog),cycle);
+    this.scene.fog.color.copy(this.scene.background);
     if(game.bridgeDamage.size!==this.last && game.bridgeDamage.size) {
       remove(this.city);
       this.cityParts(game);
@@ -350,6 +369,12 @@ export class View {
         }
       }
     }
+    if(!title && (game.combat||game.phase==='prep')) {
+      const [x,z]=point(game.map.start);
+      const signal=(now*1.45)%1;
+      const width=.74+signal*1.65;
+      marks.push([x,.042,z,width,width,1,signal<.55?0xffa571:0x964c49,0,-Math.PI/2]);
+    }
     for(const fx of this.fx) {
       if(!paused) fx.age+=dt;
       this.effect(fx,trace,particles,hot,now);
@@ -361,6 +386,11 @@ export class View {
         stamp(this.waterMesh,i,x+Math.sin(now+i)*.043,y,z,sx*(.82+.18*Math.sin(now+i)),sy,sz,c);
       }
       this.waterMesh.instanceMatrix.needsUpdate=true;
+      for(let i=0;i<this.lampItems.length;i+=7) {
+        const flash=Math.sin(now*20+i)+Math.sin(now*6+i*4);
+        this.lampMesh.setColorAt(i,color.set(flash>-.9?0xffcf8c:0x746d7e));
+      }
+      if(this.lampMesh.instanceColor) this.lampMesh.instanceColor.needsUpdate=true;
       this.slowFrame=now;
     }
     for(const [mesh,array] of [[this.people,bodies],[this.heads,heads],[this.gear,gear],[this.radars,marks],[this.trails,trace],[this.debris,particles],[this.flare,hot],[this.outbreak,heat],[this.guides,routes]]) {
@@ -451,10 +481,18 @@ export class View {
           placeAt(trace,x-.5+n*.45,z+.18*n,h,.073,.26,.073,0xacc3d5);
         }
       }
-    } else if(a<.61 && ['rescue','infect','level','boss','siren','build'].includes(fx.type)) {
-      const c=['infect','boss','siren'].includes(fx.type)?0xff9660:0x79e7cc;
+    } else if(a<.61 && ['rescue','infect','level','boss','siren','build','breach'].includes(fx.type)) {
+      const c=['infect','boss','siren','breach'].includes(fx.type)?0xff9660:0x79e7cc;
       const r=.22+a*.56;
       for(let n=0;n<4;n++) placeAt(hot,x+Math.cos(n*1.57+a)*r,z+Math.sin(n*1.57+a)*r,.21+a*.47,.085,.085,.085,c);
+    }
+    if(this.setting!=='low' && (fx.type==='siren'||fx.type==='breach')) {
+      for(let n=0;n<9;n++) {
+        const xx=x+Math.cos(n*2.39)*a*(1.35+n*.14), zz=z+Math.sin(n*2.39)*a*2.4;
+        const y=.68+a*(.8+n*.15), flap=.11*Math.sin(a*18+n);
+        placeAt(trace,xx-.085,zz,y+flap,.19,.022,.05,0xc1becb,-.45);
+        placeAt(trace,xx+.085,zz,y-flap,.19,.022,.05,0xc1becb,.45);
+      }
     }
   }
 }
