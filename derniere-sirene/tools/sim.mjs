@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { Game } from '../source/game.mjs';
-import { containment, missions, specials, endless } from '../source/data.mjs';
+import { containment, missions, specials, endless, metz } from '../source/data.mjs';
 import { adjacent, dist, field, open, validCustom } from '../source/city.mjs';
 import { available, defaults, finish, learn, parseSave, skillPoints } from '../source/progress.mjs';
 
@@ -49,6 +49,43 @@ function run(m,mode='normal',policy='prepared',offset=0) {
     g.events.length=0;
   }
   return g;
+}
+
+function runMetz(prepared) {
+  const g=new Game(metz);
+  const {cells,start,end,homes}=g.map;
+  const {dist:distance,field:route}=g.grid;
+  const nav=route([start],i=>open(cells,i));
+  assert.ok(nav[end]<30000);
+  if(prepared) {
+    const near=homes.filter(i=>nav[i]>=22&&nav[i]<=39&&distance(end,i)>8);
+    const far=homes.slice().sort((a,b)=>nav[b]-nav[a]);
+    for(const options of [near,far,near,far]) {
+      const at=options.find(i=>g.legal('safe',i)&&[...g.units.values()].every(u=>u.id!=='safe'||distance(i,u.i)>13));
+      assert.ok(g.place('safe',at));
+    }
+    const positions=homes.slice().sort((a,b)=>Math.abs(nav[a]-10)-Math.abs(nav[b]-10)||distance(a,start)-distance(b,start));
+    for(const id of ['turret','sniper','watch','soldier','soldier','sniper',...Array(11).fill('soldier')]) {
+      const at=positions.find(i=>g.legal(id,i));
+      if(at!==undefined) g.place(id,at);
+    }
+  }
+  g.prepare();
+  let trips=0, peak=g.remaining;
+  for(let i=0;i<4700&&g.combat;i++) {
+    if(prepared&&i%32===0&&g.remaining>0&&g.time>3) {
+      const density=g.zombies.reduce((m,p)=>m.set(p.i,(m.get(p.i)||0)+1),new Map());
+      const sweep=g.remaining<=12&&g.time>=64;
+      const target=[...density].sort((a,b)=>b[1]-a[1]).slice(0,8)
+        .find(([ix,n])=>(n>=3||sweep)&&g.civs.filter(c=>distance(c.i,ix)<=2).length<6)?.[0];
+      if(target!==undefined&&!g.call('missile',target)&&!g.call('gas',target)&&g.remaining<=12) g.call('para',target);
+    }
+    g.step(.08);
+    trips+=g.events.filter(e=>e.type==='convoy').length;
+    peak=Math.max(peak,g.remaining);
+    g.events.length=0;
+  }
+  return {g,trips,peak};
 }
 
 const verify=!process.argv.includes('--explore');
@@ -128,5 +165,17 @@ if(verify) {
   for(let i=0;i<12;i++) moving.step(.08);
   assert.equal(moving.units.get(to),unit);
   assert.ok(!moving.marches.length);
+  const undefended=runMetz(false);
+  assert.equal(undefended.g.phase,'lost');
+  assert.ok(undefended.peak>1000);
+  const downtown=runMetz(true);
+  assert.equal(downtown.g.phase,'won');
+  assert.ok(downtown.trips>=10);
+  assert.ok(downtown.g.result().saved>=downtown.g.quota);
+  assert.equal(downtown.g.remaining,0);
+  assert.ok(downtown.g.map.art.buildings.length>7000);
+  finish(sectors,downtown.g);
+  assert.deepEqual(parseSave(JSON.stringify(sectors)),sectors);
+  console.log(`Metz — ${downtown.g.evacuated}/${metz.pop} civils dans ${downtown.trips} navettes · ${downtown.peak} infectés au pic.`);
   console.log('Progression, succès, import/export, cartes et survie vérifiés.');
 }

@@ -1,6 +1,7 @@
 import * as T from 'three';
 import { W,H,terrain as t,infected,defenses } from './data.mjs';
-import {point,random,open} from './city.mjs';
+import {baseGrid,point,random,open} from './city.mjs';
+import {buildMapArt,diffusionTexture} from './map-art.mjs';
 
 const cx=(W-1)/2, cz=(H-1)/2;
 const palettes={
@@ -76,6 +77,7 @@ export class View {
     this.scene.fog=new T.FogExp2(0x252c42,.016);
     this.skyBlend=new T.Color();
     this.camera=new T.PerspectiveCamera(44,1,.12,105);
+    this.grid=baseGrid;
     this.focus=new T.Vector3(cx,0,cz);
     this.angle=.16; this.tilt=.96; this.zoom=27;
     this.sun=new T.DirectionalLight(0xffc18e,2);
@@ -102,7 +104,7 @@ export class View {
     this.radars=batch(this.dynamic,'ring',500,double);
     this.trails=batch(this.dynamic,'box',420,lit);
     this.debris=batch(this.dynamic,'ball',650,shaded);
-    this.guides=batch(this.dynamic,'box',550,lit);
+    this.guides=batch(this.dynamic,'box',900,lit);
     this.flare=batch(this.dynamic,'ball',520,lit);
     this.outbreak=batch(this.dynamic,'flat',W*H,basic(0xffffff,{side:T.DoubleSide,transparent:true,opacity:.61,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));
     this.outbreak.renderOrder=1;
@@ -147,21 +149,23 @@ export class View {
   }
   reset(title=false) {
     this.angle=title?-.52:this.tactical?0:.16;
-    this.tilt=title?.63:this.tactical?1.45:.99;
-    this.zoom=title?30:this.tactical?(this.camera.aspect<1?41:29):(this.camera.aspect<1?35:27);
-    this.focus.set(title?10.5:cx,0,title?7:cz);
+    this.tilt=title?.63:this.tactical?(this.map.art?1.51:1.45):.99;
+    const {w,h}=this.grid;
+    this.fit=Math.max(h,w/this.camera.aspect)/(2*Math.tan(T.MathUtils.degToRad(this.camera.fov/2)))*1.08;
+    this.zoom=this.map.art?this.fit:title?30:this.tactical?(this.camera.aspect<1?41:29):(this.camera.aspect<1?35:27);
+    this.focus.set(title?10.5:(w-1)/2,0,title?7:(h-1)/2);
     this.cameraAt();
   }
   switchProjection() {
     this.tactical=!this.tactical;
-    this.tilt=this.tactical?1.45:.99;
+    this.tilt=this.tactical?(this.map.art?1.51:1.45):.99;
     this.angle=this.tactical?0:.16;
     this.city.scale.y=this.tactical?.69:1;
     this.renderer.shadowMap.needsUpdate=true;
     this.cameraAt();
   }
   focusAt(i) {
-    const [x,z]=point(i);
+    const [x,z]=this.grid.point(i);
     this.focus.set(x,0,z);
     this.cameraAt();
   }
@@ -170,7 +174,19 @@ export class View {
     this.ray.setFromCamera({x:(x-rect.left)/rect.width*2-1,y:1-(y-rect.top)/rect.height*2},this.camera);
     if(!this.ray.ray.intersectPlane(this.floor,this.vec)) return -1;
     const xx=Math.round(this.vec.x),zz=Math.round(this.vec.z);
-    return xx<0||zz<0||xx>=W||zz>=H?-1:zz*W+xx;
+    const {w,h,cell}=this.grid;
+    if(xx<0||zz<0||xx>=w||zz>=h) return -1;
+    const here=cell(xx,zz);
+    if(!this.map.art||open(this.map.cells,here)) return here;
+    let closest=here, distance=.97;
+    for(let z=Math.max(0,zz-1);z<=Math.min(h-1,zz+1);z++) for(let x=Math.max(0,xx-1);x<=Math.min(w-1,xx+1);x++) {
+      const i=cell(x,z);
+      if(!open(this.map.cells,i)) continue;
+      const [a,b]=this.location(i);
+      const d=Math.hypot(a-this.vec.x,b-this.vec.z);
+      if(d<distance) {closest=i;distance=d;}
+    }
+    return closest;
   }
   project(x,z,height=.55) {
     this.vec.set(x,height,z).project(this.camera);
@@ -179,16 +195,21 @@ export class View {
   pan(dx,dy) {
     const scale=this.zoom/Math.max(300,this.height)*.83;
     const a=this.angle;
-    this.focus.x=T.MathUtils.clamp(this.focus.x+(-Math.cos(a)*dx-Math.sin(a)*dy)*scale,0,W-1);
-    this.focus.z=T.MathUtils.clamp(this.focus.z+(Math.sin(a)*dx-Math.cos(a)*dy)*scale,0,H-1);
+    this.focus.x=T.MathUtils.clamp(this.focus.x+(-Math.cos(a)*dx-Math.sin(a)*dy)*scale,0,this.grid.w-1);
+    this.focus.z=T.MathUtils.clamp(this.focus.z+(Math.sin(a)*dx-Math.cos(a)*dy)*scale,0,this.grid.h-1);
     this.cameraAt();
   }
   zoomBy(v) {
-    this.zoom=T.MathUtils.clamp(this.zoom*v,9,this.camera.aspect<1?46:38);
+    this.zoom=T.MathUtils.clamp(this.zoom*v,9,this.map.art?this.fit*1.23:(this.camera.aspect<1?46:38));
     this.cameraAt();
   }
+  location(i) { return this.map.anchors?.[i]||this.grid.point(i); }
   build(game, title=false) {
     this.map=game.map;
+    this.grid=game.grid;
+    this.camera.far=this.map.art?290:105;
+    this.camera.updateProjectionMatrix();
+    this.sun.target.position.set((this.grid.w-1)/2,0,(this.grid.h-1)/2);
     this.tactical=!title&&!!game.mission.containment;
     this.commandOrigin=-1;
     this.hover.visible=false;
@@ -196,10 +217,20 @@ export class View {
     this.light=atmos[game.mission.light]||atmos.dusk;
     this.scene.background=new T.Color(this.light.fog);
     this.scene.fog.color.copy(this.scene.background);
+    this.scene.fog.density=this.map.art?.0027:.016;
+    this.disposeArt?.();
+    this.disposeArt=null;
     remove(this.city);
     this.fx.length=0;
     this.last=-1;
-    this.cityParts(game);
+    if(this.map.art) {
+      this.disposeArt=buildMapArt(this.city,this.map.art);
+      if(!this.diffusion) {
+        this.diffusion=batch(this.dynamic,'flat',this.grid.w*this.grid.h,
+          basic(0xffffff,{map:diffusionTexture(),transparent:true,opacity:.61,side:T.DoubleSide,depthWrite:false}));
+        this.diffusion.renderOrder=1;
+      }
+    } else this.cityParts(game);
     this.renderer.shadowMap.needsUpdate=true;
     this.reset(title);
   }
@@ -309,7 +340,7 @@ export class View {
   highlight(i,id,allowed) {
     this.hover.visible=i>=0 && !!id;
     if(!this.hover.visible) return;
-    const [x,z]=point(i);
+    const [x,z]=this.location(i);
     const d=defenses[id];
     const radius=d?.range||({air:2.3,missile:2.25,gas:2.5,heli:3.8,tank:4.5,para:1})[id]||.52;
     this.hover.position.set(x,.086,z);
@@ -318,7 +349,7 @@ export class View {
   }
   addEffects(events) {
     for(const {type,i,id,from} of events) {
-      if(['wave','breach','boss','gas','blast','infected','flame','shot','spit','infect','collapse','rescue','support','siren','level','build'].includes(type)) {
+      if(['wave','breach','boss','gas','blast','infected','flame','shot','spit','infect','collapse','rescue','support','siren','level','build','convoy'].includes(type)) {
         this.fx.push({type,i,id,from,age:0,seed:Math.random()*1000});
       }
     }
@@ -333,13 +364,13 @@ export class View {
     const cycle=T.MathUtils.smoothstep(progression%1,0,1);
     const mix=T.MathUtils.lerp;
     this.sun.color.set(light.sun).lerp(this.skyBlend.set(next.sun),cycle);
-    this.sun.position.set(cx+mix(light.x,next.x,cycle),mix(light.y,next.y,cycle),cz+mix(light.z,next.z,cycle));
+    this.sun.position.set((this.grid.w-1)/2+mix(light.x,next.x,cycle),mix(light.y,next.y,cycle),(this.grid.h-1)/2+mix(light.z,next.z,cycle));
     this.sun.intensity=mix(light.energy,next.energy,cycle);
     this.sky.color.set(light.sky).lerp(this.skyBlend.set(next.sky),cycle);
     this.sky.intensity=mix(light.ambient,next.ambient,cycle);
     this.scene.background.set(light.fog).lerp(this.skyBlend.set(next.fog),cycle);
     this.scene.fog.color.copy(this.scene.background);
-    if(game.bridgeDamage.size!==this.last && game.bridgeDamage.size) {
+    if(!this.map.art&&game.bridgeDamage.size!==this.last&&game.bridgeDamage.size) {
       remove(this.city);
       this.cityParts(game);
       this.last=game.bridgeDamage.size;
@@ -351,8 +382,8 @@ export class View {
       const spec=infected[p.id];
       const s=spec?.size||.91;
       if(this.tactical) {
-        const marker=(spec?.size||1)*(p.id==='fast'?.31:.19);
-        placeAt(contacts,p.x,p.z,.12,marker,.041,marker,spec?0xff795b:0x9de5ff);
+        const marker=this.map.art?(spec?.size||1)*(spec?.32:.25):(spec?.size||1)*(p.id==='fast'?.31:.19);
+        placeAt(contacts,p.x,p.z,.12,marker,.041,marker,spec?0xff795b:0xaeeefa);
         if(p.id==='boss') placeAt(hot,p.x,p.z,.37,.46,.46,.46,0xff512f);
         continue;
       }
@@ -367,11 +398,11 @@ export class View {
     for(const u of game.units.values()) this.unit(gear,marks,hot,u,now);
     for(const m of game.marches) {
       this.unit(gear,marks,hot,m.u,now,[m.x,m.z],m.angle);
-      const [x,z]=point(m.to);
+      const [x,z]=this.location(m.to);
       if(this.tactical) marks.push([x,.038,z,.88,.88,1,0x99d6fc,0,-Math.PI/2]);
     }
     if(game.units.has(this.commandOrigin)) {
-      const [x,z]=point(this.commandOrigin);
+      const [x,z]=this.location(this.commandOrigin);
       marks.push([x,.055,z,1.22,1.22,1,0x94efdd,0,-Math.PI/2]);
     }
     for(const r of game.reinf) if(['heli','tank','para'].includes(r.id)&&game.time>=r.t) this.unit(gear,marks,hot,r,now);
@@ -384,22 +415,24 @@ export class View {
     for(let i=0;i<game.fog.length;i++) {
       const v=game.fog[i];
       if(v<.16 || !open(game.map.cells,i)) continue;
-      const [x,z]=point(i);
+      const [x,z]=this.location(i);
       const c=this.tactical?(v>.69?0xc65340:v>.35?0x953d37:0x633632):(v>.69?0xe77740:v>.35?0xab5753:0x764755);
-      heat.push([x,.025,z,.91,.91,1,c,0,-Math.PI/2]);
+      const size=this.map.art?1.21+v*2.25:.91;
+      heat.push([x,.026,z,size,size,1,c,0,-Math.PI/2]);
     }
     if(game.guide.length) {
       for(const [n,i] of game.guide.entries()) {
-        const [x,z]=point(i);
-        const prev=n>0?point(game.guide[n-1]):null;
+        const [x,z]=this.location(i);
+        const prev=n>0?this.location(game.guide[n-1]):null;
         placeAt(routes,x,z,.049,.15,.015,.15,0x6bfad6);
-        if(prev&&Math.abs(x-prev[0])+Math.abs(z-prev[1])===1) {
-          placeAt(routes,(x+prev[0])/2,(z+prev[1])/2,.042,x===prev[0]?.047:.94,.012,z===prev[1]?.047:.94,0x4cb5ac);
+        if(prev&&this.grid.dist(i,game.guide[n-1])===1) {
+          const dx=x-prev[0],dz=z-prev[1];
+          placeAt(routes,x-dx/2,z-dz/2,.042,this.map.art?.12:.047,.012,Math.hypot(dx,dz),0x4cb5ac,Math.atan2(dx,dz));
         }
       }
     }
-    if(!title && (game.combat||game.phase==='prep')) {
-      const [x,z]=point(game.map.start);
+    if(!title&&game.clearedAt===null&&(game.combat||game.phase==='prep')) {
+      const [x,z]=this.location(game.map.start);
       const signal=(now*1.45)%1;
       const width=.74+signal*1.65;
       marks.push([x,.042,z,width,width,1,signal<.55?0xffa571:0x964c49,0,-Math.PI/2]);
@@ -410,7 +443,7 @@ export class View {
       this.effect(fx,trace,particles,hot,now);
     }
     this.fx=this.fx.filter(f=>f.age<3.5);
-    if(this.setting!=='low' && now-this.slowFrame>.11) {
+    if(!this.map.art&&this.setting!=='low'&&now-this.slowFrame>.11) {
       for(const [i,item] of this.waterItems.entries()) {
         const [x,y,z,sx,sy,sz,c]=item;
         stamp(this.waterMesh,i,x+Math.sin(now+i)*.043,y,z,sx*(.82+.18*Math.sin(now+i)),sy,sz,c);
@@ -423,12 +456,12 @@ export class View {
       if(this.lampMesh.instanceColor) this.lampMesh.instanceColor.needsUpdate=true;
       this.slowFrame=now;
     }
-    for(const [mesh,array] of [[this.people,bodies],[this.heads,heads],[this.contacts,contacts],[this.gear,gear],[this.radars,marks],[this.trails,trace],[this.debris,particles],[this.flare,hot],[this.outbreak,heat],[this.guides,routes]]) {
-      fill(mesh,array.length>mesh.instanceMatrix.count?array.slice(0,mesh.instanceMatrix.count):array);
+    for(const [mesh,array] of [[this.people,bodies],[this.heads,heads],[this.contacts,contacts],[this.gear,gear],[this.radars,marks],[this.trails,trace],[this.debris,particles],[this.flare,hot],[this.outbreak,this.map.art?[]:heat],[this.diffusion,this.map.art?heat:[]],[this.guides,routes]]) {
+      if(mesh) fill(mesh,array.length>mesh.instanceMatrix.count?array.slice(0,mesh.instanceMatrix.count):array);
     }
     this.renderer.render(this.scene,this.camera);
   }
-  unit(gear,marks,hot,u,now,position=point(u.i),facing=u.angle) {
+  unit(gear,marks,hot,u,now,position=this.location(u.i),facing=u.angle) {
     const [x,z]=position, id=u.id;
     const c=tint[id]||0xa7d9e2;
     const box=(y,sx,sy,sz,k=c,angle=0,dx=0,dz=0)=>placeAt(gear,x+dx,z+dz,y,sx,sy,sz,k,angle);
@@ -469,15 +502,21 @@ export class View {
     if(u.level>1) for(let n=1;n<u.level;n++) placeAt(hot,x-.23+n*.14,z+.28,.43,.08,.075,.08,0xffd67b);
   }
   effect(fx,trace,particles,hot,now) {
-    const [x,z]=point(fx.i), a=fx.age;
+    const [x,z]=this.location(fx.i), a=fx.age;
     if(fx.type==='shot'||fx.type==='spit') {
       if(a>.22) return;
-      const [u,v]=point(fx.from);
+      const [u,v]=this.location(fx.from);
       const d=Math.hypot(u-x,v-z);
       const c=fx.type==='spit'?0xbb94ff:0xffd68c;
       placeAt(trace,(x+u)/2,(z+v)/2,.29,.026,.025,d,c,Math.atan2(x-u,z-v));
       placeAt(hot,x,z,.28,.115,.115,.115,c);
       placeAt(particles,u+.14+a,v-.16,.2+a*.65,.05,.055,.09,0xcba564);
+    } else if(fx.type==='convoy'&&a<1.55) {
+      const radius=.16+Math.sqrt(a)*1.7;
+      for(let n=0;n<16;n++) {
+        const angle=n*Math.PI/8+a*.7;
+        placeAt(hot,x+Math.cos(angle)*radius,z+Math.sin(angle)*radius,.13,.14,.12,.14,0x77e7c7);
+      }
     } else if(fx.type==='blast'||fx.type==='infected'||fx.type==='flame'||fx.type==='collapse') {
       const fire=fx.type==='flame';
       const max=this.setting==='low'?4:fire?5:12;

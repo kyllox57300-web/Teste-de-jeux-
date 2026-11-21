@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { build } from '../source/node_modules/esbuild/lib/main.js';
 import { chromium } from '../source/node_modules/playwright-core/index.mjs';
 import { PerspectiveCamera,Vector3 } from '../source/node_modules/three/build/three.module.js';
+import { Game } from '../source/game.mjs';
+import { metz } from '../source/data.mjs';
 import { serve } from './serve.mjs';
 
 const captures=resolve(process.env.SIRENE_CAPTURES||fileURLToPath(new URL('../captures/',import.meta.url)));
@@ -25,14 +27,15 @@ try {
   async function snap(page,name) {
     await page.screenshot({path:resolve(captures,name+'.jpg'),quality:90,timeout:30000});
   }
-  async function projector(page,tactical=false) {
+  async function projector(page,tactical=false,grid=null) {
     const box=await page.locator('#world').boundingBox();
     const aspect=box.width/box.height;
-    const zoom=tactical?(aspect<1?41:29):(aspect<1?35:27);
-    const angle=tactical?0:.16, tilt=tactical?1.45:.99;
+    const zoom=grid?Math.max(grid.h,grid.w/aspect)/(2*Math.tan(22*Math.PI/180))*1.08:tactical?(aspect<1?41:29):(aspect<1?35:27);
+    const angle=tactical?0:.16, tilt=tactical?(grid?1.51:1.45):.99;
+    const cx=grid?(grid.w-1)/2:12, cz=grid?(grid.h-1)/2:9;
     const camera=new PerspectiveCamera(44,aspect,.12,105);
-    camera.position.set(12+Math.sin(angle)*Math.cos(tilt)*zoom,zoom*Math.sin(tilt),9+Math.cos(angle)*Math.cos(tilt)*zoom);
-    camera.lookAt(12,0,9);
+    camera.position.set(cx+Math.sin(angle)*Math.cos(tilt)*zoom,zoom*Math.sin(tilt),cz+Math.cos(angle)*Math.cos(tilt)*zoom);
+    camera.lookAt(cx,0,cz);
     camera.updateMatrixWorld();
     return (x,z)=>{
       const p=new Vector3(x,0,z).project(camera);
@@ -46,7 +49,37 @@ try {
   await desktop.getByRole('button',{name:'Contenir un foyer'}).waitFor({timeout:18000});
   await snap(desktop,'01-titre');
   await desktop.getByRole('button',{name:'Contenir un foyer'}).click();
-  assert.equal(await desktop.locator('.mission-card').count(),3);
+  assert.equal(await desktop.locator('.mission-card').count(),4);
+  await desktop.getByRole('button',{name:/Metz · Les Îles/}).click();
+  await desktop.getByRole('button',{name:'Examiner la carte'}).click();
+  assert.equal(await desktop.locator('.metric.rescue strong').textContent(),'0/690');
+  await desktop.getByRole('link',{name:/OpenStreetMap/}).waitFor();
+  await snap(desktop,'08-metz');
+  const atlas=new Game(metz);
+  const initialPoint=await projector(desktop,true,atlas.grid);
+  const site=atlas.map.homes.find(i=>{
+    const [x,z]=atlas.grid.point(i);
+    return x>48&&x<53&&z>39&&z<44&&atlas.legal('safe',i);
+  });
+  await desktop.getByRole('button',{name:'Zone sûre',exact:true}).click();
+  await desktop.mouse.click(...initialPoint(...atlas.grid.point(site)));
+  assert.equal(await desktop.locator('.metric.cash strong').textContent(),'1730');
+  await desktop.getByRole('button',{name:/Prêt · lancer/}).click();
+  await desktop.getByRole('button',{name:'Refuge avancé'}).click();
+  const site2=atlas.map.homes.find(i=>{
+    const [x,z]=atlas.grid.point(i);
+    return x>=29&&x<=34&&z>=32&&z<=37&&atlas.legal('safe',i);
+  });
+  await desktop.mouse.click(...initialPoint(...atlas.grid.point(site2)));
+  await desktop.locator('.pin:not(.geo,.hot)').nth(2).waitFor();
+  await desktop.waitForFunction(()=>Number(document.querySelector('.metric.infect strong').textContent)>=280,{},{timeout:20000});
+  await desktop.getByRole('button',{name:'Mettre en pause'}).click();
+  await snap(desktop,'09-metz-epidemie');
+  await desktop.getByRole('button',{name:/Centrer sur les infectés/}).click();
+  await desktop.getByRole('button',{name:'Recentrer'}).click();
+  await desktop.keyboard.press('Escape');
+  await desktop.getByRole('button',{name:'Quitter la mission'}).click();
+
   await desktop.getByRole('button',{name:/Canal des Verreries/}).click();
   await desktop.getByRole('button',{name:'Examiner la carte'}).click();
   await desktop.getByRole('button',{name:'Vue en relief'}).click();
@@ -131,6 +164,12 @@ try {
   observe(phone);
   await phone.goto(url);
   await phone.getByRole('button',{name:'Contenir un foyer'}).tap();
+  await phone.getByRole('button',{name:/Metz · Les Îles/}).tap();
+  await phone.getByRole('button',{name:'Examiner la carte'}).tap();
+  await phone.getByRole('button',{name:'Rapprocher'}).tap();
+  await snap(phone,'10-metz-mobile');
+  await phone.getByRole('button',{name:'Pause',exact:true}).tap();
+  await phone.getByRole('button',{name:'Quitter la mission'}).tap();
   await phone.getByRole('button',{name:/Canal des Verreries/}).tap();
   await phone.getByRole('button',{name:'Examiner la carte'}).tap();
   const touchPlan=await projector(phone,true);
@@ -166,6 +205,10 @@ try {
   await context.setOffline(true);
   await desktop.reload();
   await desktop.getByRole('heading',{name:'Dernière Sirène'}).waitFor();
+  await desktop.getByRole('button',{name:'Contenir un foyer'}).click();
+  await desktop.getByRole('button',{name:/Metz · Les Îles/}).click();
+  await desktop.getByRole('button',{name:'Examiner la carte'}).click();
+  await desktop.getByRole('link',{name:/OpenStreetMap/}).waitFor();
   await context.close();
   await mobileContext.close();
 
@@ -175,30 +218,40 @@ try {
   const stressScript=await build({write:false,bundle:true,stdin:{resolveDir:fileURLToPath(new URL('../source/',import.meta.url)),contents:`
     import {Game} from './game.mjs';
     import {View} from './view.mjs';
-    import {missions} from './data.mjs';
-    const game=new Game({...missions[11],count:650});
+    import {missions,metz} from './data.mjs';
     const view=new View(document.getElementById('map'),'low');
-    view.build(game);
-    game.prepare();
     const gl=view.renderer.getContext();
     const debug=gl.getExtension('WEBGL_debug_renderer_info');
     const engine=debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):'WebGL';
-    let frames=0,started=0;
-    const draw=()=>{
-      game.step(.08);
-      view.render(game,frames/30,1/30);
-      frames++;
-      if(frames===4) started=performance.now();
-      if(frames<52) requestAnimationFrame(draw);
-      else window.report={ms:Math.round(performance.now()-started),count:game.remaining,engine};
-    };
-    requestAnimationFrame(draw);
+    async function sample(mission) {
+      const game=new Game(mission);
+      view.build(game);
+      game.prepare();
+      let frames=0,started=0;
+      return new Promise(resolve=>{
+        const draw=()=>{
+          game.step(.08);
+          view.render(game,frames/30,1/30);
+          frames++;
+          if(frames===4) started=performance.now();
+          if(frames<52) requestAnimationFrame(draw);
+          else resolve({ms:Math.round(performance.now()-started),infected:game.remaining,total:game.remaining+game.civs.length});
+        };
+        requestAnimationFrame(draw);
+      });
+    }
+    (async()=>{
+      const classic=await sample({...missions[11],count:650});
+      window.report={classic,metz:await sample(metz),engine};
+    })();
   `}});
   await stressPage.addScriptTag({content:stressScript.outputFiles[0].text});
   await stressPage.waitForFunction(()=>window.report,{},{timeout:20000});
   const perf=await stressPage.evaluate(()=>window.report);
-  assert.ok(perf.count>=600);
-  console.log(`Rendu Chromium : ${perf.count} infectés, 48 images en ${perf.ms} ms (${perf.engine}).`);
+  assert.ok(perf.classic.infected>=600);
+  assert.ok(perf.metz.total>=2200);
+  console.log(`Rendu Chromium classique : ${perf.classic.infected} infectés, 48 images en ${perf.classic.ms} ms.`);
+  console.log(`Rendu Chromium Metz : ${perf.metz.total} personnages, 48 images en ${perf.metz.ms} ms (${perf.engine}).`);
   await stressPage.close();
   assert.deepEqual(failures,[]);
   console.log('Bureau, tactile, sauvegarde, éditeur, succès, réglages et rechargement hors ligne vérifiés.');

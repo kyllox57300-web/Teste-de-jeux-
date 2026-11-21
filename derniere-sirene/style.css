@@ -75,6 +75,8 @@ h1,h2,h3,p { margin-top:0 }
 .mission-card.industry { background:linear-gradient(140deg,#3e3542,#292732) }
 .mission-card.rural,.mission-card.suburb { background:linear-gradient(140deg,#334938,#242e35) }
 .mission-card strong { font-size:1.12rem }
+.mission-card.atlas-card { grid-column:1/-1; min-height:126px; background:linear-gradient(112deg,#27453f,#1b3437 56%,#23384a); border-color:#6c9180 }
+.atlas-card strong { font-size:1.48rem }
 .mission-card small,.tree-card small,.badge-card small,.city-card small { color:var(--muted); line-height:1.35 }
 .stars { color:var(--amber); letter-spacing:.125em }
 .tree-grid { grid-template-columns:repeat(4,minmax(0,1fr)) }
@@ -90,6 +92,10 @@ h1,h2,h3,p { margin-top:0 }
 #pins { position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:1 }
 .pin { position:absolute; white-space:nowrap; transform:translate(-50%,-100%); background:#1d2b32ed; border:1px solid #63cdac9c; color:#9ef9dc; border-radius:4px; padding:4px 6px; font:700 .67rem var(--mono); letter-spacing:.06em; box-shadow:0 3px 14px #14202755; }
 .pin.hot { border-color:#f798689f; color:#ffba8d; background:#3b2a30ed }
+.pin.geo { transform:translate(-50%,-50%); letter-spacing:.14em; color:#edf4e5; background:#1d2d32c8; border-color:#b6c8b963; box-shadow:none; }
+.map-credit { position:absolute; right:10px; bottom:62px; border:1px solid #748792; border-radius:4px; padding:3px 6px; background:#172834e8; color:#e2f0eb; text-decoration:none; font-size:.72rem; }
+.map-credit:hover { text-decoration:underline }
+.map-credit:focus-visible { outline-offset:2px }
 .hud { position:absolute; inset:var(--top) 0 0; pointer-events:none }
 .hud>* { pointer-events:auto }
 .metrics { position:absolute; top:13px; left:14px; display:flex; align-items:stretch; gap:6px; max-width:calc(100vw - var(--dock) - 27px) }
@@ -100,6 +106,8 @@ h1,h2,h3,p { margin-top:0 }
 .metric.rescue strong { color:var(--mint) }
 .metric.street strong { color:#a1e0ff }
 .metric.infect strong { color:var(--danger) }
+.metric-locate { text-align:left; }
+.metric-locate:hover { border-color:var(--danger); }
 .brief { position:absolute; top:76px; left:14px; max-width:min(342px,calc(100vw - var(--dock) - 31px)); padding:11px 12px; background:#192431e8; border:1px solid #79869480; border-radius:7px; box-shadow:0 3px 16px #12172250 }
 .brief:empty { display:none }
 .brief strong { font-size:.84rem; color:var(--amber) }

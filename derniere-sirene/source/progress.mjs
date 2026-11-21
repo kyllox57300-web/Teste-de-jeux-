@@ -1,4 +1,4 @@
-import { badges, containment, difficulty, missions, tree } from './data.mjs';
+import { badges, containment, difficulty, metz, missions, tree } from './data.mjs';
 import { validCustom } from './city.mjs';
 
 const key='derniere-sirene-v1';
@@ -53,7 +53,7 @@ export function parseSave(raw) {
     if(!Number.isInteger(r.stars)||r.stars<1||r.stars>3||!Number.isInteger(r.saved)||r.saved>pop||r.saved<0||!Number.isInteger(r.score)||r.score<0) break;
     data.records[id]={stars:r.stars,saved:r.saved,score:r.score};
   }
-  for(const {id,pop} of containment) {
+  for(const {id,pop} of [metz,...containment]) {
     const r=input.containment?.[id];
     if(r&&Number.isInteger(r.stars)&&r.stars>=1&&r.stars<=3&&Number.isInteger(r.saved)&&r.saved<=pop&&r.saved>=0&&Number.isSafeInteger(r.score)&&r.score>=0) {
       data.containment[id]={stars:r.stars,saved:r.saved,score:r.score};

@@ -1,4 +1,6 @@
 import { terrain as t, W, H } from './data.mjs';
+import { createGrid } from './grid.mjs';
+import metz from '../maps/metz.json' with {type:'json'};
 
 export function random(seed) {
   return () => {
@@ -7,35 +9,13 @@ export function random(seed) {
   };
 }
 
-export const cell = (x, z) => z * W + x;
-export const point = i => [i % W, Math.floor(i / W)];
-export const dist = (a, b) => Math.abs(a % W - b % W) + Math.abs(Math.floor(a/W) - Math.floor(b/W));
 export const open = (map, i) => map[i] === t.road || map[i] === t.park || map[i] === t.bridge;
-export const adjacent = Array.from({length:W*H}, (_, i) => {
-  const [x,z] = point(i);
-  return [[x-1,z],[x+1,z],[x,z-1],[x,z+1]].filter(([a,b]) => a>=0 && b>=0 && a<W && b<H).map(([a,b]) => cell(a,b));
-});
 
-export function field(sources, passable) {
-  const values = new Int16Array(W*H).fill(30000);
-  const queue = new Int16Array(W*H);
-  let cursor = 0, length = 0;
-  for (const i of sources) {
-    if (values[i] === 0) continue;
-    values[i] = 0;
-    queue[length++] = i;
-  }
-  while (cursor < length) {
-    const i = queue[cursor++];
-    for (const j of adjacent[i]) if (values[j] === 30000 && passable(j)) {
-      values[j] = values[i]+1;
-      queue[length++] = j;
-    }
-  }
-  return values;
-}
+export const baseGrid=createGrid(W,H);
+export const {cell,point,dist,adjacent,field}=baseGrid;
 
 export function generate(mission) {
+  if(mission.metro) return generateMetz(mission.seed);
   if (mission.layout) return {cells:mission.layout.slice(), start:mission.start, end:mission.end, homes:homesFor(mission.layout, mission.start), seed:mission.seed};
   if(mission.containment) return generateDistrict(mission);
   const rng = random(mission.seed);
@@ -59,6 +39,20 @@ export function generate(mission) {
   const rear = mission.seed%2===0 ? 16 : 1;
   const breach=typeof mission.id==='number'&&mission.id>=5 ? cell(mission.id>=9?16:19,rear) : null;
   return {cells,start,end,breach,homes:homesFor(cells,start),seed:mission.seed};
+}
+
+let cityMap;
+function generateMetz(seed) {
+  if(!cityMap) {
+    const grid=createGrid(metz.w,metz.h);
+    const cells=Array.from(metz.cells,Number);
+    const anchors=[];
+    for(const [i,x,z] of metz.anchors) anchors[i]=[x,z];
+    const paths=grid.field([metz.start],i=>open(cells,i));
+    const homes=cells.flatMap((_,i)=>paths[i]>4&&paths[i]<30000?[i]:[]);
+    cityMap={art:metz,grid,anchors,cells,homes,start:metz.start,end:metz.end};
+  }
+  return {...cityMap,seed,cells:cityMap.cells.slice()};
 }
 
 const districts={

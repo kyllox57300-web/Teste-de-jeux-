@@ -86,6 +86,12 @@ export const containment = [
     seed:9612,budget:1170,pop:820,count:28,cap:94,loadout:['marks','incend','rotor','guided'],
     briefing:['Dre Imani','Les quais se remplissent pendant la marée haute. Il y a deux chenaux à traverser. Guidez les civils jusqu’au premier refuge avant de vider l’île.']}
 ].map(m=>({...m,containment:true,waves:0}));
+export const metz = {
+  id:'metz',name:'Metz · Les Îles et la Moselle',theme:'city',light:'day',zone:'CARTE DE METZ · SCÉNARIO FICTIF',
+  seed:6103,budget:1840,pop:2300,count:42,cap:125,quota:.30,waves:0,metro:true,containment:true,
+  loadout:['marks','mining','rotor','guided','towers'],
+  briefing:['Générale Varga','Les appels affluent du nord-est. Les rues du centre convergent vers les ponts. Pose des refuges des deux côtés de la Moselle et protège leurs accès.'],
+};
 export const difficulty = {
   easy:{name:'Facile', factor:.76, budget:1.2}, normal:{name:'Normal', factor:1, budget:1}, hard:{name:'Difficile', factor:1.23, budget:.88}
 };
