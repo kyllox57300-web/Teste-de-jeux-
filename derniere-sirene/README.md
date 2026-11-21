@@ -2,15 +2,18 @@
 
 [Jouer sur GitHub Pages](https://kyllox57300-web.github.io/Teste-de-jeux-/derniere-sirene/)
 
-Douze missions de stratégie en temps réel dans des villes en 3D. Préparez vos défenses puis lancez l’épidémie. Tenez les abris et éliminez tous les infectés. Les brèches secondaires des dernières missions imposent de défendre plusieurs axes.
+Dans **Confinement**, les infectés d’un seul foyer gagnent les rues voisines en capturant des civils. Trois secteurs sont disponibles dès le départ, avec 410 à 820 habitants, des refuges de capacité différente et des équipes spécialisées. Les bâtiments bloquent les tirs directs. La caméra démarre près de la verticale pour suivre les foules, et le bouton **3D** permet de revenir au relief.
+
+La **Campagne** propose douze missions, des renforts à débloquer et un récit jusqu’à l’estuaire. Les brèches secondaires des dernières missions imposent de défendre plusieurs axes.
 
 ## Jouer
 
 - Pendant la préparation, placez des défenses sur les rues. Les défenses retirées sont remboursées. Tracez des couloirs vers les zones sûres pour attirer les civils loin des infectés.
 - Après « Prêt », appelez des renforts, tracez de nouveaux couloirs ou faites exploser les charges posées. Les tirs et les explosions attirent certains infectés. Une frappe qui touche des civils réduit le score.
+- Sélectionnez **Ordres** ou appuyez sur **M**. Choisissez des soldats, un sniper ou un lance-flammes, puis une rue vide. L’escouade rejoint sa nouvelle position par les rues et reprend le tir à l’arrivée.
 - Sur ordinateur, cliquez pour placer, glissez pour déplacer la caméra, utilisez le clic droit pour la tourner et la molette pour zoomer. Les touches 1 à 6 sélectionnent les renforts. Les touches 7, 8 et 9 sélectionnent les explosifs, le couloir et la pause. Échap ouvre le menu de pause.
 - Sur téléphone, touchez les rues pour placer, faites glisser pour déplacer la caméra et pincez pour zoomer. Pour déplacer la caméra en mode tracé, glissez avec deux doigts. Les boutons à côté de la minicarte permettent de tourner et de recentrer la vue.
-- La progression, les compétences, les succès et les villes créées restent dans le navigateur. Exportez une sauvegarde JSON depuis les paramètres pour la transférer vers un autre appareil.
+- La progression, les records de confinement, les compétences, les succès et les villes créées restent dans le navigateur. Exportez une sauvegarde JSON depuis les paramètres pour la transférer vers un autre appareil.
 
 Après un premier chargement complet du site, le jeu peut être rouvert hors ligne dans le même navigateur. Pour une copie locale, conservez ensemble `index.html`, `style.css`, `game.js` et `signal.png`, puis ouvrez `index.html` dans un navigateur compatible WebGL 2. Three.js est livré dans `game.js`. Les décors et les sons sont générés par le jeu.
 

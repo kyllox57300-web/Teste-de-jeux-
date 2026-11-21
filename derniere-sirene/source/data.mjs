@@ -75,6 +75,17 @@ export const specials = [
   {...missions[6], name:'Ciel fermé', id:'noair', rule:'Nuit noire · les renforts aériens sont indisponibles.', noair:true, budget:850}
 ];
 export const endless = {...missions[0], id:'survival', name:'Radio Silence', rule:'Survie · une vague toutes les 19 secondes.', budget:760, count:16, waves:Infinity, pop:100, seed:7734};
+export const containment = [
+  {id:'canal',name:'Canal des Verreries',theme:'port',light:'day',zone:'DEUX RIVES · TROIS PONTS',
+    seed:3485,budget:810,pop:410,count:13,cap:57,loadout:['marks','rotor'],
+    briefing:['Capitaine Sol','Le premier foyer se trouve parmi les ateliers de la rive est. Gardez au moins un pont ouvert pour les familles et couvrez ses deux accès.']},
+  {id:'rail',name:'Les Faubourgs du Rail',theme:'suburb',light:'dusk',zone:'QUARTIERS DENSES · VIADUC',
+    seed:4317,budget:1070,pop:610,count:21,cap:71,loadout:['marks','mining','rotor'],
+    briefing:['Générale Varga','Les rues autour de la gare sont pleines. Les passages sous le viaduc sont étroits. Gardez une escouade mobile pour les carrefours de l’ouest.']},
+  {id:'delta',name:'Estuaire de l’Orme',theme:'island',light:'night',zone:'DEUX CHENAUX · QUATRE PASSAGES',
+    seed:9612,budget:1170,pop:820,count:28,cap:94,loadout:['marks','incend','rotor','guided'],
+    briefing:['Dre Imani','Les quais se remplissent pendant la marée haute. Il y a deux chenaux à traverser. Guidez les civils jusqu’au premier refuge avant de vider l’île.']}
+].map(m=>({...m,containment:true,waves:0}));
 export const difficulty = {
   easy:{name:'Facile', factor:.76, budget:1.2}, normal:{name:'Normal', factor:1, budget:1}, hard:{name:'Difficile', factor:1.23, budget:.88}
 };

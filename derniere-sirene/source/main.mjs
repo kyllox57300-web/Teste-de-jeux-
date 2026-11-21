@@ -1,4 +1,4 @@
-import { W,H,terrain as t,defenses,support,missions,specials,endless,difficulty,tree,badges,canUse } from './data.mjs';
+import { W,H,terrain as t,defenses,support,missions,specials,endless,containment,difficulty,tree,badges,canUse } from './data.mjs';
 import { Game } from './game.mjs';
 import { generate,open,point,cell,validCustom } from './city.mjs';
 import { available,award,finish,learn,load,parseSave,skillPoints,store } from './progress.mjs';
@@ -11,7 +11,7 @@ const escape=text=>String(text).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','
 const button=(text,action,cls='button',value='')=>`<button class="${cls}" data-action="${action}" data-value="${value}">${text}</button>`;
 const clock=t=>`${String(Math.floor(t/60)).padStart(2,'0')}:${String(Math.floor(t%60)).padStart(2,'0')}`;
 const stars=n=>'★'.repeat(n)+'☆'.repeat(3-n);
-const routeTabs=[['campaign','Campagne'],['special','Opérations spéciales'],['survival','Survie'],['tree','Compétences'],['badges','Succès'],['editor','Éditeur']];
+const routeTabs=[['containment','Confinement'],['campaign','Campagne'],['special','Opérations spéciales'],['survival','Survie'],['tree','Compétences'],['badges','Succès'],['editor','Éditeur']];
 const estuary=[[5,62],[13,68],[21,51],[29,41],[37,59],[45,56],[53,34],[61,46],[69,64],[77,57],[85,39],[94,41]];
 const speeds=[0,.5,1,2,4];
 const speedName=v=>v===0?'Ⅱ':v===.5?'×0,5':'×'+v;
@@ -57,22 +57,23 @@ function go(next) {
   dom.pins.replaceChildren();
   header();
   if(page==='title') {
-    game=new Game(missions[0]);
+    game=new Game({...containment[0],light:'dusk'});
     view.resize();
     view.build(game,true);
     dom.screen.innerHTML=`<section class="title-copy">
       <div class="eyebrow">Commandement de crise</div>
       <h1>Dernière<br><em>Sirène</em></h1>
-      <p>Une ville sous vos ordres. Une horde dans ses rues. Faites sortir les civils avant que les abris ne tombent.</p>
-      <div class="title-actions">${button(Object.keys(save.records).length?'Reprendre la campagne':'Jouer','nav','button primary','campaign')}${button('Mode survie','nav','button outline','survival')}</div>
-    </section><footer class="title-footer">STRATÉGIE EN TEMPS RÉEL · 12 MISSIONS</footer>
-    <div class="title-address"><span>◬ FOYER SIGNALÉ</span><br>RUE DES VERRIERS</div>`;
+      <p>Un foyer vient d’apparaître en ville. Ouvre les voies d’évacuation et déplace tes escouades avant que la horde ne gagne les rues voisines.</p>
+      <div class="title-actions">${button('Contenir un foyer','nav','button primary','containment')}${button('Campagne','nav','button outline','campaign')}</div>
+    </section><footer class="title-footer">CONFINEMENT · CAMPAGNE · SURVIE</footer>
+    <div class="title-address"><span>◬ FOYER SIGNALÉ</span><br>CANAL DES VERRERIES</div>`;
     return;
   }
   if(page==='mission') {
     dom.screen.replaceChildren();
     view.resize();
     view.build(game);
+    projectionLabel();
     showHUD(true);
     return;
   }
@@ -119,10 +120,16 @@ function paintEstuary() {
   }
 }
 function menu() {
-  const titles={campaign:'Carte des missions',special:'Opérations spéciales',survival:'Survie infinie',tree:'Arbre de compétences',badges:'Succès',editor:'Éditeur de ville'};
+  const titles={containment:'Confinement',campaign:'Carte des missions',special:'Opérations spéciales',survival:'Survie infinie',tree:'Arbre de compétences',badges:'Succès',editor:'Éditeur de ville'};
   const total=Object.values(save.records).reduce((a,b)=>a+b.stars,0);
-  const captions={campaign:`${Object.keys(save.records).length} / 12 terminées · ${total} / 36 étoiles`,special:'Des règles qui changent la défense.',survival:`Record · ${save.survival} vague${save.survival===1?'':'s'}`,tree:`${skillPoints(save)} point(s) disponible(s). Une première victoire rapporte un point.`,badges:`${save.badges.length} / ${badges.length} déverrouillés`,editor:'Dessinez votre ville, testez-la et sauvegardez-la sur cet appareil.'};
+  const captions={containment:'Un foyer au départ. Chaque civil infecté rejoint la horde. Élimine-la pour sécuriser le secteur.',campaign:`${Object.keys(save.records).length} / 12 terminées · ${total} / 36 étoiles`,special:'Des règles qui changent la défense.',survival:`Record · ${save.survival} vague${save.survival===1?'':'s'}`,tree:`${skillPoints(save)} point(s) disponible(s). Une première victoire rapporte un point.`,badges:`${save.badges.length} / ${badges.length} déverrouillés`,editor:'Dessinez votre ville, testez-la et sauvegardez-la sur cet appareil.'};
   let body='';
+  if(page==='containment') body=`<div class="matrix">${containment.map(m=>{
+    const record=save.containment[m.id];
+    return `<button class="mission-card ${m.theme}" data-action="mission" data-value="${m.id}">
+      <small class="eyebrow">${m.zone}</small><strong>${m.name}</strong><small>${m.pop} civils${record?` · Record ${record.saved} sauvés`:''}</small>${record?`<span class="stars">${stars(record.stars)}</span>`:''}
+    </button>`;
+  }).join('')}</div>`;
   if(page==='campaign') body=campaignMap()+`<div class="matrix">${missions.map(m=>card(m,'mission',m.id,!available(save,m.id),save.records[m.id]?.stars||0)).join('')}</div>`;
   if(page==='special') body=`<div class="matrix">${specials.map(m=>card(m,'mission',m.id)).join('')}</div>`;
   if(page==='survival') body=`<div class="matrix">${card(endless,'mission',endless.id)}</div>`;
@@ -141,7 +148,7 @@ function menu() {
       <div id="cities">${save.cities.map((c,i)=>`<div class="city-card"><strong>${escape(c.name)}</strong><div class="options-row">${button('Modifier','editCity','small',i)}${button('Jouer','runCity','small',i)}${button('Supprimer','deleteCity','small',i)}</div></div>`).join('')}</div>
     </div></div>`;
   }
-  const diffSelect=['campaign','special','survival'].includes(page)?`<div class="options-row">${Object.entries(difficulty).map(([id,d])=>button(d.name,'difficulty','tab '+(id===save.opts.level?'active':''),id)).join('')}</div>`:'';
+  const diffSelect=['containment','campaign','special','survival'].includes(page)?`<div class="options-row">${Object.entries(difficulty).map(([id,d])=>button(d.name,'difficulty','tab '+(id===save.opts.level?'active':''),id)).join('')}</div>`:'';
   dom.screen.innerHTML=`<section class="shell"><div class="content"><div class="heading"><div><div class="eyebrow">Poste de commandement</div><h1>${titles[page]}</h1><p>${captions[page]}</p></div>${diffSelect}</div>
     <nav class="tabs" aria-label="Modes de jeu">${routeTabs.map(([id,name])=>button(name,'nav','tab '+(id===page?'active':''),id)).join('')}</nav>${body}
   </div></section>`;
@@ -207,7 +214,7 @@ function start(m) {
   tutSteps=0;
   go('mission');
   if(tut) opening();
-  else showModal('briefing',m.name,`<p class="eyebrow">${escape(m.briefing[0])}</p><p>« ${escape(m.briefing[1])} »</p>${m.rule?`<p>${escape(m.rule)}</p>`:''}<div class="dialog-actions">${button('Examiner la carte','close','button primary')}</div>`);
+  else showModal('briefing',m.name,`<p class="eyebrow">${escape(m.briefing[0])}</p><p>« ${escape(m.briefing[1])} »</p>${m.containment?'<p>Les escouades peuvent changer de rue après le départ. Sélectionne « Ordres », une escouade, puis sa destination.</p>':m.rule?`<p>${escape(m.rule)}</p>`:''}<div class="dialog-actions">${button('Examiner la carte','close','button primary')}</div>`);
 }
 function opening() {
   showModal('briefing','La première sirène',`<p class="eyebrow">Générale Varga · Canal 01</p><p>« Foyer confirmé à l’est. Protégez les carrefours et conduisez les habitants au refuge. Nous commençons quand vous êtes prêt. »</p>
@@ -217,6 +224,7 @@ function opening() {
 function begin() {
   if(!game.prepare()) return;
   selected='';
+  view.commandOrigin=-1;
   if(tut) {tut=4;save.seen=true;writeSave();}
   showHUD(true);
 }
@@ -227,16 +235,18 @@ function showHUD(rebuild=false) {
     dom.dock.innerHTML=`<div class="dock-head"><div><span class="eyebrow">${live?'Épidémie':'Préparation'}</span><h2>${escape(game.mission.name)}</h2></div><span class="clock" id="clock"></span></div>
       <div class="kit" aria-label="${live?'Renforts':'Défenses'}">${Object.entries(items).map(([id,info],n)=>`<button class="tool" data-action="tool" data-value="${id}" title="${info.info}" aria-label="${info.name}"><span class="icon" aria-hidden="true">${info.icon}</span><span><span class="tool-label">${info.name}</span><span class="tool-price" id="price-${id}">${live?(n+1)+' · ':''}${game.cost(id)} cr</span></span></button>`).join('')}</div>
       <div class="tool-detail" id="detail"></div>
-      <div class="tools-extra">${button('Tracer un couloir','tool','small','guide')}${button('Effacer le couloir','erase','small')}${live?button('Détoner','tool','small','boom'):button('Retirer','tool','small','sell')}</div>
+      <div class="tools-extra">${button('Tracer un couloir','tool','small','guide')}${button('Effacer le couloir','erase','small')}${live?button('Ordres','tool','small','command')+button('Détoner','tool','small','boom'):button('Retirer','tool','small','sell')}</div>
       <footer><div class="speed" aria-label="Vitesse">${speeds.map(v=>button(speedName(v),'speed','',v)).join('')}</div>${live?'':button('Prêt · lancer l’épidémie','ready','button primary')}</footer>`;
   }
   const metrics=[['cash','Crédits',game.money],['rescue','À l’abri',game.sheltered+'/'+game.mission.pop],['infect','Infectés',game.remaining],['','Victimes',game.lost]];
+  if(game.mission.containment) metrics.splice(2,0,['street','En rue',game.civs.length]);
   dom.metrics.innerHTML=metrics.map(([cls,name,n])=>`<div class="metric ${cls}"><strong>${n}</strong><small>${name}</small></div>`).join('');
-  $('clock').textContent=live?clock(game.time)+' · V'+game.wave:'EN ATTENTE';
-  $('detail').textContent=items[selected]?.info||({
+  $('clock').textContent=live?clock(game.time)+(game.mission.containment?'':' · V'+game.wave):'EN ATTENTE';
+  $('detail').textContent=(selected==='safe'&&game.mission.cap?`Accueille ${game.mission.cap+(game.has('bunks')?8:0)} civils. Protégez les accès.`:items[selected]?.info)||({
     guide:'Glissez sur les rues pour tracer un itinéraire vers la croix verte. Sur mobile, utilisez deux doigts pour déplacer la carte.',
     sell:'Touchez une défense pour la retirer et récupérer son coût.',
-    boom:'Touchez une charge posée pour la déclencher.'
+    boom:'Touchez une charge posée pour la déclencher.',
+    command:view.commandOrigin<0?'Choisis une escouade au sol.':'Désigne une rue libre. L’escouade cesse le tir pendant son déplacement.'
   }[selected])||(live?'Choisissez un renfort, puis sa cible sur la carte.':'Cliquez sur une rue pour placer la défense choisie.');
   for(const btn of dom.dock.querySelectorAll('[data-action="tool"]')) {
     const id=btn.dataset.value;
@@ -260,13 +270,20 @@ function showHUD(rebuild=false) {
     4:['Crédits, renforts et pause','Sélectionnez un renfort, puis sa cible. Évitez les civils avec les attaques de zone.']
   };
   const hint=hints[tut];
-  dom.brief.innerHTML=hint?`<strong>${hint[0]}</strong><p>${hint[1]}</p>`:status?`<strong>${escape(status)}</strong>`:!live?`<strong>${escape(game.mission.zone)}</strong><p>${escape(game.mission.rule||'Protégez les accès aux refuges. Le temps est arrêté.')}</p>`:'';
+  dom.brief.innerHTML=hint?`<strong>${hint[0]}</strong><p>${hint[1]}</p>`:status?`<strong>${escape(status)}</strong>`:!live?`<strong>${escape(game.mission.zone)}</strong><p>${escape(game.mission.rule||(game.mission.containment?'Interdiction de placer des défenses dans le périmètre orange.':'Protégez les accès aux refuges. Le temps est arrêté.'))}</p>`:'';
+}
+function projectionLabel() {
+  const b=$('projection');
+  b.textContent=view.tactical?'3D':'Plan';
+  b.setAttribute('aria-label',view.tactical?'Vue en relief':'Vue tactique');
+  dom.app.classList.toggle('tactical',view.tactical);
 }
 function choose(id) {
-  if(id==='guide' || id==='boom' || id==='sell') selected=selected===id?'':id;
+  if(id==='guide' || id==='boom' || id==='sell' || id==='command') selected=selected===id?'':id;
   else if(game.combat
     ?support[id]&&canUse(id,game.skills)&&game.cost(id)<=game.money&&!(game.cd[id]>game.time)&&!(game.mission.noair&&support[id].air)
     :defenses[id]&&canUse(id,game.skills)&&game.cost(id)<=game.money) selected=id;
+  if(selected!=='command') view.commandOrigin=-1;
   showHUD();
 }
 function mapAction(i,append=false) {
@@ -275,6 +292,15 @@ function mapAction(i,append=false) {
     if(!open(game.map.cells,i)) return;
     game.setGuide([i],append);
     if(tut===2) tut=3;
+  } else if(selected==='command') {
+    if(game.canMove(i)) {
+      view.commandOrigin=view.commandOrigin===i?-1:i;
+    } else if(view.commandOrigin<0) {
+      return notify('Choisis d’abord des soldats, un sniper ou un lance-flammes.');
+    } else if(game.order(view.commandOrigin,i)) {
+      view.commandOrigin=-1;
+      notify('Escouade en mouvement.');
+    } else return notify('Cette rue est inaccessible ou déjà occupée.');
   } else if(selected==='sell') {
     if(!game.sell(i)) return;
   } else if(selected==='boom' || (game.combat&&!selected)) {
@@ -337,7 +363,7 @@ function dispatch(action,value) {
   audio.wake();
   if(action==='home') go('title');
   if(action==='nav') go(value);
-  if(action==='mission') start(missions.find(m=>String(m.id)===value&&available(save,m.id))||specials.find(m=>m.id===value)||(value===endless.id?endless:null));
+  if(action==='mission') start(missions.find(m=>String(m.id)===value&&available(save,m.id))||containment.find(m=>m.id===value)||specials.find(m=>m.id===value)||(value===endless.id?endless:null));
   if(action==='settings') settings();
   if(action==='difficulty') {save.opts.level=value;writeSave();menu();}
   if(action==='learn'&&learn(save,value)) {writeSave();menu();notify('Compétence acquise.');}
@@ -350,13 +376,14 @@ function dispatch(action,value) {
   if(action==='zoom-out') view.zoomBy(1.19);
   if(action==='rotate') {view.angle+=Math.PI/4;view.cameraAt();}
   if(action==='resetcam') view.reset();
+  if(action==='projection') {view.switchProjection();projectionLabel();}
   if(action==='close') closeModal();
   if(action==='skip') {tut=0;save.seen=true;writeSave();closeModal();showHUD();}
   if(action==='retry') start(game.mission);
   if(action==='next') start(missions[game.mission.id+1]);
   if(action==='quit') {
     const id=game.mission.id;
-    go(typeof id==='number'?'campaign':id==='survival'?'survival':id.startsWith('local')?'editor':'special');
+    go(typeof id==='number'?'campaign':game.mission.containment?'containment':id==='survival'?'survival':id.startsWith('local')?'editor':'special');
   }
   if(action==='export') {
     const url=URL.createObjectURL(new Blob([JSON.stringify(save,null,2)],{type:'application/json'}));
@@ -415,6 +442,7 @@ window.addEventListener('keydown',e=>{
   if(e.key==='7'&&game.combat) choose('boom');
   if(e.key==='8') choose('guide');
   if(e.key==='9') {speed=speed?0:save.opts.speed;showHUD();}
+  if(e.code==='KeyM'&&game.combat) choose('command');
   const dirs={ArrowLeft:[45,0],ArrowRight:[-45,0],ArrowUp:[0,45],ArrowDown:[0,-45]};
   if(dirs[e.key]) {e.preventDefault();view.pan(...dirs[e.key]);}
 });
@@ -439,7 +467,8 @@ canvas.addEventListener('pointermove',e=>{
   if(page!=='mission'||modal) return;
   const at=location(e), before=pointers.get(e.pointerId);
   const i=view.pick(at.x,at.y);
-  if(e.pointerType==='mouse') view.highlight(i,selected,game.legal(selected,i)||selected==='guide'||selected==='sell'||selected==='boom');
+  if(e.pointerType==='mouse') view.highlight(i,selected,game.legal(selected,i)||selected==='guide'||selected==='sell'||selected==='boom'
+    ||selected==='command'&&(game.canMove(i)||view.commandOrigin>=0&&open(game.map.cells,i)&&!game.units.has(i)));
   if(!before||!gesture) return;
   if(pointers.size>=2) {
     const other=[...pointers].find(([id])=>id!==e.pointerId)[1];
@@ -508,7 +537,7 @@ function mapOverlay() {
 }
 function pins() {
   const safe=[...game.units.values()].filter(u=>u.id==='safe');
-  const pinData=[...safe.map(u=>[u.i,`✚ ${u.sheltered}/${u.cap}`,'']),[game.map.start,game.phase==='prep'?'◬ FOYER':'◬ V'+game.wave,'hot']];
+  const pinData=[...safe.map(u=>[u.i,`✚ ${u.sheltered}/${u.cap}`,'']),[game.map.start,game.phase==='prep'||game.mission.containment?'◬ FOYER':'◬ V'+game.wave,'hot']];
   if(game.map.breach!=null) pinData.push([game.map.breach,'◬ BRÈCHE','hot']);
   while(dom.pins.children.length<pinData.length) dom.pins.append(document.createElement('div'));
   while(dom.pins.children.length>pinData.length) dom.pins.lastChild.remove();

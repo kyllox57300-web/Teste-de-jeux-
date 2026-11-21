@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { Game } from '../source/game.mjs';
-import { missions, specials, endless } from '../source/data.mjs';
+import { containment, missions, specials, endless } from '../source/data.mjs';
 import { adjacent, dist, field, open, validCustom } from '../source/city.mjs';
 import { available, defaults, finish, learn, parseSave, skillPoints } from '../source/progress.mjs';
 
@@ -9,7 +9,7 @@ function defend(g, offset=0) {
   const way=field([start],i=>open(cells,i));
   const toSafe=field([end],i=>open(cells,i));
   const paths=homes.filter(i=>adjacent[i].filter(j=>open(cells,j)).length>=2);
-  const goal=7+offset;
+  const goal=(g.mission.containment?4:7)+offset;
   const ranked=paths.slice().sort((a,b)=>Math.abs(way[a]-goal)-Math.abs(way[b]-goal)||dist(a,start)-dist(b,start));
   const reserve=paths.slice().sort((a,b)=>Math.abs(toSafe[a]-5)-Math.abs(toSafe[b]-5));
   const hide=reserve.find(i=>dist(i,end)>3 && dist(i,start)>12);
@@ -18,7 +18,9 @@ function defend(g, offset=0) {
     g.setGuide([hide,end]);
   }
   const targets=ranked.filter(i=>way[i]<(goal+5));
-  for(const id of ['turret','soldier','soldier','soldier','soldier','soldier','soldier','soldier','soldier','soldier','soldier']) {
+  const roster=['turret',...Array(g.mission.containment?14:10).fill('soldier')];
+  if(g.mission.containment) roster.splice(1,0,'sniper');
+  for(const id of roster) {
     const i=targets.find(i=>!g.units.has(i));
     if(i!==undefined) g.place(id,i);
   }
@@ -92,5 +94,39 @@ if(verify) {
   for(let i=0;i<150;i++) {stress.step(.08);stress.events.length=0;}
   assert.ok(stress.zombies.length>=600);
   console.log(`Charge : ${stress.zombies.length} infectés, 150 pas de simulation en ${Math.round(performance.now()-start)} ms.`);
+  const sectors=defaults();
+  for(const mission of containment) {
+    const failed=run(mission,'normal','none');
+    assert.equal(failed.phase,'lost');
+    assert.equal(failed.lost,mission.pop);
+    const plans=[0,2,4,6,8].map(offset=>run(mission,'normal','managed',offset));
+    const winner=plans.filter(g=>g.phase==='won').sort((a,b)=>b.result().saved-a.result().saved)[0];
+    assert.ok(winner,`Confinement faisable dans ${mission.name}`);
+    assert.ok(winner.sheltered>=mission.pop*.6,`Une stratégie protège la majorité des civils dans ${mission.name}`);
+    assert.equal(winner.wave,1);
+    assert.ok(plans.some(g=>g.lost>mission.pop*.06),`Un mauvais placement laisse l’épidémie s’étendre dans ${mission.name}`);
+    const winnerStats=finish(sectors,winner);
+    console.log(`Confinement — ${mission.name} : ${winnerStats.saved}/${mission.pop} civils sauvés, ${winnerStats.kills} infectés éliminés.`);
+  }
+  assert.deepEqual(parseSave(JSON.stringify(sectors)),sectors);
+  const old={...sectors};
+  delete old.containment;
+  assert.deepEqual(parseSave(JSON.stringify(old)).containment,{});
+  assert.equal(skillPoints(sectors),0);
+
+  const moving=new Game(containment[0]);
+  const from=moving.map.homes.find(i=>dist(i,moving.map.start)>17&&moving.legal('soldier',i)&&adjacent[i].some(j=>open(moving.map.cells,j)&&!moving.units.has(j)));
+  const to=adjacent[from].find(j=>open(moving.map.cells,j)&&!moving.units.has(j));
+  assert.ok(moving.place('soldier',from));
+  const unit=moving.units.get(from);
+  unit.xp=6;
+  assert.ok(!moving.order(from,to));
+  moving.prepare();
+  assert.ok(moving.order(from,to));
+  assert.ok(!moving.units.has(from));
+  assert.ok(!moving.units.has(to));
+  for(let i=0;i<12;i++) moving.step(.08);
+  assert.equal(moving.units.get(to),unit);
+  assert.ok(!moving.marches.length);
   console.log('Progression, succès, import/export, cartes et survie vérifiés.');
 }

@@ -3,18 +3,21 @@ import { random, generate, open, cell, point, dist, adjacent, field } from './ci
 
 const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
 const metric = (a,b) => Math.hypot(a.x-b.x,a.z-b.z);
+const mobile = new Set(['soldier','sniper','flame']);
+const streetFire = new Set(['soldier','sniper','turret','flame','para']);
 
 export class Game {
   constructor(mission, level='normal', skills=[]) {
     this.mission=mission;
     this.level=level;
     this.difficulty=difficulty[level];
-    this.skills=skills;
+    this.skills=[...new Set([...skills,...(mission.loadout||[])])];
     this.map=generate(mission);
     this.rng=random(mission.seed+4321);
     this.phase='prep';
     this.money=Math.round(mission.budget*this.difficulty.budget)+(this.has('reserve') ? 110 : 0);
     this.units=new Map();
+    this.marches=[];
     this.reinf=[];
     this.guide=[];
     this.zombies=[];
@@ -45,9 +48,10 @@ export class Game {
       [homes[i],homes[j]]=[homes[j],homes[i]];
     }
     const favorable=homes.filter(i=>far[i]>(mission.id===0?13:8) && towards[i]<24);
+    const exposed=mission.containment?homes.filter(i=>far[i]<12):[];
     for(let i=0;i<mission.pop;i++) {
-      const group=i%4!==0 && favorable.length ? favorable : homes;
-      this.civs.push(this.person(group[i%group.length],{speed:(1.15+this.rng()*.55)*(this.has('train')?1.25:1), wait:this.rng()*2}));
+      const group=exposed.length&&i%5===0?exposed:i%4!==0&&favorable.length?favorable:homes;
+      this.civs.push(this.person(group[i%group.length],{speed:(1.15+this.rng()*.55)*(this.has('train')?1.25:1), wait:this.rng()*(mission.containment?3.5:2)}));
     }
     this.spawnWave(true);
   }
@@ -66,7 +70,8 @@ export class Game {
   get remaining() { return this.zombies.length; }
   get combat() { return this.phase==='live'; }
   legal(id,i) {
-    if (!this.combat || !support[id]) return this.phase==='prep' && defenses[id] && open(this.map.cells,i) && this.map.start!==i && !this.units.has(i) && canUse(id,this.skills) && this.money>=this.cost(id);
+    if (!this.combat || !support[id]) return this.phase==='prep' && defenses[id] && open(this.map.cells,i)
+      && dist(this.map.start,i)>(this.mission.containment?2:0) && !this.units.has(i) && canUse(id,this.skills) && this.money>=this.cost(id);
     return open(this.map.cells,i) && !(this.mission.noair && support[id].air) && canUse(id,this.skills) && this.money>=this.cost(id) && !(this.cd[id]>this.time);
   }
   cost(id) {
@@ -77,7 +82,8 @@ export class Game {
     if (!free && !this.legal(id,i)) return false;
     const d=defenses[id];
     const hp=(d.hp || 115)*(this.has('concrete')&&d.hp ? 1.4 : 1);
-    const u={id,i,hp,maxHp:hp,level:this.has('veteran')?2:1,xp:0,fireAt:0,sheltered:0, cap:(d.cap||0)+(d.cap&&this.has('bunks')?8:0), charges:d.charges, fixed:free, angle:0};
+    const cap=d.cap ? (this.mission.cap||d.cap)+(this.has('bunks')?8:0) : 0;
+    const u={id,i,hp,maxHp:hp,level:this.has('veteran')?2:1,xp:0,fireAt:0,sheltered:0,cap,charges:d.charges,fixed:free,angle:0};
     this.units.set(i,u);
     if(!free) {
       this.money-=this.cost(id);
@@ -92,6 +98,57 @@ export class Game {
     this.money+=this.cost(u.id);
     this.units.delete(i);
     return true;
+  }
+  canMove(i) { return this.combat&&mobile.has(this.units.get(i)?.id); }
+  order(from,to) {
+    if(!this.canMove(from)||!open(this.map.cells,to)||this.units.has(to)||this.marches.some(m=>m.to===to)) return false;
+    const walkable=i=>{
+      const u=this.units.get(i);
+      return open(this.map.cells,i)&&(!u||!defenses[u.id].barrier||defenses[u.id].passCivil);
+    };
+    const paths=field([to],walkable);
+    if(paths[from]>=30000) return false;
+    const route=[from];
+    for(let i=from;i!==to;) {
+      i=adjacent[i].find(j=>paths[j]<paths[i]);
+      route.push(i);
+    }
+    const u=this.units.get(from);
+    const [x,z]=point(from);
+    this.units.delete(from);
+    this.marches.push({u,to,route,next:1,x,z,i:from,target:route[1],ox:0,oz:0,angle:u.angle});
+    this.routeClock=0;
+    return true;
+  }
+  march(dt) {
+    for(const m of this.marches) {
+      if(!open(this.map.cells,m.target)) {
+        m.done=true;
+        if(!this.units.has(m.i)&&open(this.map.cells,m.i)) {
+          m.u.i=m.i;
+          this.units.set(m.i,m.u);
+        } else this.emit('collapse',m.i,m.u.id);
+        this.routeClock=0;
+        continue;
+      }
+      const danger=this.zombies.some(z=>z.hp>0&&Math.abs(z.x-m.x)<.45&&Math.abs(z.z-m.z)<.45);
+      if(danger) m.u.hp-=dt*68;
+      if(m.u.hp<=0) {
+        m.done=true;
+        this.emit('collapse',m.i,m.u.id);
+        continue;
+      }
+      if(this.travel(m,dt,2.55)) continue;
+      if(m.i===m.to) {
+        m.u.i=m.to;
+        m.u.angle=m.angle;
+        this.units.set(m.to,m.u);
+        this.emit('build',m.to,m.u.id);
+        m.done=true;
+        this.routeClock=0;
+      } else m.target=m.route[++m.next];
+    }
+    if(this.marches.some(m=>m.done)) this.marches=this.marches.filter(m=>!m.done);
   }
   setGuide(cells, append=false) {
     const course=append ? this.guide.slice() : [];
@@ -128,16 +185,21 @@ export class Game {
   spawnWave(first=false) {
     const {count,id,waves,boss}=this.mission;
     const wave=this.wave;
-    const rank=typeof id==='number'?id:(id==='survival'?this.wave+2:6);
+    const rank=typeof id==='number'?id:(id==='survival'?this.wave+2:this.mission.containment?0:6);
     const origin=this.map.start;
     const starts=[origin,...adjacent[origin].filter(i=>open(this.map.cells,i))];
+    if(this.mission.containment) {
+      const paths=field([origin],i=>open(this.map.cells,i));
+      const margin=this.map.cells.flatMap((_,i)=>paths[i]>=2&&paths[i]<=5?[i]:[]);
+      for(let n=0; n<6 && margin.length; n++) starts.push(margin.splice(Math.floor(this.rng()*margin.length),1)[0]);
+    }
     const breach=!first&&this.map.breach!=null&&wave%2===1 ? this.map.breach : null;
     const number=first ? count : (id==='survival' ? 10+wave*5 : Math.round(count*(.28+.055*wave)));
     const amount=Math.round(number*this.difficulty.factor);
     for(let n=0;n<amount;n++) {
       const r=this.rng();
       let kind='slow';
-      if (r<Math.min(.5,.16+rank*.022) && (rank>0 || !first)) kind='fast';
+      if (r<Math.min(.5,.16+rank*.022) && (rank>0 || !first || this.mission.containment)) kind='fast';
       if (r>.76 && rank>=2) kind='brute';
       if (r>.88 && rank>=4) kind='bomb';
       if (r>.94 && rank>=5) kind='spit';
@@ -257,9 +319,21 @@ export class Game {
       const d=metric({x,z},foe);
       if(d>range) continue;
       const p=u.id==='sniper' ? Math.min(foe.hp,95)-d : -d;
-      if(p>value) { best=foe; value=p; }
+      if(p>value && (!this.mission.containment||!streetFire.has(u.id)||this.visible(x,z,foe))) {
+        best=foe;
+        value=p;
+      }
     }
     return best;
+  }
+  visible(x,z,foe) {
+    const dx=foe.x-x, dz=foe.z-z;
+    const steps=Math.ceil(Math.max(Math.abs(dx),Math.abs(dz))*3);
+    for(let n=1;n<steps;n++) {
+      const i=cell(Math.round(x+dx*n/steps),Math.round(z+dz*n/steps));
+      if(this.map.cells[i]===t.block) return false;
+    }
+    return true;
   }
   shoot(u) {
     const d=defenses[u.id];
@@ -290,6 +364,7 @@ export class Game {
     const occupied=this.civs.filter(c=>!c.dead).map(c=>c.i);
     const targets=[...occupied,...this.units.keys()];
     this.hunt=field(targets.length?targets:[this.map.end],pass);
+    if(this.mission.containment) this.crowd=field(occupied,pass);
     this.noises=this.noises.filter(n=>n.until>this.time).slice(-12);
     this.lure=this.noises.length?field(this.noises.map(n=>n.i),pass):null;
     this.civilPass=civilPass;
@@ -346,16 +421,16 @@ export class Game {
       }
     }
     for(const i of near) for(const c of (this.civByCell.get(i)||[])) {
-      if(!c.dead && metric(z,c)<.43 && z.attackAt<=this.time) {
+      if(!c.dead && metric(z,c)<(this.mission.containment?.56:.43) && z.attackAt<=this.time) {
         c.dead=true; this.lost++;
         this.spawn(c.i,this.rng()<.18?'fast':'slow');
         this.emit('infect',c.i);
-        z.attackAt=this.time+.55;
+        z.attackAt=this.time+(this.mission.containment?.32:.55);
         return;
       }
     }
     const lure=this.lure && this.noises.some(n=>dist(n.i,z.i)<=n.power) && this.lure[z.i]>0 && this.hunt[z.i]>2;
-    const nav=lure?this.lure:this.hunt;
+    const nav=lure?this.lure:this.crowd?.[z.i]<7?this.crowd:this.hunt;
     let best=z.i, high=Infinity;
     for(const i of adjacent[z.i]) if(open(this.map.cells,i)) {
       const score=nav[i]+this.rng()*.38;
@@ -383,6 +458,7 @@ export class Game {
     this.routeClock-=dt;
     if(this.routeClock<=0) { this.routes(); this.routeClock=.27; }
     this.operateSupport();
+    if(this.marches.length) this.march(dt);
     for(const u of this.units.values()) this.shoot(u);
     this.clouds=this.clouds.filter(g=>g.until>this.time);
     for(const z of this.zombies) {
@@ -400,9 +476,12 @@ export class Game {
     this.zombies=this.zombies.filter(z=>z.hp>0);
     this.civs=this.civs.filter(c=>!c.dead);
     for(let i=0;i<this.fog.length;i++) if(this.fog[i]>.015) this.fog[i]*=Math.pow(.77,dt);
-    const overrun=this.mission.id==='survival' && this.zombies.length>0 && !this.units.size
+    const overrun=this.mission.id==='survival' && this.zombies.length>0 && !this.units.size && !this.marches.length
       && !this.reinf.some(r=>['para','tank','heli'].includes(r.id));
-    if((!this.civs.length && !this.sheltered) || overrun) this.phase='lost';
+    const cutOff=this.mission.containment && this.zombies.length>0 && !this.civs.length && !this.units.size
+      && !this.marches.length && !this.reinf.length && !this.clouds.length
+      && !Object.keys(support).some(id=>canUse(id,this.skills)&&this.money>=this.cost(id));
+    if((!this.civs.length && !this.sheltered) || overrun || cutOff) this.phase='lost';
     const final=this.wave>this.mission.waves;
     if(this.combat && final && !this.zombies.length) {
       this.evacuated+=this.civs.length;

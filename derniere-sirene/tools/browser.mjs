@@ -25,11 +25,13 @@ try {
   async function snap(page,name) {
     await page.screenshot({path:resolve(captures,name+'.jpg'),quality:90,timeout:30000});
   }
-  async function projector(page) {
+  async function projector(page,tactical=false) {
     const box=await page.locator('#world').boundingBox();
-    const aspect=box.width/box.height, zoom=aspect<1?35:27;
+    const aspect=box.width/box.height;
+    const zoom=tactical?(aspect<1?41:29):(aspect<1?35:27);
+    const angle=tactical?0:.16, tilt=tactical?1.45:.99;
     const camera=new PerspectiveCamera(44,aspect,.12,105);
-    camera.position.set(12+Math.sin(.16)*Math.cos(.99)*zoom,zoom*Math.sin(.99),9+Math.cos(.16)*Math.cos(.99)*zoom);
+    camera.position.set(12+Math.sin(angle)*Math.cos(tilt)*zoom,zoom*Math.sin(tilt),9+Math.cos(angle)*Math.cos(tilt)*zoom);
     camera.lookAt(12,0,9);
     camera.updateMatrixWorld();
     return (x,z)=>{
@@ -41,9 +43,31 @@ try {
   const desktop=await context.newPage();
   observe(desktop);
   await desktop.goto(url);
-  await desktop.getByRole('button',{name:'Jouer',exact:true}).waitFor({timeout:18000});
+  await desktop.getByRole('button',{name:'Contenir un foyer'}).waitFor({timeout:18000});
   await snap(desktop,'01-titre');
-  await desktop.getByRole('button',{name:'Jouer',exact:true}).click();
+  await desktop.getByRole('button',{name:'Contenir un foyer'}).click();
+  assert.equal(await desktop.locator('.mission-card').count(),3);
+  await desktop.getByRole('button',{name:/Canal des Verreries/}).click();
+  await desktop.getByRole('button',{name:'Examiner la carte'}).click();
+  await desktop.getByRole('button',{name:'Vue en relief'}).click();
+  await desktop.getByRole('button',{name:'Vue tactique'}).click();
+  await desktop.getByRole('button',{name:'Recentrer'}).click();
+  const tacticalPoint=await projector(desktop,true);
+  await desktop.mouse.click(...tacticalPoint(21,11));
+  assert.equal(await desktop.locator('.metric.cash strong').textContent(),'745');
+  await desktop.getByRole('button',{name:'Mettre en pause'}).click();
+  await desktop.getByRole('button',{name:/Prêt · lancer/}).click();
+  await desktop.getByRole('button',{name:'Ordres'}).click();
+  await desktop.mouse.click(...tacticalPoint(21,11));
+  await desktop.mouse.click(...tacticalPoint(20,11));
+  await desktop.getByText('Escouade en mouvement.').waitFor();
+  await desktop.getByRole('button',{name:'Vitesse ×1',exact:true}).click();
+  await desktop.waitForFunction(()=>Number(document.querySelector('.metric.infect strong').textContent)>29,{},{timeout:20000});
+  await desktop.getByRole('button',{name:'Mettre en pause'}).click();
+  await snap(desktop,'06-confinement');
+  await desktop.keyboard.press('Escape');
+  await desktop.getByRole('button',{name:'Quitter la mission'}).click();
+  await desktop.getByRole('button',{name:'Campagne',exact:true}).click();
   assert.equal(await desktop.locator('.mission-card').count(),12);
   assert.equal(await desktop.locator('.mission-card:disabled').count(),11);
   await snap(desktop,'02-campagne');
@@ -106,7 +130,16 @@ try {
   const phone=await mobileContext.newPage();
   observe(phone);
   await phone.goto(url);
-  await phone.getByRole('button',{name:'Jouer',exact:true}).tap();
+  await phone.getByRole('button',{name:'Contenir un foyer'}).tap();
+  await phone.getByRole('button',{name:/Canal des Verreries/}).tap();
+  await phone.getByRole('button',{name:'Examiner la carte'}).tap();
+  const touchPlan=await projector(phone,true);
+  await phone.touchscreen.tap(...touchPlan(21,11));
+  assert.equal(await phone.locator('.metric.cash strong').textContent(),'745');
+  await snap(phone,'07-confinement-mobile');
+  await phone.getByRole('button',{name:'Pause',exact:true}).tap();
+  await phone.getByRole('button',{name:'Quitter la mission'}).tap();
+  await phone.getByRole('button',{name:'Campagne',exact:true}).tap();
   await phone.getByRole('button',{name:/Rue des Verriers/}).tap();
   await phone.getByRole('button',{name:'Passer le tutoriel'}).tap();
   const dimensions=await phone.locator('#world').boundingBox();

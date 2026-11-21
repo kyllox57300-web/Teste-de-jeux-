@@ -98,6 +98,7 @@ h1,h2,h3,p { margin-top:0 }
 .metric small { color:#ced3dc; display:block; margin-top:2px; white-space:nowrap; font: .67rem var(--mono); letter-spacing:.04em; text-transform:uppercase }
 .metric.cash strong { color:var(--amber) }
 .metric.rescue strong { color:var(--mint) }
+.metric.street strong { color:#a1e0ff }
 .metric.infect strong { color:var(--danger) }
 .brief { position:absolute; top:76px; left:14px; max-width:min(342px,calc(100vw - var(--dock) - 31px)); padding:11px 12px; background:#192431e8; border:1px solid #79869480; border-radius:7px; box-shadow:0 3px 16px #12172250 }
 .brief:empty { display:none }
@@ -110,6 +111,7 @@ h1,h2,h3,p { margin-top:0 }
 .dot.civilian { background:var(--mint) }
 .camera { position:absolute; bottom:15px; right:calc(var(--dock) + 15px); display:flex; gap:5px }
 .camera button { padding:0; width:39px; min-height:39px; background:#1a2533e5; font-size:1.13rem }
+.camera #projection { width:47px; color:#ade3e1; font:700 .73rem var(--mono) }
 .dock { position:absolute; inset:0 0 0 auto; width:var(--dock); background:#19212d; border-left:1px solid #566170; display:flex; flex-direction:column; padding:14px; gap:10px; box-shadow:-7px 0 24px #11182329; overflow:auto; }
 .dock-head { display:flex; gap:8px; align-items:start; justify-content:space-between }
 .dock-head h2 { margin:3px 0 0; font-size:1.15rem; line-height:1.12 }

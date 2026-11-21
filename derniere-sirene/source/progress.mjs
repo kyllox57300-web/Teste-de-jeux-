@@ -1,9 +1,9 @@
-import { badges, difficulty, missions, tree } from './data.mjs';
+import { badges, containment, difficulty, missions, tree } from './data.mjs';
 import { validCustom } from './city.mjs';
 
 const key='derniere-sirene-v1';
 const ids=new Set(badges.map(b=>b[0]));
-export const defaults=()=>({v:1, records:{}, skills:[], badges:[], cities:[], survival:0,
+export const defaults=()=>({v:1, records:{}, containment:{}, skills:[], badges:[], cities:[], survival:0,
   opts:{sound:true,music:true,quality:'medium',speed:1,level:'normal'}, seen:false});
 
 export const skillPoints = save => Object.keys(save.records).length - save.skills.length;
@@ -29,8 +29,11 @@ export function finish(save, game) {
   for(const [badge,condition] of [
     ['first',true],['rescue',result.saved>=20],['three',result.stars===3],['perfect',result.saved===game.mission.pop],
     ['noharm',!result.friendly],['hard',game.level==='hard'],['local',typeof id==='string'&&id.startsWith('local')],
-    ['special',typeof id==='string'&&!id.startsWith('local')&&id!=='survival'],['bank',result.money>=500]
+    ['special',typeof id==='string'&&!id.startsWith('local')&&id!=='survival'&&!game.mission.containment],['bank',result.money>=500]
   ]) if(condition) award(save,badge);
+  if(game.mission.containment && result.score>(save.containment[id]?.score??-1)) {
+    save.containment[id]={stars:result.stars,saved:result.saved,score:result.score};
+  }
   if(typeof id==='number') {
     const prev=save.records[id]||{stars:0,saved:0,score:0};
     save.records[id]={stars:Math.max(prev.stars,result.stars),saved:Math.max(prev.saved,result.saved),score:Math.max(prev.score,result.score)};
@@ -49,6 +52,12 @@ export function parseSave(raw) {
     if(!r || !available(data,id)) break;
     if(!Number.isInteger(r.stars)||r.stars<1||r.stars>3||!Number.isInteger(r.saved)||r.saved>pop||r.saved<0||!Number.isInteger(r.score)||r.score<0) break;
     data.records[id]={stars:r.stars,saved:r.saved,score:r.score};
+  }
+  for(const {id,pop} of containment) {
+    const r=input.containment?.[id];
+    if(r&&Number.isInteger(r.stars)&&r.stars>=1&&r.stars<=3&&Number.isInteger(r.saved)&&r.saved<=pop&&r.saved>=0&&Number.isSafeInteger(r.score)&&r.score>=0) {
+      data.containment[id]={stars:r.stars,saved:r.saved,score:r.score};
+    }
   }
   for(const id of input.badges) if(typeof id==='string') award(data,id);
   for(const id of input.skills) if(typeof id==='string') learn(data,id);

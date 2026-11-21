@@ -97,6 +97,7 @@ export class View {
     this.scene.add(this.dynamic);
     this.people=batch(this.dynamic,'box',4096,shaded);
     this.heads=batch(this.dynamic,'ball',4096,shaded);
+    this.contacts=batch(this.dynamic,'round',4096,lit);
     this.gear=batch(this.dynamic,'box',4400,shaded,true);
     this.radars=batch(this.dynamic,'ring',500,double);
     this.trails=batch(this.dynamic,'box',420,lit);
@@ -145,10 +146,18 @@ export class View {
     this.camera.updateMatrixWorld();
   }
   reset(title=false) {
-    this.angle=title?-.52:.16;
-    this.tilt=title?.63:.99;
-    this.zoom=title?30:this.camera.aspect<1?35:27;
+    this.angle=title?-.52:this.tactical?0:.16;
+    this.tilt=title?.63:this.tactical?1.45:.99;
+    this.zoom=title?30:this.tactical?(this.camera.aspect<1?41:29):(this.camera.aspect<1?35:27);
     this.focus.set(title?10.5:cx,0,title?7:cz);
+    this.cameraAt();
+  }
+  switchProjection() {
+    this.tactical=!this.tactical;
+    this.tilt=this.tactical?1.45:.99;
+    this.angle=this.tactical?0:.16;
+    this.city.scale.y=this.tactical?.69:1;
+    this.renderer.shadowMap.needsUpdate=true;
     this.cameraAt();
   }
   focusAt(i) {
@@ -180,6 +189,10 @@ export class View {
   }
   build(game, title=false) {
     this.map=game.map;
+    this.tactical=!title&&!!game.mission.containment;
+    this.commandOrigin=-1;
+    this.hover.visible=false;
+    this.city.scale.y=this.tactical?.69:1;
     this.light=atmos[game.mission.light]||atmos.dusk;
     this.scene.background=new T.Color(this.light.fog);
     this.scene.fog.color.copy(this.scene.background);
@@ -263,7 +276,7 @@ export class View {
         const east=x<W-1&&open(cells,i+1), south=z<H-1&&open(cells,i+W);
         if(east) placeAt(ground,x,z,.002,.39,.008,.025,0x7a7474);
         if(south) placeAt(ground,x,z,.003,.025,.008,.39,0x7a7474);
-        if(x%3===1&&z%3===1) {
+        if(east&&south&&x>0&&z>0&&open(cells,i-1)&&open(cells,i-W)) {
           for(let j=-2;j<=2;j++) {
             placeAt(ground,x+j*.10,z+.32,.014,.053,.008,.15,0xaaa5a1);
             placeAt(ground,x+.32,z+j*.10,.014,.15,.008,.053,0xaaa5a1);
@@ -331,12 +344,18 @@ export class View {
       this.cityParts(game);
       this.last=game.bridgeDamage.size;
     }
-    const bodies=[],heads=[],gear=[],marks=[],trace=[],particles=[],hot=[],routes=[],heat=[];
+    const bodies=[],heads=[],contacts=[],gear=[],marks=[],trace=[],particles=[],hot=[],routes=[],heat=[];
     const detail=this.setting!=='low'||this.zoom<18;
     for(const list of [game.civs,game.zombies]) for(const p of list) {
-      if(bodies.length>=4096) break;
+      if(bodies.length+contacts.length>=4096) break;
       const spec=infected[p.id];
       const s=spec?.size||.91;
+      if(this.tactical) {
+        const marker=(spec?.size||1)*(p.id==='fast'?.31:.19);
+        placeAt(contacts,p.x,p.z,.12,marker,.041,marker,spec?0xff795b:0x9de5ff);
+        if(p.id==='boss') placeAt(hot,p.x,p.z,.37,.46,.46,.46,0xff512f);
+        continue;
+      }
       const bob=.016*Math.sin(now*16+p.ox*21)*s;
       placeAt(bodies,p.x,p.z,.17*s+bob,.14*s,.22*s,.11*s,spec?spec.color:0x78ddf5,p.angle);
       if(detail||p.id==='boss') placeAt(heads,p.x,p.z,.32*s+bob,.13*s,.145*s,.13*s,spec?spec.color:0xf4c3a6,p.angle);
@@ -346,6 +365,15 @@ export class View {
       }
     }
     for(const u of game.units.values()) this.unit(gear,marks,hot,u,now);
+    for(const m of game.marches) {
+      this.unit(gear,marks,hot,m.u,now,[m.x,m.z],m.angle);
+      const [x,z]=point(m.to);
+      if(this.tactical) marks.push([x,.038,z,.88,.88,1,0x99d6fc,0,-Math.PI/2]);
+    }
+    if(game.units.has(this.commandOrigin)) {
+      const [x,z]=point(this.commandOrigin);
+      marks.push([x,.055,z,1.22,1.22,1,0x94efdd,0,-Math.PI/2]);
+    }
     for(const r of game.reinf) if(['heli','tank','para'].includes(r.id)&&game.time>=r.t) this.unit(gear,marks,hot,r,now);
     for(const g of game.clouds) {
       for(let n=0;n<10;n++){
@@ -357,7 +385,7 @@ export class View {
       const v=game.fog[i];
       if(v<.16 || !open(game.map.cells,i)) continue;
       const [x,z]=point(i);
-      const c=v>.69?0xe77740:v>.35?0xab5753:0x764755;
+      const c=this.tactical?(v>.69?0xc65340:v>.35?0x953d37:0x633632):(v>.69?0xe77740:v>.35?0xab5753:0x764755);
       heat.push([x,.025,z,.91,.91,1,c,0,-Math.PI/2]);
     }
     if(game.guide.length) {
@@ -375,6 +403,7 @@ export class View {
       const signal=(now*1.45)%1;
       const width=.74+signal*1.65;
       marks.push([x,.042,z,width,width,1,signal<.55?0xffa571:0x964c49,0,-Math.PI/2]);
+      if(game.mission.containment&&game.phase==='prep') marks.push([x,.043,z,4.5,4.5,1,0xbf6551,0,-Math.PI/2]);
     }
     for(const fx of this.fx) {
       if(!paused) fx.age+=dt;
@@ -394,13 +423,13 @@ export class View {
       if(this.lampMesh.instanceColor) this.lampMesh.instanceColor.needsUpdate=true;
       this.slowFrame=now;
     }
-    for(const [mesh,array] of [[this.people,bodies],[this.heads,heads],[this.gear,gear],[this.radars,marks],[this.trails,trace],[this.debris,particles],[this.flare,hot],[this.outbreak,heat],[this.guides,routes]]) {
+    for(const [mesh,array] of [[this.people,bodies],[this.heads,heads],[this.contacts,contacts],[this.gear,gear],[this.radars,marks],[this.trails,trace],[this.debris,particles],[this.flare,hot],[this.outbreak,heat],[this.guides,routes]]) {
       fill(mesh,array.length>mesh.instanceMatrix.count?array.slice(0,mesh.instanceMatrix.count):array);
     }
     this.renderer.render(this.scene,this.camera);
   }
-  unit(gear,marks,hot,u,now) {
-    const [x,z]=point(u.i), id=u.id;
+  unit(gear,marks,hot,u,now,position=point(u.i),facing=u.angle) {
+    const [x,z]=position, id=u.id;
     const c=tint[id]||0xa7d9e2;
     const box=(y,sx,sy,sz,k=c,angle=0,dx=0,dz=0)=>placeAt(gear,x+dx,z+dz,y,sx,sy,sz,k,angle);
     const marker=(radius,c)=>marks.push([x,.041,z,radius,radius,1,c,0,-Math.PI/2]);
@@ -431,8 +460,8 @@ export class View {
       const height=id==='watch'?.58:id==='tank'?.26:.19;
       box(.07,.58,.13,.56,0x344d5e);
       box(height*.68,id==='watch'?.24:.43,height,.38,c);
-      box(height+.12,.35,.15,.30,c,u.angle);
-      const a=u.angle||0;
+      const a=facing||0;
+      box(height+.12,.35,.15,.30,c,a);
       if(id==='para') box(height+.11,.15,.23,.16,0xabdfec,0,-.22,.12);
       box(height+.16,.093,.074,id==='sniper'?.51:.37,0x2c3953,a,Math.sin(a)*.21,Math.cos(a)*.21);
       marker(.83,0x51889a);
@@ -456,7 +485,7 @@ export class View {
         const th=n*2.399+fx.seed, rad=(n%4+1)*a*.49;
         const y=.18+Math.max(0,Math.sin(Math.min(1,a)*Math.PI*.85))*(n%3+1)*.47;
         if(a<.56) {
-          const s=(.36+.20*n%4)*(1-a)* (fire?.56:1);
+          const s=(this.tactical?.29+.115*(n%4):.38+.18*(n%5))*(1-a)*(fire?.56:1);
           placeAt(hot,x+Math.cos(th)*rad,z+Math.sin(th)*rad,y,s,s*1.1,s,n%2?0xffbb54:0xff713d);
         }
         if(!fire && a<2.8) {
