@@ -24,13 +24,12 @@ let save=load(), page='title', modal='', speed=1, selected='soldier', status='',
 let tut=0,tutSteps=0,toastTimer,result,frameClock=0,hudClock=0,acc=0,rafLast=0,view,gesture;
 
 try {
-  view=new View(dom.world);
+  view=new View(dom.world,save.opts.quality);
 } catch {
   dom.stage.innerHTML='';
   showModal('error','WebGL indisponible',`<p>Le rendu 3D nécessite WebGL 2. Activez l’accélération graphique ou ouvrez le jeu dans un navigateur récent.</p><p><a class="button" href="../">Revenir aux jeux</a></p>`);
 }
 if(view) {
-  view.quality(save.opts.quality);
   go('title');
   requestAnimationFrame(loop);
 }
@@ -527,6 +526,7 @@ function loop(nowMs) {
   requestAnimationFrame(loop);
   const now=nowMs/1000, dt=Math.min(.12,Math.max(0,now-(rafLast||now)));
   rafLast=now;
+  if(document.hidden) return;
   if(page==='mission') {
     if(game.combat&&speed&&!modal) {
       acc+=dt*speed;

@@ -65,9 +65,9 @@ function remove(group) {
 const placeAt=(list,x,z,y,sx,sy,sz,c,angle=0)=>list.push([x,y,z,sx,sy,sz,c,angle]);
 
 export class View {
-  constructor(canvas) {
+  constructor(canvas, setting='medium') {
     this.canvas=canvas;
-    this.renderer=new T.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
+    this.renderer=new T.WebGLRenderer({canvas,antialias:setting!=='low',alpha:false,powerPreference:'high-performance'});
     this.renderer.outputColorSpace=T.SRGBColorSpace;
     this.renderer.toneMapping=T.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure=1.05;
@@ -115,14 +115,14 @@ export class View {
     this.fx=[];
     this.last=-1;
     this.slowFrame=0;
-    this.quality('medium');
+    this.quality(setting);
     this.resize();
   }
   quality(setting) {
     if(this.setting===setting) return;
     this.setting=setting;
     const low=setting==='low';
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, low?1:setting==='high'?1.85:1.3));
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, low?.85:setting==='high'?1.85:1.3));
     this.renderer.shadowMap.enabled=!low;
     this.sun.shadow.map?.dispose();
     this.sun.shadow.map=null;
@@ -332,13 +332,14 @@ export class View {
       this.last=game.bridgeDamage.size;
     }
     const bodies=[],heads=[],gear=[],marks=[],trace=[],particles=[],hot=[],routes=[],heat=[];
+    const detail=this.setting!=='low'||this.zoom<18;
     for(const list of [game.civs,game.zombies]) for(const p of list) {
       if(bodies.length>=4096) break;
       const spec=infected[p.id];
       const s=spec?.size||.91;
       const bob=.016*Math.sin(now*16+p.ox*21)*s;
       placeAt(bodies,p.x,p.z,.17*s+bob,.14*s,.22*s,.11*s,spec?spec.color:0x78ddf5,p.angle);
-      placeAt(heads,p.x,p.z,.32*s+bob,.13*s,.145*s,.13*s,spec?spec.color:0xf4c3a6,p.angle);
+      if(detail||p.id==='boss') placeAt(heads,p.x,p.z,.32*s+bob,.13*s,.145*s,.13*s,spec?spec.color:0xf4c3a6,p.angle);
       if(p.id==='boss') {
         placeAt(gear,p.x,p.z,.33,.78,.16,.18,0xb1527b,p.angle);
         placeAt(hot,p.x,p.z,.96,.5,.04,.08,0xff5b5b);
