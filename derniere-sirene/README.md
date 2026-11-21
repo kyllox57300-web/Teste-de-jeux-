@@ -11,6 +11,8 @@ La **Campagne** propose douze missions, des renforts à débloquer et un récit 
 ## Jouer
 
 - Pendant la préparation, placez des défenses sur les rues. Les défenses retirées sont remboursées. Tracez des couloirs vers les zones sûres pour attirer les civils loin des infectés.
+- Sélectionnez **Zone sûre**, puis glissez d’un coin à l’autre sur la carte. Le tracé utilise les cases accessibles et reliées. L’aperçu indique sa capacité et son prix. Un toucher simple place un refuge compact.
+- Sélectionnez **Mur** et glissez sur les rues, ou utilisez **Ceinturer** après avoir sélectionné un refuge. Avec **Porte**, touchez un mur pour le convertir en passage pour les civils. Les infectés doivent le détruire avant d’entrer. Les murs et les portes se posent pendant la préparation.
 - Après « Prêt », appelez des renforts, tracez de nouveaux couloirs ou faites exploser les charges posées. Les tirs et les explosions attirent certains infectés. Une frappe qui touche des civils réduit le score.
 - Sélectionnez **Ordres** ou appuyez sur **M**. Choisissez des soldats, un sniper ou un lance-flammes, puis une rue vide. L’escouade rejoint sa nouvelle position par les rues et reprend le tir à l’arrivée.
 - À Metz, vous pouvez ouvrir un **Refuge avancé** en cours de mission. Touchez le compteur **Infectés** pour recentrer la caméra sur la horde ou chercher les derniers groupes.

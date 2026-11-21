@@ -4,6 +4,7 @@ import { generate,open,point,cell,validCustom } from './city.mjs';
 import { available,award,finish,learn,load,parseSave,skillPoints,store } from './progress.mjs';
 import { View } from './view.mjs';
 import { Audio } from './sound.mjs';
+import { stroke } from './placement.mjs';
 
 const $=id=>document.getElementById(id);
 const dom=Object.fromEntries(['app','topbar','screen','hud','metrics','stage','brief','dock','pins','world','radar','modal','toast','file'].map(id=>[id,$(id)]));
@@ -52,6 +53,9 @@ function header() {
 }
 function go(next) {
   page=next;
+  pointers.clear();
+  gesture=null;
+  view.placementPreview=null;
   closeModal();
   dom.app.className='app '+(page==='mission'?'mission':page==='title'?'title':'menu');
   dom.hud.hidden=page!=='mission';
@@ -226,6 +230,11 @@ function opening() {
 }
 function begin() {
   if(!game.prepare()) return;
+  if(gesture?.kind) {
+    pointers.clear();
+    gesture=null;
+    view.placementPreview=null;
+  }
   selected='';
   view.commandOrigin=-1;
   if(tut) {tut=4;save.seen=true;writeSave();}
@@ -238,7 +247,7 @@ function showHUD(rebuild=false) {
     dom.dock.innerHTML=`<div class="dock-head"><div><span class="eyebrow">${live?'Épidémie':'Préparation'}</span><h2>${escape(game.mission.name)}</h2></div><span class="clock" id="clock"></span></div>
       <div class="kit" aria-label="${live?'Renforts':'Défenses'}">${Object.entries(items).map(([id,info],n)=>`<button class="tool" data-action="tool" data-value="${id}" title="${info.info}" aria-label="${info.name}"><span class="icon" aria-hidden="true">${info.icon}</span><span><span class="tool-label">${info.name}</span><span class="tool-price" id="price-${id}">${live&&support[id]?(n+1)+' · ':''}${game.cost(id)} cr</span></span></button>`).join('')}</div>
       <div class="tool-detail" id="detail"></div>
-      <div class="tools-extra">${button('Tracer un couloir','tool','small','guide')}${button('Effacer le couloir','erase','small')}${live?button('Ordres','tool','small','command')+button('Détoner','tool','small','boom'):button('Retirer','tool','small','sell')}</div>
+      <div class="tools-extra">${button('Tracer un couloir','tool','small','guide')}${button('Effacer le couloir','erase','small')}${live?button('Ordres','tool','small','command')+button('Détoner','tool','small','boom'):button('Retirer','tool','small','sell')+'<button id="fortify" class="small" data-action="fortify" hidden>Ceinturer</button>'}</div>
       <footer><div class="speed" aria-label="Vitesse">${speeds.map(v=>button(speedName(v),'speed','',v)).join('')}</div>${live?(game.mission.metro?'<button id="confirm-rescue" class="button mint" data-action="confirm-rescue" hidden>Valider le bilan</button>':''):button('Prêt · lancer l’épidémie','ready','button primary')}</footer>`;
   }
   const metrics=[['cash','Crédits',game.money],['rescue','À l’abri',game.sheltered+'/'+game.mission.pop],['infect','Infectés',game.remaining],['','Victimes',game.lost]];
@@ -257,7 +266,28 @@ function showHUD(rebuild=false) {
   }
   if(game.mission.metro) dom.metrics.querySelector('.metric-locate').disabled=!game.remaining;
   $('clock').textContent=live?clock(game.time)+(game.mission.containment?'':' · V'+game.wave):'EN ATTENTE';
-  $('detail').textContent=(selected==='safe'&&game.mission.cap?`Accueille ${game.mission.cap+(game.has('bunks')?8:0)} civils.${game.mission.metro?' Les navettes les évacuent.':''}`:items[selected]?.info)||({
+  if(view.activeZone&&game.units.get(view.activeZone.i)!==view.activeZone) view.activeZone=null;
+  const zone=view.activeZone;
+  const perimeter=!live&&zone?game.fortification(zone):null;
+  const fortify=$('fortify');
+  if(fortify) {
+    fortify.hidden=!zone||!perimeter?.tiles.length;
+    fortify.disabled=!perimeter?.complete||perimeter.price>game.money;
+    fortify.title=perimeter?.tiles.length?`${perimeter.tiles.length} murs · ${perimeter.price} cr`:'Entourer la zone de murs';
+  }
+  const preview=view.placementPreview;
+  const perimeterInfo=!perimeter?'':!perimeter.complete?' Libère les cases occupées sur le périmètre.':perimeter.tiles.length
+    ?` Ceinturer coûte ${perimeter.price} cr.`:perimeter.gates?'':' Pose une porte pour laisser entrer les civils.';
+  const shelterInfo=zone?`Zone sûre · ${zone.sheltered}/${zone.cap} à l’abri.${perimeterInfo}`
+    :'Glisse d’un coin à l’autre pour tracer une zone. Un toucher pose un refuge compact.';
+  const drawHint={
+    safe:shelterInfo,
+    wall:'Glisse pour tracer des murs sur les rues. Utilise deux doigts ou Maj + glisser pour déplacer la carte.',
+    gate:`Touche un mur pour le convertir en porte (${game.cost('gate')-game.cost('wall')} cr). Les civils passent, les infectés doivent la briser.`
+  };
+  $('detail').textContent=(preview?preview.error||(
+    preview.kind==='safe'?`${preview.tiles.length} cases · ${preview.cap} places · ${preview.price} cr`
+      :`${preview.tiles.length} section(s) de mur · ${preview.price} cr`):null)||drawHint[selected]||items[selected]?.info||({
     guide:'Glissez sur les rues pour tracer un itinéraire vers la croix verte. Sur mobile, utilisez deux doigts pour déplacer la carte.',
     sell:'Touchez une défense pour la retirer et récupérer son coût.',
     boom:'Touchez une charge posée pour la déclencher.',
@@ -271,8 +301,9 @@ function showHUD(rebuild=false) {
     const cost=game.cost(id), cd=live?Math.max(0,Math.ceil((game.cd[id]||0)-game.time)):0;
     const locked=!canUse(id,game.skills);
     const noair=!!(live&&game.mission.noair&&items[id].air);
-    btn.disabled=locked||noair||cd>0||cost>game.money;
-    $('price-'+id).textContent=locked?'Compétence':noair?'Indisponible':cd>0?'⏱ '+cd+' s':(live&&support[id]?(tools.indexOf(id)+1)+' · ':'')+cost+' cr';
+    const needed=id==='gate'?minimumGateCost():cost;
+    btn.disabled=locked||noair||cd>0||needed>game.money;
+    $('price-'+id).textContent=locked?'Compétence':noair?'Indisponible':cd>0?'⏱ '+cd+' s':needed<cost?`dès ${needed} cr`:(live&&support[id]?(tools.indexOf(id)+1)+' · ':'')+cost+' cr';
   }
   if($('confirm-rescue')) $('confirm-rescue').hidden=!game.canConfirm;
   for(const btn of dom.dock.querySelectorAll('[data-action="speed"]')) {
@@ -289,6 +320,11 @@ function showHUD(rebuild=false) {
   if(live&&game.clearedAt!==null) dom.brief.innerHTML=`<strong>Ville assainie</strong><p>${game.canConfirm?'Objectif atteint. Continue les évacuations ou valide le bilan.':'Ouvre des refuges et laisse les navettes atteindre le quota.'}</p>`;
   else dom.brief.innerHTML=hint?`<strong>${hint[0]}</strong><p>${hint[1]}</p>`:status?`<strong>${escape(status)}</strong>`:!live?`<strong>${escape(game.mission.zone)}</strong><p>${escape(game.mission.rule||(game.mission.metro?'Prévois plusieurs refuges et protège les accès.':game.mission.containment?'Interdiction de placer des défenses dans le périmètre orange.':'Protégez les accès aux refuges. Le temps est arrêté.'))}</p>`:'';
 }
+function minimumGateCost() {
+  let price=game.cost('gate');
+  for(const u of game.units.values()) if(u.id==='wall'||u.id==='barricade') price=Math.min(price,game.gateCost(u.i));
+  return price;
+}
 function projectionLabel() {
   const b=$('projection');
   b.textContent=view.tactical?'3D':'Plan';
@@ -300,7 +336,7 @@ function choose(id) {
   else if(game.combat&&id==='safe'&&game.mission.metro&&game.money>=game.cost(id)) selected=id;
   else if(game.combat
     ?support[id]&&canUse(id,game.skills)&&game.cost(id)<=game.money&&!(game.cd[id]>game.time)&&!(game.mission.noair&&support[id].air)
-    :defenses[id]&&canUse(id,game.skills)&&game.cost(id)<=game.money) selected=id;
+    :defenses[id]&&canUse(id,game.skills)&&(id==='gate'?minimumGateCost():game.cost(id))<=game.money) selected=id;
   if(selected!=='command') view.commandOrigin=-1;
   showHUD();
 }
@@ -319,21 +355,27 @@ function mapAction(i,append=false) {
       view.commandOrigin=-1;
       notify('Escouade en mouvement.');
     } else return notify('Cette rue est inaccessible ou déjà occupée.');
+  } else if(selected==='safe'&&game.zoneAt(i)) {
+    view.activeZone=game.zoneAt(i);
   } else if(selected==='sell') {
     if(!game.sell(i)) return;
-  } else if(selected==='boom' || (game.combat&&!selected)) {
+  } else if(selected==='boom') {
+    if(!game.detonate(i)) return;
+  } else if(!selected&&game.zoneAt(i)) {
+    view.activeZone=game.zoneAt(i);
+    notify(`Zone sûre · ${view.activeZone.sheltered}/${view.activeZone.cap} personnes`);
+  } else if(game.combat&&!selected) {
     if(!game.detonate(i)) return;
   } else if(selected) {
     const ok=game.combat&&support[selected]?game.call(selected,i):game.place(selected,i);
+    if(ok&&selected==='safe') view.activeZone=game.zoneAt(i);
+    if(ok&&selected==='gate') notify('Porte posée. Les civils peuvent la franchir.');
     if(ok && tut===1 && ++tutSteps>=2) tut=2;
     if(!ok) {
       const u=game.units.get(i);
       if(u?.id==='safe') return notify(`Zone sûre · ${u.sheltered}/${u.cap} personnes · intégrité ${Math.round(u.hp/u.maxHp*100)} %`);
       return notify('Choisissez une rue libre et vérifiez votre budget.');
     }
-  } else {
-    const u=game.units.get(i);
-    if(u?.id==='safe') notify(`Zone sûre · ${u.sheltered}/${u.cap} personnes`);
   }
   showHUD();
 }
@@ -386,6 +428,10 @@ function dispatch(action,value) {
   if(action==='difficulty') {save.opts.level=value;writeSave();menu();}
   if(action==='learn'&&learn(save,value)) {writeSave();menu();notify('Compétence acquise.');}
   if(action==='tool') choose(value);
+  if(action==='fortify'&&game.surround(view.activeZone)) {
+    choose('gate');
+    notify('Périmètre posé. Convertis au moins un mur en porte pour laisser entrer les civils.');
+  }
   if(action==='erase') {game.setGuide([]);showHUD();}
   if(action==='ready') begin();
   if(action==='confirm-rescue'&&game.confirmRescue()) endMission();
@@ -438,6 +484,10 @@ dom.app.addEventListener('click',e=>{
   const b=e.target.closest('[data-action]');
   if(b) dispatch(b.dataset.action,b.dataset.value);
 });
+dom.dock.addEventListener('pointerup',e=>{
+  const b=e.target.closest('#fortify');
+  if(e.pointerType==='touch'&&b&&!b.disabled) dispatch('fortify');
+});
 dom.modal.addEventListener('change',e=>{
   const {opt}=e.target.dataset;
   if(!opt) return;
@@ -481,6 +531,35 @@ const canvas=dom.world;
 const location=e=>({x:e.clientX,y:e.clientY});
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const centroid=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
+function previewPlacement(i) {
+  if(i<0||!gesture||i===gesture.last) return;
+  const {kind,first,last}=gesture;
+  gesture.last=i;
+  if(kind==='safe') {
+    view.placementPreview={kind,from:first,to:i,...game.planZone(first,i)};
+  } else {
+    for(const j of stroke(game.grid,last,i)) gesture.cells.add(j);
+    const plan=game.planWalls(gesture.cells);
+    const error=!plan.tiles.length?'Trace le mur sur des cases libres.':plan.price>game.money?`Budget insuffisant · ${plan.price} cr nécessaires.`:'';
+    view.placementPreview={kind,...plan,error};
+  }
+  view.highlight(-1,'',false);
+  showHUD();
+}
+function finishPlacement() {
+  const plan=view.placementPreview;
+  view.placementPreview=null;
+  if(!plan) return;
+  if(plan.error) notify(plan.error);
+  else if(plan.kind==='safe') {
+    const zone=game.drawZone(plan.from,plan.to);
+    if(zone) {
+      view.activeZone=zone;
+      notify(`Zone tracée · ${zone.cap} places`);
+    } else notify('Le terrain a changé. Trace une nouvelle zone.');
+  } else if(game.drawWalls(plan.tiles)) notify(`${plan.tiles.length} section(s) de mur posée(s).`);
+  showHUD();
+}
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 canvas.addEventListener('wheel',e=>{
   if(page!=='mission'||modal) return;
@@ -490,8 +569,20 @@ canvas.addEventListener('pointerdown',e=>{
   if(page!=='mission'||modal) return;
   canvas.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId,location(e));
-  if(pointers.size===1) gesture={start:location(e),moved:false,rotate:e.button===2,pan:e.button===1||e.shiftKey,drawing:selected==='guide'&&e.button===0&&!e.shiftKey,painted:false};
-  if(pointers.size>1) {gesture.moved=true;gesture.drawing=false;}
+  if(pointers.size===1) {
+    const left=e.button===0&&!e.shiftKey;
+    const kind=left&&(selected==='safe'||selected==='wall')?selected:'';
+    const first=kind?view.pick(e.clientX,e.clientY,false):-1;
+    view.placementPreview=null;
+    gesture={start:location(e),moved:false,rotate:e.button===2,pan:e.button===1||e.shiftKey,kind:first>=0?kind:'',
+      first,last:first,cells:new Set(first>=0?[first]:[]),drawing:left&&selected==='guide',painted:false};
+  } else {
+    gesture.moved=true;
+    gesture.kind='';
+    gesture.drawing=false;
+    view.placementPreview=null;
+    showHUD();
+  }
 });
 canvas.addEventListener('pointermove',e=>{
   if(page!=='mission'||modal) return;
@@ -512,6 +603,8 @@ canvas.addEventListener('pointermove',e=>{
       view.angle-=(at.x-before.x)*.0085;
       view.tilt=Math.max(.48,Math.min(1.44,view.tilt+(at.y-before.y)*.004));
       view.cameraAt();
+    } else if(gesture.kind) {
+      previewPlacement(view.pick(at.x,at.y,false));
     } else if(gesture.drawing) {
       if(!gesture.painted) {
         const first=view.pick(gesture.start.x,gesture.start.y);
@@ -528,10 +621,17 @@ function release(e) {
   if(!pointers.has(e.pointerId)) return;
   pointers.delete(e.pointerId);
   if(pointers.size) return;
-  if(gesture && !gesture.moved && !gesture.rotate && !gesture.pan && e.type==='pointerup') {
-    audio.wake();
-    mapAction(view.pick(e.clientX,e.clientY),true);
+  if(gesture&&e.type==='pointerup'&&!modal&&page==='mission') {
+    if(gesture.kind&&gesture.moved) {
+      audio.wake();
+      previewPlacement(view.pick(e.clientX,e.clientY,false));
+      finishPlacement();
+    } else if(!gesture.moved&&!gesture.rotate&&!gesture.pan) {
+      audio.wake();
+      mapAction(view.pick(e.clientX,e.clientY),true);
+    }
   }
+  if(view.placementPreview) {view.placementPreview=null;if(page==='mission'&&!result)showHUD();}
   gesture=null;
 }
 canvas.addEventListener('pointerup',release);
@@ -569,7 +669,7 @@ function mapOverlay() {
 }
 function pins() {
   const safe=[...game.units.values()].filter(u=>u.id==='safe');
-  const pinData=safe.map(u=>[game.location(u.i),`✚ ${u.sheltered}/${u.cap}`,'']);
+  const pinData=safe.map(u=>[game.location(u.i),`✚ ${u.sheltered}/${u.cap}`,view.activeZone===u?'chosen':'']);
   if(game.clearedAt===null) pinData.push([game.location(game.map.start),game.phase==='prep'||game.mission.containment?'◬ FOYER':'◬ V'+game.wave,'hot']);
   if(game.map.breach!=null) pinData.push([game.location(game.map.breach),'◬ BRÈCHE','hot']);
   if(game.map.art) for(const [label,x,z] of game.map.art.labels) pinData.push([[x,z],label,'geo']);

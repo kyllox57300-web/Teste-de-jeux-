@@ -27,12 +27,12 @@ try {
   async function snap(page,name) {
     await page.screenshot({path:resolve(captures,name+'.jpg'),quality:90,timeout:30000});
   }
-  async function projector(page,tactical=false,grid=null) {
+  async function projector(page,tactical=false,grid=null,focus=null,scale=1) {
     const box=await page.locator('#world').boundingBox();
     const aspect=box.width/box.height;
-    const zoom=grid?Math.max(grid.h,grid.w/aspect)/(2*Math.tan(22*Math.PI/180))*1.08:tactical?(aspect<1?41:29):(aspect<1?35:27);
+    const zoom=(grid?Math.max(grid.h,grid.w/aspect)/(2*Math.tan(22*Math.PI/180))*1.08:tactical?(aspect<1?41:29):(aspect<1?35:27))*scale;
     const angle=tactical?0:.16, tilt=tactical?(grid?1.51:1.45):.99;
-    const cx=grid?(grid.w-1)/2:12, cz=grid?(grid.h-1)/2:9;
+    const [cx,cz]=focus||(grid?[(grid.w-1)/2,(grid.h-1)/2]:[12,9]);
     const camera=new PerspectiveCamera(44,aspect,.12,105);
     camera.position.set(cx+Math.sin(angle)*Math.cos(tilt)*zoom,zoom*Math.sin(tilt),cz+Math.cos(angle)*Math.cos(tilt)*zoom);
     camera.lookAt(cx,0,cz);
@@ -41,6 +41,18 @@ try {
       const p=new Vector3(x,0,z).project(camera);
       return [box.x+(p.x+1)/2*box.width,box.y+(1-p.y)/2*box.height];
     };
+  }
+  async function center(page,grid,[x,z],steps) {
+    const radar=page.locator('#radar');
+    const box=await radar.boundingBox();
+    await radar.click({position:{x:(x+.5)*box.width/grid.w,y:(z+.5)*box.height/grid.h}});
+    for(let i=0;i<steps;i++) await page.getByRole('button',{name:'Rapprocher'}).click();
+  }
+  async function touchDrag(cdp,[x,y],[toX,toY]) {
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});
+    for(let i=1;i<=8;i++) await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',
+      touchPoints:[{x:x+(toX-x)*i/8,y:y+(toY-y)*i/8,id:1}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   }
   const context=await browser.newContext({viewport:{width:1440,height:900},acceptDownloads:true});
   const desktop=await context.newPage();
@@ -56,6 +68,38 @@ try {
   await desktop.getByRole('link',{name:/OpenStreetMap/}).waitFor();
   await snap(desktop,'08-metz');
   const atlas=new Game(metz);
+  const zoneFocus=[46,39];
+  await center(desktop,atlas.grid,zoneFocus,5);
+  const buildPoint=await projector(desktop,true,atlas.grid,zoneFocus,.84**5);
+  await desktop.getByRole('button',{name:'Zone sûre',exact:true}).click();
+  await desktop.mouse.move(...buildPoint(44,37));
+  await desktop.mouse.down();
+  await desktop.mouse.move(...buildPoint(48,41),{steps:12});
+  assert.match(await desktop.locator('#detail').textContent(),/233 places · 290 cr/);
+  await desktop.mouse.up();
+  assert.equal(await desktop.locator('.metric.cash strong').textContent(),'1550');
+  await desktop.getByRole('button',{name:'Ceinturer'}).click();
+  assert.equal(await desktop.locator('.metric.cash strong').textContent(),'1190');
+  await desktop.mouse.click(...buildPoint(43,37));
+  assert.equal(await desktop.locator('.metric.cash strong').textContent(),'1165');
+  await snap(desktop,'11-zone-fortifiee');
+  const example=atlas.drawZone(atlas.grid.cell(44,37),atlas.grid.cell(48,41));
+  atlas.surround(example);
+  const firstWall=atlas.map.homes.find(i=>{
+    const [x,z]=atlas.grid.point(i);
+    return x>47&&x<52&&z>43&&z<47&&atlas.legal('wall',i)
+      &&atlas.grid.adjacent[i].some(j=>atlas.legal('wall',j));
+  });
+  const secondWall=atlas.grid.adjacent[firstWall].find(j=>atlas.legal('wall',j));
+  await desktop.getByRole('button',{name:'Mur',exact:true}).click();
+  await desktop.mouse.move(...buildPoint(...atlas.grid.point(firstWall)));
+  await desktop.mouse.down();
+  await desktop.mouse.move(...buildPoint(...atlas.grid.point(secondWall)),{steps:6});
+  await desktop.mouse.up();
+  assert.equal(await desktop.locator('.metric.cash strong').textContent(),'1075');
+  await desktop.getByRole('button',{name:'Pause',exact:true}).click();
+  await desktop.getByRole('button',{name:'Recommencer',exact:true}).click();
+  await desktop.getByRole('button',{name:'Examiner la carte'}).click();
   const initialPoint=await projector(desktop,true,atlas.grid);
   const site=atlas.map.homes.find(i=>{
     const [x,z]=atlas.grid.point(i);
@@ -166,6 +210,18 @@ try {
   await phone.getByRole('button',{name:'Contenir un foyer'}).tap();
   await phone.getByRole('button',{name:/Metz · Les Îles/}).tap();
   await phone.getByRole('button',{name:'Examiner la carte'}).tap();
+  await center(phone,atlas.grid,zoneFocus,4);
+  const mobileBuildPoint=await projector(phone,true,atlas.grid,zoneFocus,.84**4);
+  const cdp=await mobileContext.newCDPSession(phone);
+  await phone.getByRole('button',{name:'Zone sûre',exact:true}).tap();
+  await touchDrag(cdp,mobileBuildPoint(44,37),mobileBuildPoint(48,41));
+  assert.equal(await phone.locator('.metric.cash strong').textContent(),'1550');
+  await phone.getByRole('button',{name:'Ceinturer'}).tap();
+  await phone.waitForFunction(()=>document.querySelector('.metric.cash strong').textContent==='1190',{},{timeout:5000});
+  await phone.touchscreen.tap(...mobileBuildPoint(43,37));
+  assert.equal(await phone.locator('.metric.cash strong').textContent(),'1165');
+  await snap(phone,'12-zone-mobile');
+  await phone.getByRole('button',{name:'Recentrer'}).tap();
   await phone.getByRole('button',{name:'Rapprocher'}).tap();
   await snap(phone,'10-metz-mobile');
   await phone.getByRole('button',{name:'Pause',exact:true}).tap();
@@ -187,7 +243,6 @@ try {
   const touch=await projector(phone);
   await phone.touchscreen.tap(...touch(16,12));
   assert.equal(await phone.locator('.metric.cash strong').textContent(),'500');
-  const cdp=await mobileContext.newCDPSession(phone);
   const mx=Math.round(dimensions.x+dimensions.width*.51), my=Math.round(dimensions.y+dimensions.height*.60);
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:mx-28,y:my,id:1},{x:mx+28,y:my,id:2}]});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:mx-68,y:my+20,id:1},{x:mx+68,y:my+20,id:2}]});

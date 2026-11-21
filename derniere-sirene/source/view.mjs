@@ -108,6 +108,9 @@ export class View {
     this.flare=batch(this.dynamic,'ball',520,lit);
     this.outbreak=batch(this.dynamic,'flat',W*H,basic(0xffffff,{side:T.DoubleSide,transparent:true,opacity:.61,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));
     this.outbreak.renderOrder=1;
+    this.zoneFill=batch(this.dynamic,'flat',4096,basic(0xffffff,{side:T.DoubleSide,transparent:true,opacity:.38,depthWrite:false}));
+    this.zoneFill.renderOrder=2;
+    this.zoneOutline=batch(this.dynamic,'box',4600,lit);
     this.hover=new T.Mesh(geom.ring,basic(0xffd081,{side:T.DoubleSide,transparent:true,opacity:.72,depthWrite:false}));
     this.hover.rotation.x=-Math.PI/2;
     this.hover.visible=false;
@@ -169,7 +172,7 @@ export class View {
     this.focus.set(x,0,z);
     this.cameraAt();
   }
-  pick(x,y) {
+  pick(x,y,snap=true) {
     const rect=this.canvas.getBoundingClientRect();
     this.ray.setFromCamera({x:(x-rect.left)/rect.width*2-1,y:1-(y-rect.top)/rect.height*2},this.camera);
     if(!this.ray.ray.intersectPlane(this.floor,this.vec)) return -1;
@@ -177,7 +180,7 @@ export class View {
     const {w,h,cell}=this.grid;
     if(xx<0||zz<0||xx>=w||zz>=h) return -1;
     const here=cell(xx,zz);
-    if(!this.map.art||open(this.map.cells,here)) return here;
+    if(!snap||!this.map.art||open(this.map.cells,here)) return here;
     let closest=here, distance=.97;
     for(let z=Math.max(0,zz-1);z<=Math.min(h-1,zz+1);z++) for(let x=Math.max(0,xx-1);x<=Math.min(w-1,xx+1);x++) {
       const i=cell(x,z);
@@ -212,6 +215,8 @@ export class View {
     this.sun.target.position.set((this.grid.w-1)/2,0,(this.grid.h-1)/2);
     this.tactical=!title&&!!game.mission.containment;
     this.commandOrigin=-1;
+    this.activeZone=null;
+    this.placementPreview=null;
     this.hover.visible=false;
     this.city.scale.y=this.tactical?.69:1;
     this.light=atmos[game.mission.light]||atmos.dusk;
@@ -375,7 +380,7 @@ export class View {
       this.cityParts(game);
       this.last=game.bridgeDamage.size;
     }
-    const bodies=[],heads=[],contacts=[],gear=[],marks=[],trace=[],particles=[],hot=[],routes=[],heat=[];
+    const bodies=[],heads=[],contacts=[],gear=[],marks=[],trace=[],particles=[],hot=[],routes=[],heat=[],zones=[],outline=[];
     const detail=this.setting!=='low'||this.zoom<18;
     for(const list of [game.civs,game.zombies]) for(const p of list) {
       if(bodies.length+contacts.length>=4096) break;
@@ -395,7 +400,33 @@ export class View {
         placeAt(hot,p.x,p.z,.96,.5,.04,.08,0xff5b5b);
       }
     }
-    for(const u of game.units.values()) this.unit(gear,marks,hot,u,now);
+    const flatPlan=this.tactical&&!!this.map.art;
+    const planHeight=flatPlan?1.46:.034;
+    for(const u of game.units.values()) {
+      this.unit(gear,marks,hot,u,now);
+      if(u.tiles?.length>1) this.drawArea(u.tiles,zones,outline,u===this.activeZone?0x7df5d2:0x53d2ab,planHeight);
+      if(flatPlan&&defenses[u.id]?.barrier) {
+        const [x,z]=this.location(u.i);
+        const a=u.angle;
+        if(u.id==='gate') {
+          for(const side of [-1,1]) placeAt(outline,x+side*Math.cos(a)*.36,z-side*Math.sin(a)*.36,
+            planHeight+.08,.31,.022,.13,0x72ffd0,a);
+        } else placeAt(outline,x,z,planHeight+.08,1,.023,.10,0xd5dce3,a);
+      }
+    }
+    if(this.placementPreview) {
+      const p=this.placementPreview;
+      const c=p.error?0xf58970:0xa5ffe1;
+      this.drawArea(p.tiles,zones,outline,c,planHeight+.018);
+      if(p.kind==='safe') {
+        const [ax,az]=this.grid.point(p.from),[bx,bz]=this.grid.point(p.to);
+        const w=Math.abs(bx-ax)+1,h=Math.abs(bz-az)+1,x=(ax+bx)/2,z=(az+bz)/2;
+        for(const sign of [-1,1]) {
+          placeAt(outline,x,z+sign*h/2,planHeight+.063,w,.019,.048,c);
+          placeAt(outline,x+sign*w/2,z,planHeight+.063,.048,.019,h,c);
+        }
+      }
+    }
     for(const m of game.marches) {
       this.unit(gear,marks,hot,m.u,now,[m.x,m.z],m.angle);
       const [x,z]=this.location(m.to);
@@ -456,10 +487,22 @@ export class View {
       if(this.lampMesh.instanceColor) this.lampMesh.instanceColor.needsUpdate=true;
       this.slowFrame=now;
     }
-    for(const [mesh,array] of [[this.people,bodies],[this.heads,heads],[this.contacts,contacts],[this.gear,gear],[this.radars,marks],[this.trails,trace],[this.debris,particles],[this.flare,hot],[this.outbreak,this.map.art?[]:heat],[this.diffusion,this.map.art?heat:[]],[this.guides,routes]]) {
+    for(const [mesh,array] of [[this.people,bodies],[this.heads,heads],[this.contacts,contacts],[this.gear,gear],[this.radars,marks],[this.trails,trace],[this.debris,particles],[this.flare,hot],[this.outbreak,this.map.art?[]:heat],[this.diffusion,this.map.art?heat:[]],[this.guides,routes],[this.zoneFill,zones],[this.zoneOutline,outline]]) {
       if(mesh) fill(mesh,array.length>mesh.instanceMatrix.count?array.slice(0,mesh.instanceMatrix.count):array);
     }
     this.renderer.render(this.scene,this.camera);
+  }
+  drawArea(tiles,fill,outline,c,y) {
+    const {w,h,point}=this.grid;
+    const selected=new Set(tiles);
+    for(const i of tiles) {
+      const [x,z]=point(i);
+      fill.push([x,y,z,1,1,1,c,0,-Math.PI/2]);
+      if(x===0||!selected.has(i-1)) placeAt(outline,x-.5,z,y+.031,.076,.019,1,c);
+      if(x===w-1||!selected.has(i+1)) placeAt(outline,x+.5,z,y+.031,.076,.019,1,c);
+      if(z===0||!selected.has(i-w)) placeAt(outline,x,z-.5,y+.031,1,.019,.076,c);
+      if(z===h-1||!selected.has(i+w)) placeAt(outline,x,z+.5,y+.031,1,.019,.076,c);
+    }
   }
   unit(gear,marks,hot,u,now,position=this.location(u.i),facing=u.angle) {
     const [x,z]=position, id=u.id;
@@ -480,9 +523,16 @@ export class View {
       box(y+.04,.84,.026,.075,0x93bed1,now*13);
       marker(1,0x72ecc5);
     } else if(id==='wall'||id==='barricade'||id==='gate') {
-      box(.097,.69,.18,.66,0x314457);
-      box(.23,.86,id==='wall'?.39:.25,.26,c);
-      if(id!=='wall') for(const dx of [-.3,0,.3]) box(.37,.095,.19,.3,0xd8b57d,0,dx,0);
+      const a=facing||0;
+      box(.05,.98,.07,.3,0x314457,a);
+      if(id==='gate') {
+        box(.44,.95,.09,.18,0x9ee7bf,a);
+        for(const side of [-1,1]) box(.22,.19,.43,.25,c,a,side*.37*Math.cos(a),-side*.37*Math.sin(a));
+        box(.095,.47,.03,.18,0x66efbf,a);
+      } else {
+        box(.23,.98,id==='wall'?.39:.25,.25,c,a);
+        box(.39,.98,.055,.26,id==='wall'?0xbecbd2:0xf1b879,a);
+      }
     } else if(id==='mines'||id==='explosive') {
       for(const [dx,dz] of [[-.17,.16],[.19,.13],[0,-.21]]) {
         box(.075,.20,.12,.19,0x504752,0,dx,dz);

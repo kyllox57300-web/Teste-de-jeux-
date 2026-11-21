@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { Game } from '../source/game.mjs';
-import { containment, missions, specials, endless, metz } from '../source/data.mjs';
-import { adjacent, dist, field, open, validCustom } from '../source/city.mjs';
+import { containment, missions, specials, endless, metz, terrain as t } from '../source/data.mjs';
+import { adjacent, baseGrid, dist, field, open, validCustom } from '../source/city.mjs';
 import { available, defaults, finish, learn, parseSave, skillPoints } from '../source/progress.mjs';
+import { stroke } from '../source/placement.mjs';
 
 function defend(g, offset=0) {
   const { cells,start,end,homes }=g.map;
@@ -88,6 +89,78 @@ function runMetz(prepared) {
   return {g,trips,peak};
 }
 
+function verifyFortifications() {
+  const {cell,w,h}=baseGrid;
+  const layout=new Array(w*h).fill(t.block);
+  for(let x=1;x<=22;x++) layout[cell(x,9)]=t.road;
+  for(let z=8;z<=10;z++) for(let x=10;x<=12;x++) layout[cell(x,z)]=t.park;
+  const g=new Game({...missions[0],layout,start:cell(20,9),end:cell(3,9)});
+  const initial=g.money, from=cell(10,8), to=cell(12,10);
+  const free=cell(14,9), fence=cell(13,9), entrance=cell(9,9);
+  const path=stroke(g.grid,from,to);
+  assert.ok(path.every((i,n)=>n===0||g.grid.adjacent[path[n-1]].includes(i)));
+  assert.equal(path.at(-1),to);
+  const preview=g.planZone(from,to);
+  assert.equal(preview.tiles.length,9);
+  assert.equal(preview.cap,53);
+  g.money=preview.price-1;
+  assert.equal(g.drawZone(from,to),null);
+  assert.equal(g.zoneAt(from),undefined);
+  g.money=initial;
+  const zone=g.drawZone(from,to);
+  assert.equal(g.money,initial-preview.price);
+  assert.equal(g.zoneAt(from),zone);
+  assert.equal(g.zoneAt(to),zone);
+  assert.ok(!g.legal('safe',from));
+  assert.ok(g.sell(from));
+  assert.equal(g.money,initial);
+  assert.equal(g.zoneAt(to),undefined);
+  const rebuilt=g.drawZone(from,to);
+  assert.ok(g.drawWalls([free,free,cell(14,8)]));
+  assert.equal(g.money,initial-preview.price-g.cost('wall'));
+  assert.ok(g.sell(free));
+  assert.deepEqual(new Set(g.fortification(rebuilt).tiles),new Set([entrance,fence]));
+  assert.ok(g.surround(rebuilt));
+  const balance=g.money;
+  assert.ok(g.place('gate',entrance));
+  assert.equal(balance-g.money,g.cost('gate')-g.cost('wall'));
+  assert.equal(g.fortification(rebuilt).gates,1);
+  assert.equal(g.units.get(entrance).id,'gate');
+  assert.equal(g.units.get(fence).id,'wall');
+
+  g.prepare();
+  g.zombies.length=0;
+  const civilian=g.person(cell(8,9),{speed:2.5,wait:0});
+  g.civs=[civilian];
+  g.routes();
+  assert.equal(g.civilPass(entrance),true);
+  assert.equal(g.civilPass(fence),false);
+  const visited=new Set();
+  for(let i=0;i<80&&!civilian.dead;i++) {
+    g.time+=.08;
+    g.moveCiv(civilian,.08);
+    visited.add(civilian.i);
+  }
+  assert.ok(visited.has(entrance));
+  assert.equal(rebuilt.sheltered,1);
+
+  g.spawn(cell(8,9));
+  const z=g.zombies[0], door=g.units.get(entrance);
+  g.routes();
+  g.moveFoe(z,.08);
+  assert.equal(z.target,z.i);
+  assert.ok(door.hp<door.maxHp);
+  g.time=z.attackAt;
+  door.hp=1;
+  g.moveFoe(z,.08);
+  assert.equal(g.units.get(entrance),undefined);
+  assert.equal(g.zoneAt(from),rebuilt);
+  g.collapse(rebuilt,to);
+  assert.equal(g.zoneAt(from),undefined);
+  assert.equal(g.zoneAt(to),undefined);
+  assert.equal(g.lost,1);
+}
+
 const verify=!process.argv.includes('--explore');
 const campaign=defaults();
 const rows=[];
@@ -101,6 +174,7 @@ for(const m of missions) {
 }
 console.table(rows);
 if(verify) {
+  verifyFortifications();
   assert.equal(Object.keys(campaign.records).length,12,'Une stratégie viable par mission en difficulté normale');
   assert.ok(rows.every(r=>r.unprepared!=='won'),'Une ville laissée sans défense tombe');
   assert.equal(skillPoints(campaign),12);
