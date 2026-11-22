@@ -97,9 +97,29 @@ function osmFixture() {
 async function playFirstStage() {
   const page=await browser.newPage({viewport:{width:1440,height:900}});
   monitor(page);
+  await page.addInitScript(()=>{
+    const key='derniere-sirene-v1';
+    if(!localStorage.getItem(key)) localStorage.setItem(key,JSON.stringify({
+      v:1,records:{},skills:[],badges:[],cities:[],atlasProgress:{'atlas-lyon':1}
+    }));
+  });
   await atlasMenu(page);
   await city(page,'metz');
   assert.equal(await page.locator('#pins .pin').filter({hasText:'✚'}).count(),0);
+  const option=id=>page.locator(`[data-action="equip-support"][data-value="${id}"]`);
+  await button(page,'Renforts').click();
+  assert.equal(await page.locator('#loadout-count').textContent(),'6 / 7 renforts');
+  await option('medevac').click();
+  assert.equal(await page.locator('#loadout-points').textContent(),'1 point réservé · 0 disponibles');
+  assert.equal(await option('flash').isDisabled(),true);
+  await option('tank').click();
+  assert.match(await page.locator('#loadout-points').textContent(),/1 disponible/);
+  await option('decoy').click();
+  await button(page,'Retour à la carte').click();
+  await button(page,'Compétences').click();
+  const marks=page.locator('.training-dialog [data-value="marks"]');
+  assert.equal(await marks.isDisabled(),true);
+  await button(page,'Retour à la carte').click();
   const metz=await contents('metz');
   const focus=metz.grid.point(metz.outbreak);
   await center(page,metz,focus,2);
@@ -124,6 +144,8 @@ async function playFirstStage() {
   }
   await button(page,'Mettre en pause').click();
   await button(page,'Prêt · lancer l’épidémie').click();
+  assert.equal(await page.locator('.kit [data-value="tank"]').count(),0);
+  assert.equal(await page.locator('.kit [data-value="medevac"]').count(),1);
   for(const id of ['missile','heli','para']) {
     await page.locator(`.kit [data-value="${id}"]`).click();
     await page.mouse.click(...aim(focus,0));
@@ -143,13 +165,19 @@ async function playFirstStage() {
   assert.equal(await page.locator('#unit-name').textContent(),'Mortier');
   await button(page,'Fermer la fiche').click();
   await snap(page,'37-metz-etape-2');
+  await button(page,'Renforts').click();
+  assert.equal(await option('tank').getAttribute('aria-pressed'),'false');
+  assert.equal(await option('medevac').getAttribute('aria-pressed'),'true');
+  assert.equal(await option('decoy').getAttribute('aria-pressed'),'true');
+  assert.equal(await page.locator('#loadout-points').textContent(),'1 point réservé · 1 disponible');
+  await snap(page,'39-renforts-etape-2');
+  await button(page,'Retour à la carte').click();
   await page.mouse.click(...sniper);
   assert.equal(await page.locator('#unit-name').textContent(),'Sniper');
   const range=await page.locator('#unit-range').textContent();
   await button(page,'Fermer la fiche').click();
   await button(page,'Compétences').click();
   assert.equal(await page.locator('#skill-points').textContent(),'1 point disponible');
-  const marks=page.locator('.training-dialog [data-value="marks"]');
   await marks.click();
   assert.equal(await page.locator('#skill-points').textContent(),'0 points disponibles');
   assert.equal(await marks.evaluate(el=>el.classList.contains('learned')),true);
@@ -163,13 +191,26 @@ async function playFirstStage() {
   assert.equal(await page.locator('#stage-count').textContent(),'2/3');
   assert.equal(await page.locator('#clock').textContent(),'00:00');
   assert.equal(await page.locator('.metric.infect strong').textContent(),'50');
+  await page.keyboard.press('6');
+  assert.match(await page.locator('#toast').textContent(),/pas partie de ta sélection/);
+  await page.keyboard.press('8');
+  assert.equal(await page.locator('.kit [data-value="medevac"]').getAttribute('aria-pressed'),'true');
+  const budget=await page.locator('.metric.cash strong').textContent();
+  await page.mouse.click(...aim(focus,0));
+  for(const id of ['missile','air','decoy']) {
+    await page.locator(`.kit [data-value="${id}"]`).click();
+    await page.mouse.click(...aim(focus,0));
+  }
+  assert.equal(await page.locator('#support-stock').textContent(),'Appuis · 1');
+  assert.equal(await page.locator('.metric.cash strong').textContent(),budget);
+  assert.match(await page.locator('#price-heli').textContent(),/Manque 1 ch\./);
   await button(page,'Rejouer').click();
   assert.equal(await page.locator('#stage-count').textContent(),'1/3');
   await atlasMenu(page);
   await city(page,'lyon');
   await button(page,'Compétences').click();
   assert.equal(await marks.evaluate(el=>el.classList.contains('learned')),true);
-  assert.equal(await page.locator('#skill-points').textContent(),'0 points disponibles');
+  assert.equal(await page.locator('#skill-points').textContent(),'1 point disponible');
   await page.close();
 }
 
@@ -205,10 +246,17 @@ try {
   const screen=await project(desktop,metz,focus,steps);
   const refuge=[[44,37],[46,35.65],[48.75,36.45],[49.55,38.75],[47.75,41.75],[43.7,41.4],[43.15,38.8]];
   await button(desktop,'Zone sûre').click();
-  await draw(desktop,refuge.map(p=>screen(p)));
-  await button(desktop,'Ceinturer').click();
+  const outline=refuge.map(p=>screen(p));
+  await desktop.mouse.move(...outline[0]);
+  await desktop.mouse.down();
+  for(const p of outline.slice(1)) await desktop.mouse.move(...p,{steps:4});
+  assert.match(await desktop.locator('#detail').textContent(),/cr avec murs/);
+  await desktop.mouse.up();
   const zone=metz.drawZone(refuge);
-  assert.ok(zone&&metz.surround(zone));
+  assert.ok(zone&&metz.walls.sections.size>0);
+  assert.equal(Number(await desktop.locator('.metric.cash strong').textContent()),metz.money);
+  assert.equal(await button(desktop,'Ceinturer').isVisible(),false);
+  await snap(desktop,'40-zone-et-murs-en-un-trace');
   const gate=[...metz.walls.sections.values()].find(s=>s.a[0]>49&&s.a[1]<38&&metz.walls.openings(s).length);
   const entrance=screen(metz.walls.openings(gate)[0],1.54);
   await desktop.mouse.move(...entrance);
@@ -274,6 +322,7 @@ try {
   await snap(desktop,'31-garnisons-en-serie');
   await desktop.mouse.up();
   assert.equal(Number(await desktop.locator('.metric.cash strong').textContent()),metz.money-batch.price);
+  assert.match(await desktop.locator('#price-soldier').textContent(),/^Manque \d+ cr$/);
   await button(desktop,'Mettre en pause').click();
   await button(desktop,'Prêt · lancer l’épidémie').click();
   const initialCash=metz.money-batch.price;
@@ -314,12 +363,12 @@ try {
   await button(desktop,'Prêt · lancer l’épidémie').click();
   await button(desktop,'Centrer sur les infectés').waitFor();
   await desktop.waitForFunction(radarShowsInfection);
-  assert.equal(await desktop.locator('.kit .tool').count(),9);
+  assert.equal(await desktop.locator('.kit .tool').count(),6);
   await button(desktop,'Vitesse ×4').click();
   await desktop.waitForFunction(()=>Number(document.querySelector('.metric.infect strong')?.textContent)>170);
   await button(desktop,'Mettre en pause').click();
   await snap(desktop,'26-toulouse-infection');
-  for(let key=1;key<=9;key++) {
+  for(let key=1;key<=6;key++) {
     await desktop.keyboard.press(String(key));
     const tool=desktop.locator('.kit .tool').nth(key-1);
     assert.equal(await tool.getAttribute('aria-pressed'),'true');
@@ -386,6 +435,13 @@ try {
   monitor(mobile);
   await atlasMenu(mobile);
   await city(mobile,'dunkerque');
+  await button(mobile,'Renforts').tap();
+  assert.equal(await mobile.locator('#loadout-count').textContent(),'6 / 6 renforts');
+  await mobile.locator('[data-action="equip-support"][data-value="tank"]').tap();
+  const evacuation=mobile.locator('[data-action="equip-support"][data-value="medevac"]');
+  await evacuation.tap();
+  assert.equal(await evacuation.getAttribute('aria-pressed'),'true');
+  await button(mobile,'Retour à la carte').tap();
   await button(mobile,'Paramètres').tap();
   const density=mobile.getByLabel('Foule à l’écran');
   assert.equal(await density.inputValue(),'auto');
@@ -435,7 +491,7 @@ try {
   await snap(mobile,'27-dunkerque-mobile');
 
   assert.deepEqual(errors,[],'Erreurs ou avertissements Chromium');
-  console.log('Passage à l’étape 2 sur la même carte, appuis immédiats, foyers masqués et tactile vérifiés.');
+  console.log('Renforts conservés entre les étapes, murs automatiques, coûts affichés et tactile vérifiés.');
   console.log(`Profil tactile Chromium (412 × 883, DPR 2, foule réduite) : médiane de ${frameTime} ms entre images.`);
   console.log('Captures : '+folder);
 } finally {

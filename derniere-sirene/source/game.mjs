@@ -9,6 +9,7 @@ const metric = (a,b) => Math.hypot(a.x-b.x,a.z-b.z);
 const mobile = new Set(['soldier','sniper','flame']);
 const streetFire = new Set(['soldier','sniper','turret','flame','para']);
 export const maxEquipment=3;
+export const freeSupportSlots=6;
 const reserves={easy:10,normal:8,hard:6};
 const hiddenZombies=[];
 const unreachable=30000;
@@ -23,6 +24,7 @@ export class Game {
     this.training=mission.atlas?new Set(skills):new Set();
     this.skills=[...new Set([...skills,...(mission.loadout||[])])];
     this.support=mission.atlas?atlasSupport:support;
+    this.preparedSupport=mission.atlas?new Set(Object.keys(this.support).filter(id=>this.canPrepareSupport(id)).slice(0,freeSupportSlots)):null;
     this.supportCapacity=mission.atlas?reserves[level]+(this.has('wing')?2:0):null;
     this.supportReserve=this.supportCapacity;
     this.map=generate(mission);
@@ -296,9 +298,28 @@ export class Game {
   supportCost(id) {
     return this.mission.atlas?this.support[id].chargeCost:this.cost(id);
   }
+  get supportKit() {
+    if(!this.preparedSupport) return this.support;
+    return Object.fromEntries(Object.entries(this.support).filter(([id])=>this.preparedSupport.has(id)));
+  }
+  get reservedSupportPoints() {
+    return Math.max(0,(this.preparedSupport?.size||0)-freeSupportSlots);
+  }
+  canPrepareSupport(id) {
+    return Object.hasOwn(this.support,id)&&!(this.mission.noair&&this.support[id].air)&&canUse(id,this.skills);
+  }
+  canToggleSupport(id,points) {
+    return !!this.preparedSupport&&this.phase==='prep'&&this.canPrepareSupport(id)
+      &&(this.preparedSupport.has(id)||this.preparedSupport.size<freeSupportSlots+points);
+  }
+  toggleSupport(id,points) {
+    if(!this.canToggleSupport(id,points)) return false;
+    if(!this.preparedSupport.delete(id)) this.preparedSupport.add(id);
+    return true;
+  }
   supportStatus(id) {
-    const spec=this.support[id];
-    if(!this.combat||!spec||this.mission.noair&&spec.air) return 'unavailable';
+    if(!this.combat||!Object.hasOwn(this.support,id)||this.mission.noair&&this.support[id].air
+      ||this.preparedSupport&&!this.preparedSupport.has(id)) return 'unavailable';
     if(!canUse(id,this.skills)) return 'locked';
     const balance=this.mission.atlas?this.supportReserve:this.money;
     if(balance<this.supportCost(id)) return 'empty';
@@ -363,9 +384,16 @@ export class Game {
       plan.entries=new Set(plan.roofs.map(site=>site.access.find(i=>tiles.has(i))));
       plan.entries.add(anchor);
     }
+    plan.edge=wallSections(contour,true);
+    if(this.mission.atlas&&this.phase==='prep') {
+      plan.walls=this.walls.plan(plan.edge);
+      plan.price+=plan.walls.price;
+    }
     if(plan.anchor===undefined) plan.error='Laisse une case libre pour le refuge.';
     else if(this.visibleZombies.some(z=>within(this.location(z.i),contour))) plan.error='Écarte le tracé des infectés.';
-    else if(plan.price>this.money) plan.error=`Budget insuffisant · ${plan.price} cr nécessaires.`;
+    else if(plan.price>this.money) plan.error=plan.walls
+      ?`Il manque ${plan.price-this.money} cr pour la zone et ses murs (${plan.price} cr).`
+      :`Budget insuffisant · ${plan.price} cr nécessaires.`;
     return plan;
   }
   cellsInside(contour,pass) {
@@ -407,15 +435,17 @@ export class Game {
     const plan=this.planZone(from,to);
     if(plan.error||!this.place('safe',plan.anchor,false,plan.building)) return null;
     const zone=this.units.get(plan.anchor);
-    this.money-=plan.price-zone.paid;
-    zone.paid=plan.price;
+    const zonePrice=plan.price-(plan.walls?.price||0);
+    this.money-=zonePrice-zone.paid;
+    zone.paid=zonePrice;
     zone.cap=plan.cap;
     zone.tiles=plan.tiles;
     zone.contour=plan.contour;
     zone.roofs=plan.roofs;
     zone.entries=plan.entries;
-    zone.edge=wallSections(zone.contour,true);
+    zone.edge=plan.edge;
     for(const i of zone.tiles) this.zoneCells.set(i,zone);
+    if(plan.walls?.segments.length) this.buildWalls(plan.walls);
     return zone;
   }
   planWalls(path) {

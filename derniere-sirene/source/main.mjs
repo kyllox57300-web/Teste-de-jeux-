@@ -1,5 +1,5 @@
 import { W,H,terrain as t,defenses,missions,specials,endless,metz,containment,atlas,mutators,withMutators,difficulty,tree,badges,canUse } from './data.mjs';
-import { Game,maxEquipment } from './game.mjs';
+import { Game,freeSupportSlots,maxEquipment } from './game.mjs';
 import { generate,open,point,cell,validCustom } from './city.mjs';
 import { available,award,finish,learn,load,nextDefeats,parseSave,recordAtlasProgress,recoveryCredits,skillPoints,store } from './progress.mjs';
 import { View } from './view.mjs';
@@ -58,6 +58,8 @@ function notify(text) {
 }
 const retryCount=m=>m.id==='atlas-local'?localRetries:save.retries[m.id]||0;
 const defeatCount=m=>m.id==='atlas-local'?localDefeats:save.defeats[m.id]||0;
+const availableTrainingPoints=()=>skillPoints(save)-game.reservedSupportPoints;
+const creditShortage=price=>`Il manque ${price-game.money} cr.`;
 function header() {
   dom.topbar.innerHTML=`<button class="brand" data-action="${page==='mission'?'pause':'home'}"><span class="logo" aria-hidden="true">◬</span> Dernière Sirène</button><div class="top-actions">${page==='mission'
     ?(game.mission.atlas?button('Rejouer','retry','small'):'')+button('Pause','pause','small')+button('Paramètres','settings','small')
@@ -141,8 +143,7 @@ function paintEstuary() {
     ctx.setLineDash(available(save,i)?[]:[5,4]);ctx.stroke();
   }
 }
-function skillTree() {
-  const points=skillPoints(save);
+function skillTree(points=skillPoints(save)) {
   return `<div class="matrix tree-grid">${tree.map(branch=>`<section class="tree-card"><h3>${branch.icon} ${branch.name}</h3>${branch.nodes.map(([id,name,help],i)=>{
     const done=save.skills.includes(id);
     const ready=!done&&points>0&&(i===0||save.skills.includes(branch.nodes[i-1][0]));
@@ -301,7 +302,7 @@ function start(m,brief=true) {
   go('mission');
   if(tut) opening();
   else if(brief) showModal('briefing',m.name,`<p class="eyebrow">${escape(m.briefing[0])}</p><p>« ${escape(m.briefing[1])} »</p>${m.atlas?
-    `<p>Défends la ville en ${game.stages} étapes. Sans refuge, les civils se replient dans les rues calmes. Tu peux les protéger en traçant tes propres zones sûres.</p><p>Tes ${game.supportReserve} charges d’appui sont disponibles dès le début du combat.</p>${m.modifiers?.length?`<p>${m.modifiers.map(id=>mutators[id]).join(' · ')}</p>`:''}`
+    `<p>Défends la ville en ${game.stages} étapes. Sans refuge, les civils se replient dans les rues calmes. Tu peux les protéger en traçant tes propres zones sûres.</p><p>Prépare ta sélection dans <strong>Renforts</strong>. Tes ${game.supportReserve} charges d’appui sont disponibles dès le début du combat.</p>${m.modifiers?.length?`<p>${m.modifiers.map(id=>mutators[id]).join(' · ')}</p>`:''}`
     :game.quota?`<p><strong>Objectif</strong> · Élimine la horde et évacue au moins ${game.quota} personnes. Les navettes partent des refuges toutes les 12 secondes. Zoome pour bien viser les rues.</p>`
     :m.containment?'<p>Les escouades peuvent changer de rue après le départ. Sélectionne « Ordres », une escouade, puis sa destination.</p>':m.rule?`<p>${escape(m.rule)}</p>`:''}<div class="dialog-actions">${button('Examiner la carte','close','button primary')}</div>`);
 }
@@ -326,7 +327,7 @@ function kitMarkup(items,live) {
   const tools=Object.entries(items).map(([id,info])=>`<button class="tool" data-action="tool" data-value="${id}" title="${info.info}" aria-label="${info.name}"><span class="icon" aria-hidden="true">${info.icon}</span><span><span class="tool-label">${info.name}</span><span class="tool-price" id="price-${id}"></span></span></button>`);
   if(!game.mission.atlas) return tools.join('');
   const group=(label,list)=>`<div class="kit-group" role="group" aria-label="${label}"><h3>${label}</h3><div class="kit-slots">${list.join('')}</div></div>`;
-  if(live) return group('Renforts',tools);
+  if(live) return group('Renforts',tools.length?tools:['<p class="empty-kit">Aucun renfort préparé.</p>']);
   const fieldwork=['safe','wall','gate'];
   const entries=Object.keys(items);
   return group('Déployer',tools.filter((_,n)=>!fieldwork.includes(entries[n])))
@@ -335,7 +336,7 @@ function kitMarkup(items,live) {
 function showHUD(rebuild=false) {
   const live=game.combat;
   const support=game.support, tools=Object.keys(support);
-  let items=live?(game.quota?{...support,safe:advancedShelter}:support):defenses;
+  let items=live?(game.quota?{...support,safe:advancedShelter}:game.supportKit):defenses;
   if(!live&&game.mission.atlas) {
     items={...atlasDefenses};
     for(const id of ['flame','watch']) if(canUse(id,game.skills)) items[id]=defenses[id];
@@ -356,7 +357,7 @@ function showHUD(rebuild=false) {
       <button id="erase-guide" class="small" data-action="erase" aria-label="Effacer le couloir" hidden>Effacer</button>
       ${game.mission.atlas?button('Zone d’attente','tool','small','waiting')+'<button id="release-waiting" class="small" data-action="release-waiting" hidden>Libérer l’attente</button>':''}
       ${!live&&game.usesRoof('soldier')?button('Garnisons en série','tool','small','garrisons'):''}
-      ${!live&&game.mission.atlas?button('Compétences','training','small'):''}
+      ${!live&&game.mission.atlas?button('Renforts','prepare-support','small')+button('Compétences','training','small'):''}
       <button id="shape" class="small" data-action="shape" aria-pressed="false" hidden>Main levée</button>
       ${live?button('Ordres','tool','small','command')+button(game.mission.atlas?'Inspecter':'Fortifs','tool','small','inspect')+button('Détoner','tool','small','boom'):button('Retirer','tool','small','sell')+'<button id="fortify" class="small" data-action="fortify" hidden>Ceinturer</button>'}</div>
       <div class="tools-extra" id="fort-controls" hidden>
@@ -406,8 +407,10 @@ function showHUD(rebuild=false) {
   const perimeterInfo=!perimeter||!zone.edge.length?'':perimeter.segments.length?` Ceinturer coûte ${perimeter.price} cr.`
     :perimeter.gates?'':' Pose une porte pour laisser entrer les civils.';
   const shelterInfo=zone?`Zone sûre · ${zone.sheltered}/${zone.cap} à l’abri.${perimeterInfo}`
-    :freehand?(game.usesRoof('safe')?'Touche un bâtiment pour en faire un refuge, ou trace le contour d’un quartier.':'Trace le contour avec le doigt ou la souris. Il se ferme quand tu relâches.')
-      :'Glisse d’un coin à l’autre pour tracer un rectangle. Active Main levée pour dessiner le contour.';
+    :game.mission.atlas?(freehand?'Trace le contour du quartier pour construire la zone et ses murs. Touche un toit pour un refuge seul.'
+      :'Glisse d’un coin à l’autre pour construire une zone rectangulaire avec ses murs.')
+    :freehand?'Trace le contour avec le doigt ou la souris. Il se ferme quand tu relâches.'
+    :'Glisse d’un coin à l’autre pour tracer un rectangle. Active Main levée pour dessiner le contour.';
   const drawHint={
     safe:shelterInfo,
     garrisons:'Glisse pour encadrer plusieurs toits. Relâche pour installer les garnisons affichées.',
@@ -418,7 +421,7 @@ function showHUD(rebuild=false) {
   };
   $('detail').textContent=(preview?preview.error||(
     preview.kind==='garrisons'?`${preview.placements.length} garnison${preview.placements.length===1?'':'s'} · ${preview.price} cr`
-      :preview.kind==='waiting'?`${preview.tiles.length} cases d’attente`:preview.kind==='safe'?`${preview.tiles.length} cases · ${preview.cap} places · ${preview.price} cr`
+      :preview.kind==='waiting'?`${preview.tiles.length} cases d’attente`:preview.kind==='safe'?`${preview.cap} places · ${preview.price} cr${preview.walls?' avec murs':''}`
       :`${preview.segments.length} section(s) de mur · ${preview.price} cr`):null)||drawHint[selected]
     ||(!live&&game.usesRoof(selected)&&items[selected]?'Sélectionne un bâtiment accessible. '+items[selected].info:items[selected]?.info)||({
     guide:'Glissez sur les rues pour tracer un itinéraire vers la croix verte. Sur mobile, utilisez deux doigts pour déplacer la carte.',
@@ -426,7 +429,7 @@ function showHUD(rebuild=false) {
     boom:'Touchez une charge posée pour la déclencher.',
     command:view.commandOrigin<0?'Choisis une escouade au sol.':'Désigne une rue libre. L’escouade cesse le tir pendant son déplacement.',
     inspect:game.mission.atlas?'Touche un bâtiment occupé ou une fortification.':'Touche un mur, une porte ou une zone sûre pour voir son état.'
-  }[selected])||(live?'Choisissez un renfort, puis sa cible sur la carte.'
+  }[selected])||(live?(Object.keys(items).length?'Choisis un renfort, puis sa cible sur la carte.':'Utilise les ordres pour déplacer tes escouades.')
     :game.mission.atlas?'Choisis une défense ou touche un bâtiment occupé.':'Cliquez sur une rue pour placer la défense choisie.');
   for(const btn of dom.dock.querySelectorAll('[data-action="tool"]')) {
     const id=btn.dataset.value;
@@ -436,8 +439,9 @@ function showHUD(rebuild=false) {
     if(live&&support[id]) {
       const state=game.supportStatus(id), cost=game.supportCost(id);
       const charge=game.mission.atlas?`${cost} charge${cost===1?'':'s'}`:`${cost} cr`;
-      const label={locked:'Compétence',unavailable:'Indisponible',ready:charge,
-        empty:game.supportReserve===0?'Épuisé':charge,cooldown:`⏱ ${Math.ceil(game.cd[id]-game.time)} s`};
+      const missing=game.mission.atlas?cost-game.supportReserve:0;
+      const empty=game.mission.atlas?(game.supportReserve===0?'Épuisé':`Manque ${missing} ch.`):charge;
+      const label={locked:'Compétence',unavailable:'Indisponible',ready:charge,empty,cooldown:`⏱ ${Math.ceil(game.cd[id]-game.time)} s`};
       btn.disabled=state!=='ready';
       $('price-'+id).textContent=`${tools.indexOf(id)+1} · ${label[state]}`;
       continue;
@@ -446,7 +450,10 @@ function showHUD(rebuild=false) {
     const locked=!canUse(id,game.skills);
     const needed=id==='gate'?minimumGateCost():cost;
     btn.disabled=locked||needed>game.money;
-    $('price-'+id).textContent=locked?'Compétence':needed<cost?`dès ${needed} cr`:`${cost} cr`;
+    const short=game.mission.atlas&&!locked&&needed>game.money;
+    const variablePrice=needed<cost||game.mission.atlas&&id==='safe';
+    btn.title=short?`Coût ${needed} cr. ${creditShortage(needed)}`:items[id].info;
+    $('price-'+id).textContent=locked?'Compétence':short?`Manque ${needed-game.money} cr`:variablePrice?`dès ${needed} cr`:`${cost} cr`;
   }
   if($('confirm-rescue')) $('confirm-rescue').hidden=!game.canConfirm;
   showUnitInspector();
@@ -490,7 +497,7 @@ function showUnitInspector() {
     'unit-hit-next':next?'→ '+statNumber.format(next.hit):'',
     'unit-health':`${Math.ceil(unit.hp)}/${unit.maxHp}`,
     'unit-upgrade':next?`Améliorer · ${next.price} cr`:'',
-    'unit-note':!next?'Équipement maximum':upgrade.disabled?'Crédits insuffisants':''
+    'unit-note':!next?'Équipement maximum':upgrade.disabled?creditShortage(next.price):''
   };
   for(const [id,value] of Object.entries(lines)) if($(id).textContent!==value) $(id).textContent=value;
   $('unit-note').hidden=!lines['unit-note'];
@@ -577,7 +584,8 @@ function tapRoof(site) {
     else {
       const access=game.roofAccess(selected,site);
       if(access===undefined) {
-        notify(unit?'Ce bâtiment est déjà occupé.':'Choisis un bâtiment libre avec un accès à la rue.');
+        const price=game.cost(selected);
+        notify(unit?'Ce bâtiment est déjà occupé.':price>game.money?creditShortage(price):'Choisis un bâtiment libre avec un accès à la rue.');
         return true;
       }
       game.place(selected,access,false,site);
@@ -622,7 +630,7 @@ function tapMap(x,y) {
       } else if(wall.id==='gate') notify('Cette porte laisse passer les civils.');
       else if(!game.walls.openings(wall).length) notify('Pose la porte sur un point vert, là où une rue traverse le mur.');
       else if(game.gateWall(wall)) notify('Porte posée. Les civils peuvent la franchir.');
-      else notify('Crédits insuffisants pour la porte.');
+      else notify(creditShortage(game.wallGatePrice()));
       view.hoverWall=null;
       showHUD();
       return;
@@ -674,6 +682,8 @@ function mapAction(i,append=false) {
     if(!ok) {
       const u=game.units.get(i);
       if(u?.id==='safe') return notify(`Zone sûre · ${u.sheltered}/${u.cap} personnes · intégrité ${Math.round(u.hp/u.maxHp*100)} %`);
+      const price=selected==='gate'?game.gateCost(i):game.cost(selected);
+      if(game.mission.atlas&&price>game.money) return notify(creditShortage(price));
       return notify(game.usesRoof(selected)?'Choisis un bâtiment libre avec un accès à la rue.':'Choisissez une rue libre et vérifiez votre budget.');
     }
   }
@@ -694,15 +704,35 @@ function settings() {
 function showModal(kind,title,html) {
   modal=kind;
   dom.modal.hidden=false;
-  dom.modal.innerHTML=`<section class="dialog${kind==='training'?' training-dialog':''}" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div class="eyebrow">Dernière Sirène</div><h2 id="dialog-title">${escape(title)}</h2>${html}</section>`;
+  const wide=kind==='training'||kind==='support';
+  dom.modal.innerHTML=`<section class="dialog${wide?' wide-dialog':''}${kind==='training'?' training-dialog':''}" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div class="eyebrow">Dernière Sirène</div><h2 id="dialog-title">${escape(title)}</h2>${html}</section>`;
   dom.modal.querySelector('button:not(:disabled)')?.focus();
 }
 function trainingPanel() {
   if(page!=='mission'||!game.mission.atlas||game.phase!=='prep') return;
-  const points=skillPoints(save);
+  const points=availableTrainingPoints();
   showModal('training','Compétences',`<div class="training-actions"><strong id="skill-points">${points} point${points===1?'':'s'} disponible${points===1?'':'s'}</strong>
     ${button('Retour à la carte','close','button primary')}</div>
-    <p>Dans les six villes de l’Atlas, la première victoire de chaque étape rapporte un point. Les compétences acquises restent actives dans les prochaines villes.</p>${skillTree()}`);
+    <p>Dans les six villes de l’Atlas, la première victoire de chaque étape rapporte un point. Les compétences acquises restent actives dans les prochaines villes.</p>
+    ${game.reservedSupportPoints?`<p>Points réservés aux renforts pour cette mission · ${game.reservedSupportPoints}</p>`:''}${skillTree(points)}`);
+}
+function supportPanel(focus='') {
+  if(page!=='mission'||!game.mission.atlas||game.phase!=='prep') return;
+  const points=skillPoints(save), reserved=game.reservedSupportPoints;
+  const cards=Object.entries(game.support).map(([id,info],n)=>{
+    const equipped=game.preparedSupport.has(id), cost=game.supportCost(id);
+    const enabled=game.canToggleSupport(id,points);
+    const status=equipped?'Équipé':enabled?'Ajouter':game.canPrepareSupport(id)?'Plus de place':'Indisponible';
+    return `<button class="support-choice" data-action="equip-support" data-value="${id}" aria-pressed="${equipped}" ${enabled?'':'disabled'}>
+      <span><strong>${n+1} · ${info.name}</strong><small>${status}</small></span>
+      <small>${cost} charge${cost===1?'':'s'} par appel</small><span>${info.info}</span></button>`;
+  }).join('');
+  showModal('support','Renforts',`<div class="training-actions"><strong id="loadout-count">${game.preparedSupport.size} / ${Math.min(Object.keys(game.support).length,freeSupportSlots+points)} renforts</strong>
+    ${button('Retour à la carte','close','button primary')}</div>
+    <p>${freeSupportSlots} emplacements gratuits. Retire un renfort pour libérer une place. Chaque renfort supplémentaire réserve 1 point jusqu’à son retrait ou la fin de la mission. La sélection reste en place entre les étapes.</p>
+    <p id="loadout-points">${reserved} point${reserved===1?'':'s'} réservé${reserved===1?'':'s'} · ${points-reserved} disponible${points-reserved===1?'':'s'}</p>
+    <div class="support-options">${cards}</div>`);
+  if(focus) dom.modal.querySelector(`[data-action="equip-support"][data-value="${focus}"]`)?.focus();
 }
 function closeModal() {
   modal='';
@@ -750,7 +780,9 @@ function dispatch(action,value) {
   if(action==='settings') settings();
   if(action==='difficulty') {save.opts.level=value;writeSave();menu();}
   if(action==='training') trainingPanel();
-  if(action==='learn'&&(page==='tree'||modal==='training')&&learn(save,value)) {
+  if(action==='prepare-support') supportPanel();
+  if(action==='equip-support'&&modal==='support'&&game.toggleSupport(value,skillPoints(save))) supportPanel(value);
+  if(action==='learn'&&(page==='tree'||modal==='training'&&availableTrainingPoints()>0)&&learn(save,value)) {
     if(modal==='training') {
       game.learnTraining(value);
       showHUD(true);
@@ -888,7 +920,8 @@ window.addEventListener('keydown',e=>{
   if(game.combat&&/^[1-9]$/.test(e.key)) {
     const tools=Object.keys(game.support);
     const id=tools[Number(e.key)-1];
-    if(id) choose(id);
+    if(id&&game.preparedSupport&&!game.preparedSupport.has(id)) notify('Ce renfort ne fait pas partie de ta sélection.');
+    else if(id) choose(id);
   }
   if(e.code==='KeyC'&&game.combat||!game.mission.atlas&&e.key==='7'&&game.combat) choose('boom');
   if(e.code==='KeyG'||!game.mission.atlas&&e.key==='8') choose('guide');
@@ -943,7 +976,17 @@ function finishPlacement() {
     const zone=game.drawZone(plan.from,plan.to);
     if(zone) {
       view.activeZone=zone;
-      notify(`Zone tracée · ${zone.cap} places`);
+      if(plan.walls) {
+        const openings=zone.edge.some(s=>{
+          const wall=game.walls.sections.get(s.key);
+          return wall?.id==='wall'&&game.walls.openings(wall).length;
+        });
+        if(openings&&!game.fortification(zone).gates) {
+          const price=game.wallGatePrice();
+          if(price<=game.money) choose('gate');
+          notify(price<=game.money?'Zone fortifiée. Pose une porte sur un point vert.':`Zone fortifiée. Il manque ${price-game.money} cr pour une porte.`);
+        } else notify(`Zone fortifiée · ${zone.cap} places`);
+      } else notify(`Zone tracée · ${zone.cap} places`);
     } else notify('Le terrain a changé. Trace une nouvelle zone.');
   } else if(plan.kind==='waiting') {
     if(game.drawWaiting(plan.from)) notify('Zone d’attente tracée.');
