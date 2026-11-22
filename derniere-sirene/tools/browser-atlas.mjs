@@ -99,6 +99,7 @@ async function playFirstStage() {
   monitor(page);
   await atlasMenu(page);
   await city(page,'metz');
+  assert.equal(await page.locator('#pins .pin').filter({hasText:'✚'}).count(),0);
   const metz=await contents('metz');
   const focus=metz.grid.point(metz.outbreak);
   await center(page,metz,focus,2);
@@ -109,12 +110,13 @@ async function playFirstStage() {
     ['sniper',[67.12,18.2]],['turret',[69.785,17.1]],['mines',[73,16]],
     ['explosive',[62,14]],['soldier',[63.64,13.84]]
   ];
-  let mortar;
+  let mortar,sniper;
   for(const [id,point] of plan) {
     const roof=metz.usesRoof(id)?roofNear(metz,id,point):null;
     const i=roof?metz.roofAccess(id,roof):metz.grid.cell(...point);
     const target=roof?aim(roof.point,roof.height*.69):aim(point,0);
     if(id==='mortar'&&!mortar) mortar=target;
+    if(id==='sniper'&&!sniper) sniper=target;
     await page.locator(`.kit [data-value="${id}"]`).click();
     await page.mouse.click(...target);
     assert.ok(metz.place(id,i,false,roof));
@@ -141,6 +143,21 @@ async function playFirstStage() {
   assert.equal(await page.locator('#unit-name').textContent(),'Mortier');
   await button(page,'Fermer la fiche').click();
   await snap(page,'37-metz-etape-2');
+  await page.mouse.click(...sniper);
+  assert.equal(await page.locator('#unit-name').textContent(),'Sniper');
+  const range=await page.locator('#unit-range').textContent();
+  await button(page,'Fermer la fiche').click();
+  await button(page,'Compétences').click();
+  assert.equal(await page.locator('#skill-points').textContent(),'1 point disponible');
+  const marks=page.locator('.training-dialog [data-value="marks"]');
+  await marks.click();
+  assert.equal(await page.locator('#skill-points').textContent(),'0 points disponibles');
+  assert.equal(await marks.evaluate(el=>el.classList.contains('learned')),true);
+  await snap(page,'38-competences-entre-les-etapes');
+  await button(page,'Retour à la carte').click();
+  await page.mouse.click(...sniper);
+  assert.notEqual(await page.locator('#unit-range').textContent(),range);
+  await button(page,'Fermer la fiche').click();
   await button(page,'Mettre en pause').click();
   await button(page,'Prêt · lancer l’épidémie').click();
   assert.equal(await page.locator('#stage-count').textContent(),'2/3');
@@ -148,6 +165,11 @@ async function playFirstStage() {
   assert.equal(await page.locator('.metric.infect strong').textContent(),'50');
   await button(page,'Rejouer').click();
   assert.equal(await page.locator('#stage-count').textContent(),'1/3');
+  await atlasMenu(page);
+  await city(page,'lyon');
+  await button(page,'Compétences').click();
+  assert.equal(await marks.evaluate(el=>el.classList.contains('learned')),true);
+  assert.equal(await page.locator('#skill-points').textContent(),'0 points disponibles');
   await page.close();
 }
 

@@ -1,5 +1,6 @@
 export const terrain = { road: 0, block: 1, water: 2, park: 3, bridge: 4 };
 export const W = 25, H = 19;
+export const atlasStageCount=3;
 
 export const defenses = {
   soldier: { name:'Soldats', icon:'♟', price:65, range:3.3, hit:17, delay:.48, info:'Tir polyvalent, efficace aux carrefours.' },

@@ -1,4 +1,4 @@
-import { defenses, support, atlasSupport, infected, difficulty, canUse, terrain as t } from './data.mjs';
+import { defenses, support, atlasSupport, atlasStageCount, infected, difficulty, canUse, terrain as t } from './data.mjs';
 import { random, generate, open, baseGrid } from './city.mjs';
 import { largestArea,polygonError,rectangle,simplify,wallSections,within } from './placement.mjs';
 import { Fortifications } from './fortification.mjs';
@@ -14,7 +14,6 @@ const hiddenZombies=[];
 const unreachable=30000;
 const evacuationClearance=5;
 const waitingClearance=9;
-const atlasStageStrength=[1,1.20,1.40];
 
 export class Game {
   constructor(mission, level='normal', skills=[], {attempt=0,bonus=0}={}) {
@@ -66,7 +65,7 @@ export class Game {
     this.extractions=0;
     this.flags=new Set();
     this.bridgeDamage=new Set();
-    this.place('safe',this.map.end,true);
+    if(!mission.atlas) this.place('safe',this.map.end,true);
     const homes = this.map.homes.slice();
     const far=this.grid.field([this.map.start],i=>open(this.map.cells,i));
     const towards=this.grid.field([this.map.end],i=>open(this.map.cells,i));
@@ -121,13 +120,34 @@ export class Game {
     return total;
   }
   get remaining() { return this.zombies.length; }
-  get stages() { return this.mission.atlas?atlasStageStrength.length:1; }
+  get stages() { return this.mission.atlas?atlasStageCount:1; }
   get outbreakHidden() { return this.mission.atlas&&this.phase==='prep'; }
   get visibleZombies() { return this.outbreakHidden?hiddenZombies:this.zombies; }
   get visibleFog() { return this.outbreakHidden?null:this.fog; }
   get combat() { return this.phase==='live'; }
   get canConfirm() { return this.combat&&this.clearedAt!==null&&this.evacuated>=this.quota; }
   get latestBreach() { return this.breaches.at(-1); }
+  learnTraining(id) {
+    if(!this.mission.atlas||this.phase!=='prep'||this.training.has(id)) return false;
+    this.training.add(id);
+    if(!this.has(id)) this.skills.push(id);
+    if(id==='reserve') this.money+=110;
+    if(id==='wing') {
+      this.supportCapacity+=2;
+      this.supportReserve+=2;
+    }
+    if(id==='train') for(const c of this.civs) c.speed*=1.25;
+    for(const u of [...this.units.values(),...this.marches.map(m=>m.u),...this.walls.sections.values()]) {
+      if(id==='bunks'&&u.id==='safe') u.cap+=40;
+      if(id==='veteran') u.level=Math.max(u.level??1,2);
+      if(id==='mining'&&u.id==='mines') u.charges++;
+      if(id==='concrete'&&defenses[u.id].hp) {
+        u.hp*=1.4;
+        u.maxHp*=1.4;
+      }
+    }
+    return true;
+  }
   zoneAt(i) { return this.zoneCells.get(i); }
   shelterAt(i) {
     const zone=this.zoneAt(i);
@@ -609,7 +629,7 @@ export class Game {
       for(let n=0; n<spread && margin.length; n++) starts.push(margin.splice(Math.floor(this.rng()*margin.length),1)[0]);
     }
     const breach=!first&&this.map.breach!=null&&wave%2===1 ? this.map.breach : null;
-    const number=first ? count*(this.mission.atlas?atlasStageStrength[this.stage-1]:1)
+    const number=first ? count*(1+.2*(this.stage-1))
       : (id==='survival' ? 10+wave*5 : Math.round(count*(.28+.055*wave)));
     const amount=Math.round(number*this.difficulty.factor);
     for(let n=0;n<amount;n++) {
@@ -840,14 +860,24 @@ export class Game {
       &&(!atlas||!defenses[this.units.get(i)?.id]?.barrier));
     const clearPass=(i,j)=>this.threat[i]>=evacuationClearance&&civilPass(i,j);
     this.clearField=atlas&&live.length?this.grid.field(intake.filter(i=>clearPass(i)),clearPass):this.safeField;
+    const calm=i=>this.threat[i]>=waitingClearance;
+    this.retreatField=null;
+    if(atlas&&live.length&&this.civs.some(c=>!calm(c.i)&&this.clearField[c.i]>=unreachable)) {
+      const streets=[];
+      for(let i=0;i<this.map.cells.length;i++) if(calm(i)&&civilPass(i)) streets.push(i);
+      this.retreatField=this.grid.field(streets,civilPass);
+    }
     this.guideRoute=new Set(this.guide);
     this.guideNext=null;
+    this.guideExit=unreachable;
+    this.guideStreetExit=-1;
     if(atlas&&this.guide.length) {
-      const route=this.safeField[this.guide[0]]<this.safeField[this.guide.at(-1)]?this.guide.slice().reverse():this.guide;
+      const route=this.clearField[this.guide[0]]<this.clearField[this.guide.at(-1)]?this.guide.slice().reverse():this.guide;
       const exit=route.at(-1);
       this.guideExit=this.clearField[exit];
+      if(this.guideExit===unreachable&&calm(exit)&&civilPass(exit)) this.guideStreetExit=exit;
       this.guideNext=new Map();
-      if(this.guideExit<unreachable) for(let n=route.length-1;n>0;n--) {
+      if(this.guideExit<unreachable||this.guideStreetExit>=0) for(let n=route.length-1;n>0;n--) {
         const before=route[n-1], after=route[n];
         if(this.grid.dist(before,after)!==1||this.guideBlocked(before,after)) break;
         this.guideNext.set(before,after);
@@ -899,23 +929,24 @@ export class Game {
     const waiting=this.waitingField?.[c.i];
     if(waiting===0&&danger>=waitingClearance) return;
     const staging=waiting<19&&danger>=waitingClearance;
+    const safeRoute=this.clearField[c.i]<unreachable;
+    const junction=this.guideField[c.i]<8&&(safeRoute?this.clearField[c.i]>this.guideExit+2:this.guideStreetExit>=0);
     const follow=this.guideNext?.get(c.i);
-    if(!staging&&follow!==undefined&&!this.guideBlocked(c.i,follow)) {
+    if(!staging&&follow!==undefined&&(!safeRoute||this.guideStreetExit<0)&&!this.guideBlocked(c.i,follow)) {
       c.target=follow;
       return;
     }
-    const safeRoute=this.clearField[c.i]<unreachable;
-    const destination=safeRoute?this.clearField:this.safeField;
+    if(atlas&&!safeRoute&&!staging&&danger>=waitingClearance&&(!junction||c.i===this.guideStreetExit)) return;
+    const destination=safeRoute?this.clearField:atlas?this.retreatField:this.safeField;
     const here=this.guideRoute.has(c.i);
     let best=c.i, high=-Infinity;
     for(const i of this.grid.adjacent[c.i]) if(this.civilPass(i,c.i)) {
       const nextDanger=this.threat[i];
       if(atlas&&nextDanger<danger&&nextDanger<evacuationClearance) continue;
-      const goal=clamp(destination[c.i]-destination[i],-2,2);
+      const goal=destination?clamp(destination[c.i]-destination[i],-2,2):0;
       const escape=clamp(nextDanger-danger,-2,2)*(danger<evacuationClearance?5:danger<8?1.5:.35);
       const guide=clamp(this.guideField[c.i]-this.guideField[i],-2,2);
       const stage=staging?clamp(waiting-this.waitingField[i],-2,2)*9:0;
-      const junction=this.guideField[c.i]<8&&destination[c.i]>this.guideExit+2;
       const guidance=atlas?(junction&&!staging?guide*4.6:0):here?Number(this.guideRoute.has(i))*1.2:guide*.9;
       const detour=atlas&&!safeRoute&&this.clearField[i]<unreachable?15:0;
       const score=goal*(here?5:3)+escape+guidance+stage+detour+this.rng()*.7;

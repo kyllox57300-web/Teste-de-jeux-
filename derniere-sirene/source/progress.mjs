@@ -1,12 +1,21 @@
-import { atlas, badges, containment, difficulty, metz, missions, tree } from './data.mjs';
+import { atlas, atlasStageCount, badges, containment, difficulty, metz, missions, tree } from './data.mjs';
 import { validCustom } from './city.mjs';
 
 const key='derniere-sirene-v1';
 const ids=new Set(badges.map(b=>b[0]));
-export const defaults=()=>({v:1, records:{}, containment:{}, retries:{}, defeats:{}, skills:[], badges:[], cities:[], survival:0,
+export const defaults=()=>({v:1, records:{}, containment:{}, atlasProgress:{}, retries:{}, defeats:{}, skills:[], badges:[], cities:[], survival:0,
   opts:{sound:true,music:true,quality:'medium',crowd:'auto',speed:1,level:'normal'}, seen:false});
 
-export const skillPoints = save => Object.keys(save.records).length + atlas.filter(m=>save.containment[m.id]).length - save.skills.length;
+const completedStages=(save,id)=>save.containment[id]?atlasStageCount:save.atlasProgress[id]||0;
+export const skillPoints = save => Object.keys(save.records).length + atlas.reduce((sum,m)=>sum+completedStages(save,m.id),0) - save.skills.length;
+export function recordAtlasProgress(save,game) {
+  const {id}=game.mission;
+  if(!game.mission.atlas||!atlas.some(m=>m.id===id)) return false;
+  const cleared=game.stage-Number(game.phase!=='won');
+  if(cleared<=completedStages(save,id)) return false;
+  save.atlasProgress[id]=cleared;
+  return true;
+}
 export const available = (save,id) => id===0 || !!save.records[id-1];
 export const recoveryCredits = defeats => Math.max(0,Math.min(4,defeats-1))*150;
 export const nextDefeats = (current,phase) => phase==='won'?0:phase==='lost'?Math.min(Number.MAX_SAFE_INTEGER,current+1):current;
@@ -25,6 +34,7 @@ export function award(save,id) {
 export function finish(save, game) {
   const result=game.result();
   const id=game.mission.id;
+  recordAtlasProgress(save,game);
   for(const flag of game.flags) award(save,flag);
   if(id==='survival') save.survival=Math.max(save.survival,result.wave);
   if(game.mission.atlas&&id!=='atlas-local') {
@@ -67,6 +77,8 @@ export function parseSave(raw) {
     }
   }
   for(const {id} of atlas) {
+    const cleared=input.atlasProgress?.[id];
+    if(Number.isInteger(cleared)&&cleared>=1&&cleared<=atlasStageCount) data.atlasProgress[id]=cleared;
     const count=input.retries?.[id];
     if(Number.isSafeInteger(count)&&count>0) data.retries[id]=count;
     const defeats=input.defeats?.[id];

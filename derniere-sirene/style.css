@@ -181,6 +181,8 @@ h1,h2,h3,p { margin-top:0 }
 .modal { position:absolute; inset:0; z-index:10; display:grid; place-items:center; padding:14px; background:#111722a6; backdrop-filter:blur(5px); }
 .dialog { width:min(100%,530px); max-height:calc(100dvh - 28px); overflow:auto; border-radius:11px; border:1px solid #667481; background:#212a39; padding:clamp(15px,4vw,31px); box-shadow:0 25px 90px #0b0f18c7 }
 .dialog h2 { font-size:clamp(2rem,6vw,3.5rem); }
+.training-dialog { width:min(100%,1020px); }
+.training-actions { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:12px 0; color:var(--mint); }
 .dialog p { margin-bottom:14px }
 .dialog .dialog-actions { margin-top:16px }
 .dialog .setting { display:grid; grid-template-columns:1fr 1fr; align-items:center; border-top:1px solid var(--line); gap:10px; padding:8px 0 }

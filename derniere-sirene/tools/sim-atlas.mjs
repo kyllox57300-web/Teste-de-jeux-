@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {atlas,defenses,terrain,withMutators} from '../source/data.mjs';
 import {open} from '../source/city.mjs';
 import {Game} from '../source/game.mjs';
-import {defaults,finish,learn,parseSave,recoveryCredits,skillPoints} from '../source/progress.mjs';
+import {defaults,finish,learn,parseSave,recordAtlasProgress,recoveryCredits,skillPoints} from '../source/progress.mjs';
 
 const requested=process.argv.find(arg=>arg.startsWith('--city='))?.slice(7);
 const missions=await Promise.all(atlas.filter(m=>!requested||m.mapId===requested).map(async mission=>({...mission,geography:JSON.parse(
@@ -90,6 +90,7 @@ for(const mission of missions) {
   const replay=new Game(mission,'normal',[],{attempt:1});
   assert.notEqual(replay.outbreak,base.outbreak);
   assert.deepEqual(replay.civs,base.civs);
+  assert.equal(base.zoneCells.size,0);
   assert.ok(base.grid.field([replay.outbreak],i=>open(base.map.cells,i))[base.map.end]<30000);
   assert.equal(base.visibleZombies.length,0);
   assert.equal(base.visibleFog,null);
@@ -135,7 +136,7 @@ if(!explore) {
   assert.deepEqual([0,1,2,3,4,5,6].map(recoveryCredits),[0,0,150,300,450,600,600]);
   assert.deepEqual(recovery.defeats,{});
   assert.ok(report.every(r=>r['sans défense']==='lost'&&r['pic sans défense']>1000));
-  assert.equal(skillPoints(save),missions.length);
+  assert.equal(skillPoints(save),missions.length*3);
   assert.ok(missions.every(m=>save.containment[m.id].saved>=m.pop*.6));
   assert.ok(learn(save,'reserve')===false);
   assert.ok(learn(save,'bunks'));
@@ -231,6 +232,7 @@ if(!explore) {
   assert.ok(game.bridgeDamage.has(bridge));
 
   const waiting=new Game(missions[0]);
+  assert.ok(waiting.place('safe',waiting.map.end));
   const path=[[43,36],[48,36],[49,39],[46,41],[43,40]];
   assert.ok(waiting.drawWaiting(path));
   const route=waiting.waitingZones[0].tiles;
@@ -255,7 +257,30 @@ if(!explore) {
   for(const z of [2,8]) for(let x=2;x<=22;x++) cells[cell(x,z)]=terrain.road;
   for(const x of [2,22]) for(let z=2;z<=8;z++) cells[cell(x,z)]=terrain.road;
   const origin=cell(12,8), refuge=cell(22,8);
-  const evacuation=new Game({...missions[0],geography:{w,h,cells,anchors:[],buildings:[],bounds:[6,49,6.01,49.01],start:origin,end:refuge}});
+  const block={...missions[0],pop:2,geography:{w,h,cells,anchors:[],buildings:[],bounds:[6,49,6.01,49.01],start:origin,end:refuge}};
+  const retreat=new Game(block);
+  const fleeing=retreat.person(cell(7,8),{wait:0,speed:2});
+  const calm=retreat.person(cell(20,2),{wait:0,speed:2});
+  retreat.civs=[fleeing,calm];
+  retreat.zombies=[retreat.person(origin,{hp:50})];
+  retreat.prepare();
+  retreat.routes();
+  retreat.moveCiv(fleeing,steps);
+  assert.equal(fleeing.target,cell(6,8));
+  for(let tick=0;tick<150;tick++) {
+    retreat.time+=steps;
+    for(const civilian of retreat.civs) retreat.moveCiv(civilian,steps);
+  }
+  assert.equal(fleeing.i,cell(3,8));
+  assert.equal(calm.i,cell(20,2));
+  assert.equal(retreat.sheltered,0);
+  retreat.setGuide([cell(3,8),cell(2,4)]);
+  retreat.routes();
+  retreat.moveCiv(fleeing,steps);
+  assert.equal(fleeing.target,cell(2,8));
+
+  const evacuation=new Game(block);
+  assert.ok(evacuation.place('safe',refuge));
   const entry=cell(3,8), approach=cell(5,8), across=cell(6,8);
   evacuation.setGuide([entry,refuge]);
   evacuation.setGuide([approach],true);
@@ -302,6 +327,7 @@ if(!explore) {
   assert.ok(staged.place('soldier',defended));
   const defender=staged.units.get(defended);
   assert.ok(staged.upgradeUnit(defender));
+  assert.ok(staged.place('safe',staged.map.end));
   const shelter=staged.zoneAt(staged.map.end);
   shelter.sheltered=1;
   staged.civs.pop();
@@ -333,14 +359,29 @@ if(!explore) {
       assert.equal(staged.supportReserve,stage===1?6:4);
       assert.equal(staged.reinf.length,0);
       assert.equal(staged.result().saved,staged.mission.pop);
-      finish(accounts,staged);
-      assert.equal(skillPoints(accounts),0);
+      assert.ok(recordAtlasProgress(accounts,staged));
+      assert.equal(recordAtlasProgress(accounts,staged),false);
+      assert.equal(skillPoints(accounts),1);
+      assert.deepEqual(parseSave(JSON.stringify(accounts)),accounts);
+      if(stage===1) {
+        const cap=shelter.cap;
+        assert.ok(learn(accounts,'bunks'));
+        assert.ok(staged.learnTraining('bunks'));
+        assert.equal(staged.learnTraining('bunks'),false);
+        assert.equal(shelter.cap,cap+40);
+        assert.equal(new Game(missions[0],'normal',parseSave(JSON.stringify(accounts)).skills).baseCapacity(),cap+40);
+      }
     }
   }
   assert.equal(outbreaks.size,3);
   assert.equal(staged.phase,'won');
   assert.equal(staged.remaining,0);
   assert.equal(finish(accounts,staged).saved,staged.mission.pop);
-  assert.equal(skillPoints(accounts),1);
+  assert.equal(skillPoints(accounts),2);
+  const oldSave=defaults();
+  delete oldSave.atlasProgress;
+  oldSave.containment[staged.mission.id]=accounts.containment[staged.mission.id];
+  oldSave.skills=['bunks'];
+  assert.equal(skillPoints(parseSave(JSON.stringify(oldSave))),2);
   console.log('Appuis immédiats, évacuation et progression jusqu’à la dernière étape vérifiés.');
 }

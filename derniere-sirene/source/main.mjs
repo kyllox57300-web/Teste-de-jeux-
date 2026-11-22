@@ -1,7 +1,7 @@
 import { W,H,terrain as t,defenses,missions,specials,endless,metz,containment,atlas,mutators,withMutators,difficulty,tree,badges,canUse } from './data.mjs';
 import { Game,maxEquipment } from './game.mjs';
 import { generate,open,point,cell,validCustom } from './city.mjs';
-import { available,award,finish,learn,load,nextDefeats,parseSave,recoveryCredits,skillPoints,store } from './progress.mjs';
+import { available,award,finish,learn,load,nextDefeats,parseSave,recordAtlasProgress,recoveryCredits,skillPoints,store } from './progress.mjs';
 import { View } from './view.mjs';
 import { Audio } from './sound.mjs';
 import { convertOSM,parseOSM } from './osm.mjs';
@@ -141,10 +141,18 @@ function paintEstuary() {
     ctx.setLineDash(available(save,i)?[]:[5,4]);ctx.stroke();
   }
 }
+function skillTree() {
+  const points=skillPoints(save);
+  return `<div class="matrix tree-grid">${tree.map(branch=>`<section class="tree-card"><h3>${branch.icon} ${branch.name}</h3>${branch.nodes.map(([id,name,help],i)=>{
+    const done=save.skills.includes(id);
+    const ready=!done&&points>0&&(i===0||save.skills.includes(branch.nodes[i-1][0]));
+    return `<button class="tree-node ${done?'learned':''}" data-action="learn" data-value="${id}" ${ready?'':'disabled'}><strong>${name}${done?' ✓':''}</strong><small>${help}</small></button>`;
+  }).join('')}</section>`).join('')}</div>`;
+}
 function menu() {
   const titles={atlas:'Villes réelles',containment:'Confinement',campaign:'Carte des missions',special:'Opérations spéciales',survival:'Survie infinie',tree:'Arbre de compétences',badges:'Succès',editor:'Éditeur de ville'};
   const total=Object.values(save.records).reduce((a,b)=>a+b.stars,0);
-  const captions={atlas:'Choisis un secteur. La carte et les traversées viennent d’OpenStreetMap.',containment:'Un foyer au départ. Chaque civil infecté rejoint la horde. Élimine-la pour sécuriser le secteur.',campaign:`${Object.keys(save.records).length} / 12 terminées · ${total} / 36 étoiles`,special:'Des règles qui changent la défense.',survival:`Record · ${save.survival} vague${save.survival===1?'':'s'}`,tree:`${skillPoints(save)} point(s) disponible(s). Une première victoire rapporte un point.`,badges:`${save.badges.length} / ${badges.length} déverrouillés`,editor:'Dessinez votre ville, testez-la et sauvegardez-la sur cet appareil.'};
+  const captions={atlas:'Choisis un secteur. La carte et les traversées viennent d’OpenStreetMap.',containment:'Un foyer au départ. Chaque civil infecté rejoint la horde. Élimine-la pour sécuriser le secteur.',campaign:`${Object.keys(save.records).length} / 12 terminées · ${total} / 36 étoiles`,special:'Des règles qui changent la défense.',survival:`Record · ${save.survival} vague${save.survival===1?'':'s'}`,tree:`${skillPoints(save)} point(s) disponible(s). Chaque étape de ville réelle rapporte un point à sa première victoire.`,badges:`${save.badges.length} / ${badges.length} déverrouillés`,editor:'Dessinez votre ville, testez-la et sauvegardez-la sur cet appareil.'};
   let body='';
   if(page==='atlas') body=`<div class="atlas-controls"><div class="options-row" aria-label="Mutateurs">${Object.entries(mutators).map(([id,name])=>
     `<button class="tab ${modifiers.has(id)?'active':''}" data-action="mutator" data-value="${id}" aria-pressed="${modifiers.has(id)}">${name}</button>`).join('')}</div>
@@ -165,11 +173,7 @@ function menu() {
   if(page==='campaign') body=campaignMap()+`<div class="matrix">${missions.map(m=>card(m,'mission',m.id,!available(save,m.id),save.records[m.id]?.stars||0)).join('')}</div>`;
   if(page==='special') body=`<div class="matrix">${specials.map(m=>card(m,'mission',m.id)).join('')}</div>`;
   if(page==='survival') body=`<div class="matrix">${card(endless,'mission',endless.id)}</div>`;
-  if(page==='tree') body=`<div class="matrix tree-grid">${tree.map(branch=>`<section class="tree-card"><h3>${branch.icon} ${branch.name}</h3>${branch.nodes.map(([id,name,help],i)=>{
-    const done=save.skills.includes(id);
-    const ready=!done&&skillPoints(save)>0&&(i===0||save.skills.includes(branch.nodes[i-1][0]));
-    return `<button class="tree-node ${done?'learned':''}" data-action="learn" data-value="${id}" ${ready?'':'disabled'}><strong>${name}${done?' ✓':''}</strong><small>${help}</small></button>`;
-  }).join('')}</section>`).join('')}</div>`;
+  if(page==='tree') body=skillTree();
   if(page==='badges') body=`<div class="matrix">${badges.map(([id,name,help])=>`<div class="badge-card ${save.badges.includes(id)?'complete':''}"><strong>${save.badges.includes(id)?'★':'☆'} ${name}</strong><small>${help}</small></div>`).join('')}</div>`;
   if(page==='editor') {
     if(!edit) startEdit();
@@ -297,7 +301,7 @@ function start(m,brief=true) {
   go('mission');
   if(tut) opening();
   else if(brief) showModal('briefing',m.name,`<p class="eyebrow">${escape(m.briefing[0])}</p><p>« ${escape(m.briefing[1])} »</p>${m.atlas?
-    `<p>Défends la ville en ${game.stages} étapes. Entre les foyers, tu gardes tes défenses et tes survivants et tu reçois un budget de préparation.</p><p>Tes ${game.supportReserve} charges d’appui sont disponibles dès le début du combat.</p>${m.modifiers?.length?`<p>${m.modifiers.map(id=>mutators[id]).join(' · ')}</p>`:''}`
+    `<p>Défends la ville en ${game.stages} étapes. Sans refuge, les civils se replient dans les rues calmes. Tu peux les protéger en traçant tes propres zones sûres.</p><p>Tes ${game.supportReserve} charges d’appui sont disponibles dès le début du combat.</p>${m.modifiers?.length?`<p>${m.modifiers.map(id=>mutators[id]).join(' · ')}</p>`:''}`
     :game.quota?`<p><strong>Objectif</strong> · Élimine la horde et évacue au moins ${game.quota} personnes. Les navettes partent des refuges toutes les 12 secondes. Zoome pour bien viser les rues.</p>`
     :m.containment?'<p>Les escouades peuvent changer de rue après le départ. Sélectionne « Ordres », une escouade, puis sa destination.</p>':m.rule?`<p>${escape(m.rule)}</p>`:''}<div class="dialog-actions">${button('Examiner la carte','close','button primary')}</div>`);
 }
@@ -352,6 +356,7 @@ function showHUD(rebuild=false) {
       <button id="erase-guide" class="small" data-action="erase" aria-label="Effacer le couloir" hidden>Effacer</button>
       ${game.mission.atlas?button('Zone d’attente','tool','small','waiting')+'<button id="release-waiting" class="small" data-action="release-waiting" hidden>Libérer l’attente</button>':''}
       ${!live&&game.usesRoof('soldier')?button('Garnisons en série','tool','small','garrisons'):''}
+      ${!live&&game.mission.atlas?button('Compétences','training','small'):''}
       <button id="shape" class="small" data-action="shape" aria-pressed="false" hidden>Main levée</button>
       ${live?button('Ordres','tool','small','command')+button(game.mission.atlas?'Inspecter':'Fortifs','tool','small','inspect')+button('Détoner','tool','small','boom'):button('Retirer','tool','small','sell')+'<button id="fortify" class="small" data-action="fortify" hidden>Ceinturer</button>'}</div>
       <div class="tools-extra" id="fort-controls" hidden>
@@ -406,7 +411,7 @@ function showHUD(rebuild=false) {
   const drawHint={
     safe:shelterInfo,
     garrisons:'Glisse pour encadrer plusieurs toits. Relâche pour installer les garnisons affichées.',
-    guide:game.mission.atlas?'Trace un couloir vers l’entrée d’un refuge. Un point orange signale un passage bloqué ou menacé.':null,
+    guide:game.mission.atlas?'Trace un couloir vers un refuge ou une rue calme. Un point orange signale un passage bloqué ou menacé.':null,
     waiting:'Trace une zone bleue à main levée. Les civils proches y attendent si la rue est sûre. Libère la zone pour les laisser repartir.',
     wall:'Glisse pour tracer un mur continu. Utilise deux doigts ou Maj + glisser pour déplacer la carte.',
     gate:`Touche un point vert sur le mur pour poser une porte (${game.wallGatePrice()} cr). Les infectés doivent la briser.`
@@ -689,8 +694,15 @@ function settings() {
 function showModal(kind,title,html) {
   modal=kind;
   dom.modal.hidden=false;
-  dom.modal.innerHTML=`<section class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div class="eyebrow">Dernière Sirène</div><h2 id="dialog-title">${escape(title)}</h2>${html}</section>`;
-  dom.modal.querySelector('button')?.focus();
+  dom.modal.innerHTML=`<section class="dialog${kind==='training'?' training-dialog':''}" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div class="eyebrow">Dernière Sirène</div><h2 id="dialog-title">${escape(title)}</h2>${html}</section>`;
+  dom.modal.querySelector('button:not(:disabled)')?.focus();
+}
+function trainingPanel() {
+  if(page!=='mission'||!game.mission.atlas||game.phase!=='prep') return;
+  const points=skillPoints(save);
+  showModal('training','Compétences',`<div class="training-actions"><strong id="skill-points">${points} point${points===1?'':'s'} disponible${points===1?'':'s'}</strong>
+    ${button('Retour à la carte','close','button primary')}</div>
+    <p>Dans les six villes de l’Atlas, la première victoire de chaque étape rapporte un point. Les compétences acquises restent actives dans les prochaines villes.</p>${skillTree()}`);
 }
 function closeModal() {
   modal='';
@@ -737,7 +749,16 @@ function dispatch(action,value) {
   }
   if(action==='settings') settings();
   if(action==='difficulty') {save.opts.level=value;writeSave();menu();}
-  if(action==='learn'&&learn(save,value)) {writeSave();menu();notify('Compétence acquise.');}
+  if(action==='training') trainingPanel();
+  if(action==='learn'&&(page==='tree'||modal==='training')&&learn(save,value)) {
+    if(modal==='training') {
+      game.learnTraining(value);
+      showHUD(true);
+      trainingPanel();
+    } else menu();
+    writeSave();
+    notify('Compétence acquise.');
+  }
   if(action==='tool') choose(value);
   if(action==='toggle-gate'&&game.toggleGate(view.inspected)) {
     notify(view.inspected.closed?'Porte fermée. Les civils cherchent un autre accès.':'Porte rouverte aux civils.');
@@ -1090,6 +1111,10 @@ function loop(nowMs) {
         save.survival=game.wave;for(const id of game.flags) award(save,id);writeSave();
       }
       if(game.phase==='prep') {
+        if(recordAtlasProgress(save,game)) {
+          writeSave();
+          notify('+1 point de compétence');
+        }
         acc=0;
         selected='';
         status='';
