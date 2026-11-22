@@ -149,7 +149,7 @@ h1,h2,h3,p { margin-top:0 }
 .clock { color:var(--amber); font:.78rem var(--mono); white-space:nowrap; padding-top:3px }
 .dock-time { display:grid; align-content:start; justify-items:end; gap:5px }
 .retry-count { display:block; margin-top:3px; color:#bbc8d2; font:.65rem var(--mono) }
-#next-aid { color:var(--mint); font:.67rem var(--mono); white-space:nowrap }
+#support-stock { color:var(--mint); font:.67rem var(--mono); white-space:nowrap }
 .dock footer { display:grid; gap:8px; margin-top:auto }
 .dock footer .button { width:100% }
 .kit { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px }
@@ -375,7 +375,7 @@ h1,h2,h3,p { margin-top:0 }
   .atlas-mission .tool { min-height:33px }
   .atlas-mission .tool > span:last-child { font-size:.64rem; line-height:1.07 }
   .atlas-mission .clock { font-size:.56rem }
-  .atlas-mission #next-aid { font-size:.56rem }
+  .atlas-mission #support-stock { font-size:.56rem }
 }
 @media (max-width:690px) {
   .atlas-mission .radar { bottom:calc(var(--bottom) + 8px + env(safe-area-inset-bottom)) }

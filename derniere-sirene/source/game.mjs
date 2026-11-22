@@ -9,8 +9,7 @@ const metric = (a,b) => Math.hypot(a.x-b.x,a.z-b.z);
 const mobile = new Set(['soldier','sniper','flame']);
 const streetFire = new Set(['soldier','sniper','turret','flame','para']);
 export const maxEquipment=3;
-const fundingInterval=10;
-const funding={easy:125,normal:100,hard:75};
+const reserves={easy:10,normal:8,hard:6};
 const hiddenZombies=[];
 
 export class Game {
@@ -21,6 +20,7 @@ export class Game {
     this.training=mission.atlas?new Set(skills):new Set();
     this.skills=[...new Set([...skills,...(mission.loadout||[])])];
     this.support=mission.atlas?atlasSupport:support;
+    this.supportReserve=mission.atlas?reserves[level]+(this.has('wing')?2:0):null;
     this.map=generate(mission);
     this.grid=this.map.grid||baseGrid;
     this.rng=random(mission.seed+4321);
@@ -45,8 +45,6 @@ export class Game {
     this.events=[];
     this.cd={};
     this.time=0;
-    this.aid=mission.atlas?funding[level]:0;
-    this.nextAid=mission.atlas?5:Infinity;
     this.wave=0;
     this.nextWave=mission.id==='survival'?19:14;
     this.routeClock=0;
@@ -254,11 +252,22 @@ export class Game {
     if (!this.combat || !this.support[id]) return this.phase==='prep' && defenses[id] && this.canBuild(i)
       && !this.units.has(i) && canUse(id,this.skills) && this.money>=this.cost(id)
       && (!this.usesRoof(id)||(building?building.access.includes(i)&&this.availableRoof(building):!!this.roofFor(i)));
-    return open(this.map.cells,i) && !(this.mission.noair && this.support[id].air) && canUse(id,this.skills) && this.money>=this.cost(id) && !(this.cd[id]>this.time);
+    return open(this.map.cells,i)&&this.supportStatus(id)==='ready';
   }
   cost(id) {
     const info=defenses[id]||this.support[id];
     return Math.round(info.price*(this.support[id]?.air && this.has('wing') ? .7 : 1));
+  }
+  supportCost(id) {
+    return this.mission.atlas?this.support[id].chargeCost:this.cost(id);
+  }
+  supportStatus(id) {
+    const spec=this.support[id];
+    if(!this.combat||!spec||this.mission.noair&&spec.air) return 'unavailable';
+    if(!canUse(id,this.skills)) return 'locked';
+    const balance=this.mission.atlas?this.supportReserve:this.money;
+    if(balance<this.supportCost(id)) return 'empty';
+    return this.cd[id]>this.time?'cooldown':'ready';
   }
   place(id,i,free=false,building=null) {
     if (!free && !this.legal(id,i,building)) return false;
@@ -652,8 +661,10 @@ export class Game {
     return true;
   }
   call(id,i) {
-    if(!this.combat || !this.legal(id,i)) return false;
-    this.money-=this.cost(id);
+    if(!open(this.map.cells,i)||this.supportStatus(id)!=='ready') return false;
+    const cost=this.supportCost(id);
+    if(this.mission.atlas) this.supportReserve-=cost;
+    else this.money-=cost;
     this.cd[id]=this.time+this.support[id].cd*(this.has('dispatch')?.75:1);
     this.emit('support',i,id);
     if(id==='air') this.flags.add('air');
@@ -891,11 +902,6 @@ export class Game {
   step(dt) {
     if(!this.combat) return;
     this.time+=dt;
-    if(this.time>=this.nextAid) {
-      const payments=1+Math.floor((this.time-this.nextAid)/fundingInterval);
-      this.money+=payments*this.aid;
-      this.nextAid+=payments*fundingInterval;
-    }
     while(this.breaches.length&&this.breaches[0].until<=this.time) this.breaches.shift();
     if(this.repairs.size) this.finishRepairs();
     if(this.wave<=this.mission.waves && this.time>=this.nextWave) {
@@ -929,7 +935,10 @@ export class Game {
       && !this.reinf.some(r=>['para','tank','heli'].includes(r.id));
     const cutOff=this.mission.containment && this.zombies.length>0 && !this.civs.length && !this.units.size
       && !this.marches.length && !this.reinf.length && !this.clouds.length
-      && !Object.keys(this.support).some(id=>canUse(id,this.skills)&&this.money>=this.cost(id));
+      && !Object.keys(this.support).some(id=>{
+        const status=this.supportStatus(id);
+        return status==='ready'||status==='cooldown';
+      });
     const final=this.wave>this.mission.waves;
     if((!this.civs.length&&!this.sheltered&&(!this.mission.atlas||this.remaining))||overrun||cutOff
       ||this.quota&&this.sheltered+this.civs.length<this.quota) this.phase='lost';

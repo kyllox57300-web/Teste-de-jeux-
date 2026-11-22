@@ -159,14 +159,28 @@ if(!explore) {
   assert.ok(metz.place('explosive',charge));
   assert.equal(metz.units.get(charge).building,undefined);
 
-  const funding=new Game(missions[0]);
-  const initial=funding.money;
-  funding.step(5);
-  assert.equal(funding.money,initial);
-  funding.prepare();
-  funding.zombies.forEach(z=>z.stunnedUntil=Infinity);
-  while(funding.time<15.1) funding.step(steps);
-  assert.equal(funding.money,initial+200);
+  const command=new Game(missions[0]);
+  command.money=0;
+  const targetCell=command.map.end;
+  assert.equal(command.supportReserve,8);
+  assert.equal(command.call('missile',targetCell),false);
+  command.prepare();
+  command.zombies.forEach(z=>z.stunnedUntil=Infinity);
+  assert.ok(command.call('missile',targetCell));
+  assert.equal(command.money,0);
+  assert.equal(command.supportReserve,6);
+  assert.equal(command.supportStatus('missile'),'cooldown');
+  assert.equal(command.call('missile',targetCell),false);
+  assert.equal(command.call('safe',targetCell),false);
+  for(const id of ['air','heli','tank']) assert.ok(command.call(id,targetCell));
+  assert.equal(command.supportReserve,0);
+  assert.equal(command.call('para',targetCell),false);
+  for(let i=0;i<600;i++) command.step(steps);
+  assert.equal(command.money,0);
+  assert.equal(command.supportReserve,0);
+  assert.equal(command.supportStatus('missile'),'empty');
+  const wing=new Game(missions[0],'normal',['wing']);
+  assert.equal(wing.supportReserve,10);
 
   const staging=new Game(missions[0]);
   staging.money=staging.cost('soldier')*2+30;
@@ -233,5 +247,5 @@ if(!explore) {
   const walker=waiting.person(start,{wait:0,speed:2});
   waiting.moveCiv(walker,steps);
   assert.equal(walker.target,waiting.guide[1]);
-  console.log('Aide après deux défaites, remise à zéro, foyers masqués et déplacés, améliorations et déploiement en série vérifiés.');
+  console.log('Appuis immédiats à zéro crédit, réserve limitée, aide au départ, foyers masqués et améliorations vérifiés.');
 }

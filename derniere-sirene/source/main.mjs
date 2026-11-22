@@ -297,7 +297,7 @@ function start(m,brief=true) {
   go('mission');
   if(tut) opening();
   else if(brief) showModal('briefing',m.name,`<p class="eyebrow">${escape(m.briefing[0])}</p><p>« ${escape(m.briefing[1])} »</p>${m.atlas?
-    `<p>Prépare tes défenses. Les infectés se révèlent au déclenchement de l’épidémie. En combat, le commandement te verse ${game.aid} cr toutes les 10 secondes.</p>${m.modifiers?.length?`<p>${m.modifiers.map(id=>mutators[id]).join(' · ')}</p>`:''}`
+    `<p>Prépare tes défenses. Dès l’épidémie, tu peux utiliser tes ${game.supportReserve} charges d’appui pour appeler les renforts.</p>${m.modifiers?.length?`<p>${m.modifiers.map(id=>mutators[id]).join(' · ')}</p>`:''}`
     :game.quota?`<p><strong>Objectif</strong> · Élimine la horde et évacue au moins ${game.quota} personnes. Les navettes partent des refuges toutes les 12 secondes. Zoome pour bien viser les rues.</p>`
     :m.containment?'<p>Les escouades peuvent changer de rue après le départ. Sélectionne « Ordres », une escouade, puis sa destination.</p>':m.rule?`<p>${escape(m.rule)}</p>`:''}<div class="dialog-actions">${button('Examiner la carte','close','button primary')}</div>`);
 }
@@ -318,8 +318,8 @@ function begin() {
   if(tut) {tut=4;save.seen=true;writeSave();}
   showHUD(true);
 }
-function kitMarkup(items,live,support) {
-  const tools=Object.entries(items).map(([id,info],n)=>`<button class="tool" data-action="tool" data-value="${id}" title="${info.info}" aria-label="${info.name}"><span class="icon" aria-hidden="true">${info.icon}</span><span><span class="tool-label">${info.name}</span><span class="tool-price" id="price-${id}">${live&&support[id]?(n+1)+' · ':''}${game.cost(id)} cr</span></span></button>`);
+function kitMarkup(items,live) {
+  const tools=Object.entries(items).map(([id,info])=>`<button class="tool" data-action="tool" data-value="${id}" title="${info.info}" aria-label="${info.name}"><span class="icon" aria-hidden="true">${info.icon}</span><span><span class="tool-label">${info.name}</span><span class="tool-price" id="price-${id}"></span></span></button>`);
   if(!game.mission.atlas) return tools.join('');
   const group=(label,list)=>`<div class="kit-group" role="group" aria-label="${label}"><h3>${label}</h3><div class="kit-slots">${list.join('')}</div></div>`;
   if(live) return group('Renforts',tools);
@@ -339,8 +339,8 @@ function showHUD(rebuild=false) {
   if(rebuild) {
     dom.dock.innerHTML=`<div class="dock-head"><div><span class="eyebrow">${live?'Épidémie':'Préparation'}</span><h2>${escape(game.mission.name)}</h2>
       ${game.mission.atlas?`<span class="retry-count">Relances <strong id="retry-count">${retryCount(game.mission)}</strong></span>`:''}</div>
-      <div class="dock-time"><span class="clock" id="clock"></span>${live&&game.aid?'<small id="next-aid"></small>':''}</div></div>
-      <div class="kit" aria-label="${live?'Renforts':'Défenses'}">${kitMarkup(items,live,support)}</div>
+      <div class="dock-time"><span class="clock" id="clock"></span>${game.mission.atlas?'<small id="support-stock" title="Réserve commune aux renforts"></small>':''}</div></div>
+      <div class="kit" aria-label="${live?'Renforts':'Défenses'}">${kitMarkup(items,live)}</div>
       ${game.mission.atlas?'<div class="field-label">'+(live?'Terrain':'Civils et tracés')+'</div>':''}
       <div class="tool-detail" id="detail"></div>
       <div class="tool-detail fort-status" id="fort-status" hidden>
@@ -379,7 +379,7 @@ function showHUD(rebuild=false) {
   const locate=dom.metrics.querySelector('.metric-locate');
   if(locate) locate.disabled=!game.remaining;
   $('clock').textContent=live?clock(game.time)+(game.mission.containment?'':' · V'+game.wave):'EN ATTENTE';
-  if($('next-aid')) $('next-aid').textContent=`+${game.aid} cr dans ${Math.ceil(game.nextAid-game.time)} s`;
+  if($('support-stock')) $('support-stock').textContent=`Appuis · ${game.supportReserve}`;
   dom.dock.classList.toggle('combat',live);
   if(view.activeZone&&game.units.get(view.activeZone.i)!==view.activeZone) view.activeZone=null;
   const zone=view.activeZone;
@@ -427,12 +427,20 @@ function showHUD(rebuild=false) {
     btn.classList.toggle('active',selected===id);
     btn.setAttribute('aria-pressed',selected===id);
     if(!items[id]) continue;
-    const cost=game.cost(id), cd=live?Math.max(0,Math.ceil((game.cd[id]||0)-game.time)):0;
+    if(live&&support[id]) {
+      const state=game.supportStatus(id), cost=game.supportCost(id);
+      const charge=game.mission.atlas?`${cost} charge${cost===1?'':'s'}`:`${cost} cr`;
+      const label={locked:'Compétence',unavailable:'Indisponible',ready:charge,
+        empty:game.supportReserve===0?'Épuisé':charge,cooldown:`⏱ ${Math.ceil(game.cd[id]-game.time)} s`};
+      btn.disabled=state!=='ready';
+      $('price-'+id).textContent=`${tools.indexOf(id)+1} · ${label[state]}`;
+      continue;
+    }
+    const cost=game.cost(id);
     const locked=!canUse(id,game.skills);
-    const noair=!!(live&&game.mission.noair&&items[id].air);
     const needed=id==='gate'?minimumGateCost():cost;
-    btn.disabled=locked||noair||cd>0||needed>game.money;
-    $('price-'+id).textContent=locked?'Compétence':noair?'Indisponible':cd>0?'⏱ '+cd+' s':needed<cost?`dès ${needed} cr`:(live&&support[id]?(tools.indexOf(id)+1)+' · ':'')+cost+' cr';
+    btn.disabled=locked||needed>game.money;
+    $('price-'+id).textContent=locked?'Compétence':needed<cost?`dès ${needed} cr`:`${cost} cr`;
   }
   if($('confirm-rescue')) $('confirm-rescue').hidden=!game.canConfirm;
   showUnitInspector();
@@ -527,11 +535,10 @@ function projectionLabel() {
   dom.app.classList.toggle('tactical',view.tactical);
 }
 function choose(id) {
-  const support=game.support;
   if(['guide','waiting','boom','sell','command','inspect','garrisons'].includes(id)) selected=selected===id?'':id;
   else if(game.combat&&id==='safe'&&game.quota&&game.money>=game.cost(id)) selected=id;
   else if(game.combat
-    ?support[id]&&canUse(id,game.skills)&&game.cost(id)<=game.money&&!(game.cd[id]>game.time)&&!(game.mission.noair&&support[id].air)
+    ?game.supportStatus(id)==='ready'
     :defenses[id]&&canUse(id,game.skills)&&(id==='gate'?minimumGateCost():game.cost(id))<=game.money) selected=id;
   if(selected!=='command') view.commandOrigin=-1;
   view.hoverWall=null;
@@ -648,8 +655,12 @@ function mapAction(i,append=false) {
     notify(`Zone sûre · ${view.activeZone.sheltered}/${view.activeZone.cap} personnes`);
   } else if(game.combat&&!selected) {
     if(!game.detonate(i)) return;
+  } else if(game.combat&&game.support[selected]) {
+    if(!game.call(selected,i)) return notify(game.supportStatus(selected)==='ready'
+      ?'Choisis une rue pour ce renfort.':'Ce renfort est indisponible.');
+    if(game.mission.atlas) selected='';
   } else if(selected) {
-    const ok=game.combat&&game.support[selected]?game.call(selected,i):game.place(selected,i);
+    const ok=game.place(selected,i);
     if(ok&&selected==='safe') view.activeZone=game.zoneAt(i);
     if(ok&&selected==='gate') notify('Porte posée. Les civils peuvent la franchir.');
     if(ok && tut===1 && ++tutSteps>=2) tut=2;

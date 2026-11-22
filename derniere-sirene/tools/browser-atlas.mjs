@@ -189,18 +189,22 @@ try {
   await snap(desktop,'31-garnisons-en-serie');
   await desktop.mouse.up();
   assert.equal(Number(await desktop.locator('.metric.cash strong').textContent()),metz.money-batch.price);
+  await button(desktop,'Mettre en pause').click();
   await button(desktop,'Prêt · lancer l’épidémie').click();
   const initialCash=metz.money-batch.price;
-  await button(desktop,'Vitesse ×4').click();
-  await desktop.waitForFunction(value=>Number(document.querySelector('.metric.cash strong').textContent)===value,initialCash+100);
-  await button(desktop,'Mettre en pause').click();
+  assert.ok(initialCash<65);
+  assert.equal(await desktop.locator('#clock').textContent(),'00:00');
+  assert.equal(await desktop.locator('#support-stock').textContent(),'Appuis · 8');
+  await button(desktop,'Parachutistes').click();
+  await desktop.mouse.click(...screen(metz.location(metz.map.end),0));
+  assert.equal(await desktop.locator('#support-stock').textContent(),'Appuis · 7');
+  assert.equal(Number(await desktop.locator('.metric.cash strong').textContent()),initialCash);
+  await desktop.waitForTimeout(100);
+  await snap(desktop,'34-appuis-en-combat');
   await button(desktop,'Inspecter').click();
   await desktop.mouse.click(...soldierPoint);
-  await button(desktop,'Améliorer · 60 cr').click();
-  assert.equal(await desktop.locator('#unit-equipment').textContent(),'Équipement 3/3');
-  assert.equal(await desktop.locator('#unit-note').textContent(),'Équipement maximum');
-  assert.equal(await desktop.locator('#unit-upgrade').isVisible(),false);
-  assert.equal(Number(await desktop.locator('.metric.cash strong').textContent()),initialCash+40);
+  assert.equal(await desktop.locator('#unit-equipment').textContent(),'Équipement 2/3');
+  assert.equal(await button(desktop,'Améliorer · 60 cr').isDisabled(),true);
   await button(desktop,'Pause').click();
   await button(desktop,'Quitter la mission').click();
 
@@ -231,7 +235,8 @@ try {
   const wallet=Number(await desktop.locator('.metric.cash strong').textContent());
   await desktop.keyboard.press('3');
   await desktop.mouse.click(...aim(toulouse.location(toulouse.map.start),0));
-  assert.equal(Number(await desktop.locator('.metric.cash strong').textContent()),wallet-160);
+  assert.equal(Number(await desktop.locator('.metric.cash strong').textContent()),wallet);
+  assert.equal(await desktop.locator('#support-stock').textContent(),'Appuis · 6');
   await button(desktop,'Vitesse ×0,5').click();
   await desktop.waitForTimeout(950);
   await button(desktop,'Mettre en pause').click();
@@ -239,6 +244,7 @@ try {
   await button(desktop,'Rejouer').click();
   assert.equal(await desktop.locator('#clock').textContent(),'EN ATTENTE');
   assert.equal(await desktop.locator('#retry-count').textContent(),'1');
+  assert.equal(await desktop.locator('#support-stock').textContent(),'Appuis · 8');
   assert.equal(await button(desktop,'Centrer sur les infectés').count(),0);
   await desktop.waitForFunction(radarShowsInfection,false);
   assert.equal(await desktop.locator('#modal').isVisible(),false);
@@ -333,7 +339,7 @@ try {
   await snap(mobile,'27-dunkerque-mobile');
 
   assert.deepEqual(errors,[],'Erreurs ou avertissements Chromium');
-  console.log('Foyer masqué, minicarte, aide au départ, relances, améliorations, déploiement en série et tactile vérifiés.');
+  console.log('Renforts disponibles dès le départ, réserve, aide après les défaites, foyer masqué et tactile vérifiés.');
   console.log(`Profil tactile Chromium (412 × 883, DPR 2, foule réduite) : médiane de ${frameTime} ms entre images.`);
   console.log('Captures : '+folder);
 } finally {

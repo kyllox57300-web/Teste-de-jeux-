@@ -24,10 +24,16 @@ export const support = {
   heli: { name:'Hélicoptère', icon:'✣', price:180, cd:39, info:'Tire sur les infectés et extrait jusqu’à huit civils.', air:true },
   tank: { name:'Blindé', icon:'▰', price:240, cd:45, info:'Ancre la ligne pour 28 secondes.' },
 };
-export const atlasSupport = {...support,
-  decoy:{name:'Leurre sonore',icon:'◌',price:70,cd:19,info:'Attire les infectés proches pendant 12 secondes.'},
-  medevac:{name:'Évacuation',icon:'✚',price:135,cd:32,info:'Extrait jusqu’à 80 civils proches sans tirer.',air:true},
-  flash:{name:'Éblouissement',icon:'✦',price:100,cd:24,info:'Immobilise les infectés proches pendant cinq secondes.'}
+export const atlasSupport = {
+  para:{...support.para,chargeCost:1},
+  air:{...support.air,chargeCost:2},
+  missile:{...support.missile,chargeCost:2},
+  gas:{...support.gas,chargeCost:1},
+  heli:{...support.heli,chargeCost:2},
+  tank:{...support.tank,chargeCost:2},
+  decoy:{name:'Leurre sonore',icon:'◌',chargeCost:1,cd:19,info:'Attire les infectés proches pendant 12 secondes.'},
+  medevac:{name:'Évacuation',icon:'✚',chargeCost:1,cd:32,info:'Extrait jusqu’à 80 civils proches sans tirer.',air:true},
+  flash:{name:'Éblouissement',icon:'✦',chargeCost:1,cd:24,info:'Immobilise les infectés proches pendant cinq secondes.'}
 };
 
 export const infected = {
@@ -143,7 +149,7 @@ export const tree = [
     ['rotor','Extraction','Débloque l’hélicoptère. En ville réelle, six secondes de plus en vol.'],
     ['guided','Guidage','Débloque le missile. En ville réelle, réduit les pertes civiles du missile.'],
     ['dispatch','Alerte avancée','Recharge des renforts réduite de 25 %.'],
-    ['wing','Escadrille','Les renforts aériens coûtent 30 % de moins.']
+    ['wing','Escadrille','Deux charges d’appui de plus en ville réelle. Dans les autres modes, les renforts aériens coûtent 30 % de moins.']
   ]},
   {name:'Logistique', icon:'✚', nodes:[
     ['bunks','Abris étendus','Huit places de plus par refuge, ou quarante en ville réelle.'],
