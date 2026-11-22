@@ -241,3 +241,39 @@ h1,h2,h3,p { margin-top:0 }
   .brief { max-width:210px }
 }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; animation:none!important } }
+.atlas-controls { display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between; margin:0 0 16px }
+.atlas-grid .mission-card { min-height:133px; gap:7px; background:#282936; border-color:#484854 }
+.atlas-grid .mission-card:nth-child(3n+2) { background:#26333a }
+.atlas-grid .mission-card:nth-child(3n) { background:#362e39 }
+.atlas-grid .mission-card:hover { border-color:var(--amber) }
+.atlas-grid .mission-card::after { content:none }
+.atlas-grid .mission-card strong { margin-top:auto; font-size:clamp(1.25rem,3vw,1.8rem); font-weight:700 }
+.atlas-grid .mission-card .eyebrow { color:#ecc89a; letter-spacing:.07em }
+.osm-steps { color:var(--muted); line-height:1.6; padding-left:1.3rem }
+.osm-steps li { margin:.5rem 0 }
+.osm-steps a { color:var(--mint) }
+.title .map-credit,.atlas-mission .map-credit { bottom:7px; right:9px; z-index:2 }
+.title .map-credit { background:#17212bea }
+.atlas-mission .map-credit { right:auto; left:14px; bottom:3px; font-size:.65rem }
+.atlas-mission .pin.hot { color:#f0c6ff; border-color:#d69af4; background:#37244bee }
+.atlas-mission .metric.infect strong { color:#e3acff }
+.atlas-mission .dot.infection { background:#d179ff }
+.atlas-mission .stage-vignette { box-shadow:inset 0 0 65px #2c23304a }
+.atlas-mission .radar { bottom:27px }
+.atlas-mission .dock { background:#1d202b; border-color:#555360; box-shadow:none }
+.atlas-mission .tool-detail { background:#222535 }
+.atlas-mission [data-value=waiting].active,.atlas-mission #release-waiting { color:#baeaff; border-color:#659eaf }
+@media (max-width:690px) {
+  .atlas-mission .radar { bottom:calc(var(--bottom) + 8px + env(safe-area-inset-bottom)) }
+  .atlas-mission .map-credit { left:auto; right:5px; bottom:1px; font-size:.56rem }
+  .atlas-mission .top-actions { gap:4px }
+  .atlas-mission .top-actions .small { padding-inline:5px; font-size:.68rem }
+  .atlas-mission .tool { flex-basis:117px; min-height:45px }
+  .atlas-mission .kit { min-height:48px }
+  .atlas-mission .camera { bottom:calc(var(--bottom) + 22px + env(safe-area-inset-bottom)) }
+  .title .map-credit { font-size:.62rem }
+}
+@media (orientation:landscape) and (max-height:460px) {
+  .atlas-mission .radar { bottom:24px }
+  .atlas-mission .camera { bottom:18px }
+}

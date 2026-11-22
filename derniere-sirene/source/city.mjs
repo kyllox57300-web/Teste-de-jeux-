@@ -15,7 +15,7 @@ export const baseGrid=createGrid(W,H);
 export const {cell,point,dist,adjacent,field}=baseGrid;
 
 export function generate(mission) {
-  if(mission.metro) return generateMetz(mission.seed);
+  if(mission.geography||mission.metro) return generateAtlas(mission.geography||metz,mission.seed);
   if (mission.layout) return {cells:mission.layout.slice(), start:mission.start, end:mission.end, homes:homesFor(mission.layout, mission.start), seed:mission.seed};
   if(mission.containment) return generateDistrict(mission);
   const rng = random(mission.seed);
@@ -41,16 +41,18 @@ export function generate(mission) {
   return {cells,start,end,breach,homes:homesFor(cells,start),seed:mission.seed};
 }
 
-let cityMap;
-function generateMetz(seed) {
+const cityMaps=new WeakMap();
+function generateAtlas(art,seed) {
+  let cityMap=cityMaps.get(art);
   if(!cityMap) {
-    const grid=createGrid(metz.w,metz.h);
-    const cells=Array.from(metz.cells,Number);
+    const grid=createGrid(art.w,art.h);
+    const cells=Array.from(art.cells,Number);
     const anchors=[];
-    for(const [i,x,z] of metz.anchors) anchors[i]=[x,z];
-    const paths=grid.field([metz.start],i=>open(cells,i));
+    for(const [i,x,z] of art.anchors) anchors[i]=[x,z];
+    const paths=grid.field([art.start],i=>open(cells,i));
     const homes=cells.flatMap((_,i)=>paths[i]>4&&paths[i]<30000?[i]:[]);
-    cityMap={art:metz,grid,anchors,cells,homes,start:metz.start,end:metz.end};
+    cityMap={art,grid,anchors,cells,homes,start:art.start,end:art.end};
+    cityMaps.set(art,cityMap);
   }
   return {...cityMap,seed,cells:cityMap.cells.slice()};
 }

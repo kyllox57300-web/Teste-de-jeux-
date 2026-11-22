@@ -1,16 +1,18 @@
-# Carte de Metz
+# Cartes OpenStreetMap
 
-© Les contributeurs d’OpenStreetMap. L’extrait dérivé [metz.json](metz.json) est distribué sous [Open Data Commons Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). [Attribution OpenStreetMap](https://www.openstreetmap.org/copyright)
+© Les contributeurs d’OpenStreetMap. Les six extraits dérivés sont distribués sous [Open Data Commons Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). [Attribution OpenStreetMap](https://www.openstreetmap.org/copyright)
 
-Le fichier contient les données utilisées par le jeu. Les coordonnées, contours bâtis et tronçons sont projetés sur une carte locale de 97 × 78 cellules. Les chemins utilisés pour la simulation sont simplifiés tandis que le dessin des rues conserve la géométrie des sources.
+Les fichiers conservent les contours et tronçons projetés en coordonnées locales, avec une grille simplifiée pour la simulation. Les routes, parcs, plans d’eau et empreintes proviennent des données cartographiques. Les zones jouables et points de départ sont choisis pour chaque mission. Extraits de novembre 2026.
 
-Pour reconstruire l’extrait, récupérer séparément les quatre zones suivantes via [l’API cartographique d’OpenStreetMap](https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map).
-
-| Extrait | Emprise ouest, sud, est, nord |
+| Fichier | Emprise ouest, sud, est, nord |
 | --- | --- |
-| 1 | 6.155,49.104,6.176,49.115 |
-| 2 | 6.176,49.104,6.197,49.115 |
-| 3 | 6.155,49.115,6.176,49.126 |
-| 4 | 6.176,49.115,6.197,49.126 |
+| [Metz](metz.json) | 6.155,49.104,6.197,49.126 |
+| [Strasbourg](strasbourg.json) | 7.727,48.575,7.756,48.590 |
+| [Dunkerque](dunkerque.json) | 2.356,51.025,2.391,51.045 |
+| [Bordeaux](bordeaux.json) | -0.588,44.835,-0.555,44.854 |
+| [Lyon](lyon.json) | 4.814,45.747,4.845,45.771 |
+| [Toulouse](toulouse.json) | 1.424,43.588,1.456,43.608 |
 
-Utiliser la réponse JSON de `/api/0.6/map.json?bbox=…`. Dans le dossier du jeu, lancer `node tools/import-metz.mjs extrait-1.json extrait-2.json extrait-3.json extrait-4.json`, puis reconstruire le bundle depuis `source`. La carte fonctionne hors ligne depuis le bundle distribué.
+Pour reconstruire une carte, divisez son emprise au milieu de la longitude et de la latitude. Téléchargez le sud-ouest, le sud-est, le nord-ouest puis le nord-est à partir du point d’accès `/api/0.6/map.json?bbox=ouest,sud,est,nord` sur `api.openstreetmap.org`. [Documentation de l’API OpenStreetMap](https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map)
+
+Pour Metz, depuis le dossier du jeu, lancez `node tools/import-metz.mjs extrait-0.json extrait-1.json extrait-2.json extrait-3.json`, puis reconstruisez le bundle. Pour les autres villes, placez les fichiers dans le dossier temporaire système en utilisant les noms `sirene-area-<ville>-0.json` à `sirene-area-<ville>-3.json`. Dans le dossier du jeu, lancez `node tools/import-atlas.mjs <ville>`, par exemple `node tools/import-atlas.mjs toulouse`.

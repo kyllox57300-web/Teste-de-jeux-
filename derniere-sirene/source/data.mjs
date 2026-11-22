@@ -24,6 +24,11 @@ export const support = {
   heli: { name:'Hélicoptère', icon:'✣', price:180, cd:39, info:'Tire sur les infectés et extrait jusqu’à huit civils.', air:true },
   tank: { name:'Blindé', icon:'▰', price:240, cd:45, info:'Ancre la ligne pour 28 secondes.' },
 };
+export const atlasSupport = {...support,
+  decoy:{name:'Leurre sonore',icon:'◌',price:70,cd:19,info:'Attire les infectés proches pendant 12 secondes.'},
+  medevac:{name:'Évacuation',icon:'✚',price:135,cd:32,info:'Extrait jusqu’à 80 civils proches sans tirer.',air:true},
+  flash:{name:'Éblouissement',icon:'✦',price:100,cd:24,info:'Immobilise les infectés proches pendant cinq secondes.'}
+};
 
 export const infected = {
   slow:{ name:'Rôdeur', hp:38, speed:1.35, damage:26, color:0xe4ff89, size:1, value:6 },
@@ -92,33 +97,58 @@ export const metz = {
   loadout:['marks','mining','rotor','guided','towers'],
   briefing:['Générale Varga','Les appels affluent du nord-est. Les rues du centre convergent vers les ponts. Pose des refuges des deux côtés de la Moselle et protège leurs accès.'],
 };
+export const atlasLoadout=['marks','mining','artillery','rotor','guided','tank'];
+const atlasSectors=[
+  ['metz','Metz','MOSELLE','city',6103,2300,42,1440,'Surveillez les ponts entre les Îles et le centre.'],
+  ['strasbourg','Strasbourg','GRANDE ÎLE','island',3812,2100,46,1450,'Les boucles de l’Ill étranglent les sorties de la Grande Île.'],
+  ['dunkerque','Dunkerque','PORT ET BASSINS','port',7251,1800,38,1350,'Le vieux port découpe la ville. Gardez une route de repli le long des bassins.'],
+  ['bordeaux','Bordeaux','GARONNE','city',4145,2250,52,1500,'Les rues étroites débouchent sur les quais et le pont de pierre.'],
+  ['lyon','Lyon','PRESQU’ÎLE','island',2837,2450,55,1600,'La Saône et le Rhône laissent peu de sorties à la presqu’île.'],
+  ['toulouse','Toulouse','GARONNE ET PONT NEUF','city',9146,2650,62,1680,'Saint-Cyprien s’organise sur la rive ouest. Tenez les passages vers le centre-ville.']
+];
+export const atlas=atlasSectors.map(([mapId,name,zone,theme,seed,pop,count,budget,brief])=>({
+  id:'atlas-'+mapId,mapId,name,zone,theme,seed,pop,count,budget,briefing:['Générale Varga',brief],
+  atlas:true,metro:true,containment:true,light:'dusk',waves:0,cap:260,loadout:atlasLoadout
+}));
+export const mutators={
+  horde:'Horde renforcée',fragile:'Ponts fragiles',austerity:'Budget réduit',night:'Nuit'
+};
+export function withMutators(mission,ids) {
+  return {
+    ...mission, modifiers:[...ids],
+    budget:ids.has('austerity')?Math.round(mission.budget*.72):mission.budget,
+    count:ids.has('horde')?Math.round(mission.count*1.55):mission.count,
+    light:ids.has('night')?'night':mission.light,
+    fragile:ids.has('fragile')
+  };
+}
 export const difficulty = {
   easy:{name:'Facile', factor:.76, budget:1.2}, normal:{name:'Normal', factor:1, budget:1}, hard:{name:'Difficile', factor:1.23, budget:.88}
 };
 
 export const tree = [
   {name:'Infanterie', icon:'♟', nodes:[
-    ['marks','Tireurs d’élite','Débloque le sniper.'],
+    ['marks','Tireurs d’élite','Débloque le sniper. En ville réelle, portée +20 %.'],
     ['incend','Barrage thermique','Débloque le lance-flammes.'],
     ['veteran','Première ligne','Les unités commencent au grade 2.'],
     ['burst','Tirs groupés','Les tirs font 25 % de dégâts en plus.']
   ]},
   {name:'Défenses', icon:'▤', nodes:[
     ['towers','Postes surélevés','Débloque la tour de guet.'],
-    ['mining','Sapeurs','Débloque les mines.'],
+    ['mining','Sapeurs','Débloque les mines. En ville réelle, une charge de plus.'],
     ['concrete','Béton renforcé','Les structures gagnent 40 % de résistance.'],
-    ['artillery','Artillerie','Débloque le mortier.']
+    ['artillery','Artillerie','Débloque le mortier. En ville réelle, rechargement accéléré.']
   ]},
   {name:'Aviation', icon:'✣', nodes:[
-    ['rotor','Extraction','Débloque l’hélicoptère.'],
-    ['guided','Guidage','Débloque le missile.'],
+    ['rotor','Extraction','Débloque l’hélicoptère. En ville réelle, six secondes de plus en vol.'],
+    ['guided','Guidage','Débloque le missile. En ville réelle, réduit les pertes civiles du missile.'],
     ['dispatch','Alerte avancée','Recharge des renforts réduite de 25 %.'],
     ['wing','Escadrille','Les renforts aériens coûtent 30 % de moins.']
   ]},
   {name:'Logistique', icon:'✚', nodes:[
-    ['bunks','Abris étendus','Huit places de plus dans chaque zone sûre.'],
+    ['bunks','Abris étendus','Huit places de plus par refuge, ou quarante en ville réelle.'],
     ['reserve','Réserve d’urgence','110 crédits de départ supplémentaires.'],
-    ['tank','Colonne blindée','Débloque le blindé.'],
+    ['tank','Colonne blindée','Débloque le blindé. En ville réelle, huit secondes de présence en plus.'],
     ['train','Exercices d’évacuation','Les civils courent 25 % plus vite.']
   ]}
 ];

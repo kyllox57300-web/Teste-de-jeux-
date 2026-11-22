@@ -1,12 +1,12 @@
-import { badges, containment, difficulty, metz, missions, tree } from './data.mjs';
+import { atlas, badges, containment, difficulty, metz, missions, tree } from './data.mjs';
 import { validCustom } from './city.mjs';
 
 const key='derniere-sirene-v1';
 const ids=new Set(badges.map(b=>b[0]));
 export const defaults=()=>({v:1, records:{}, containment:{}, skills:[], badges:[], cities:[], survival:0,
-  opts:{sound:true,music:true,quality:'medium',speed:1,level:'normal'}, seen:false});
+  opts:{sound:true,music:true,quality:'medium',crowd:'auto',speed:1,level:'normal'}, seen:false});
 
-export const skillPoints = save => Object.keys(save.records).length - save.skills.length;
+export const skillPoints = save => Object.keys(save.records).length + atlas.filter(m=>save.containment[m.id]).length - save.skills.length;
 export const available = (save,id) => id===0 || !!save.records[id-1];
 export function learn(save, id) {
   if(skillPoints(save)<=0 || save.skills.includes(id) || !tree.some(branch=>{
@@ -31,7 +31,7 @@ export function finish(save, game) {
     ['noharm',!result.friendly],['hard',game.level==='hard'],['local',typeof id==='string'&&id.startsWith('local')],
     ['special',typeof id==='string'&&!id.startsWith('local')&&id!=='survival'&&!game.mission.containment],['bank',result.money>=500]
   ]) if(condition) award(save,badge);
-  if(game.mission.containment && result.score>(save.containment[id]?.score??-1)) {
+  if(game.mission.containment && id!=='atlas-local' && result.score>(save.containment[id]?.score??-1)) {
     save.containment[id]={stars:result.stars,saved:result.saved,score:result.score};
   }
   if(typeof id==='number') {
@@ -53,7 +53,7 @@ export function parseSave(raw) {
     if(!Number.isInteger(r.stars)||r.stars<1||r.stars>3||!Number.isInteger(r.saved)||r.saved>pop||r.saved<0||!Number.isInteger(r.score)||r.score<0) break;
     data.records[id]={stars:r.stars,saved:r.saved,score:r.score};
   }
-  for(const {id,pop} of [metz,...containment]) {
+  for(const {id,pop} of [metz,...containment,...atlas]) {
     const r=input.containment?.[id];
     if(r&&Number.isInteger(r.stars)&&r.stars>=1&&r.stars<=3&&Number.isInteger(r.saved)&&r.saved<=pop&&r.saved>=0&&Number.isSafeInteger(r.score)&&r.score>=0) {
       data.containment[id]={stars:r.stars,saved:r.saved,score:r.score};
@@ -72,6 +72,7 @@ export function parseSave(raw) {
   if(typeof o.sound==='boolean') data.opts.sound=o.sound;
   if(typeof o.music==='boolean') data.opts.music=o.music;
   if(['low','medium','high'].includes(o.quality)) data.opts.quality=o.quality;
+  if(['auto','low','full'].includes(o.crowd)) data.opts.crowd=o.crowd;
   if([.5,1,2,4].includes(o.speed)) data.opts.speed=o.speed;
   if(Object.hasOwn(difficulty,o.level)) data.opts.level=o.level;
   return data;

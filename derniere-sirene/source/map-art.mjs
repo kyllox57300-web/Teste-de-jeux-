@@ -5,31 +5,68 @@ function path(ctx,points,closed) {
   for(let i=2;i<points.length;i+=2) ctx.lineTo(points[i],points[i+1]);
   if(closed) ctx.closePath();
 }
-function areas(ctx,shapes,fill,outline) {
+function areas(ctx,shapes,fill,outline,cutouts={}) {
   ctx.fillStyle=fill;
   ctx.strokeStyle=outline;
-  for(const polygon of shapes) {
+  for(const [i,polygon] of shapes.entries()) {
     ctx.beginPath();
     path(ctx,polygon,true);
-    ctx.fill();
+    for(const hole of cutouts[i]||[]) path(ctx,hole,true);
+    ctx.fill('evenodd');
     if(outline) ctx.stroke();
   }
 }
-function mapTexture(art) {
+function paintShadows(ctx,art,scale) {
+  const stencil=document.createElement('canvas');
+  stencil.width=ctx.canvas.width;
+  stencil.height=ctx.canvas.height;
+  const shadow=stencil.getContext('2d');
+  shadow.scale(scale,scale);
+  shadow.translate(.5,.5);
+  shadow.fillStyle='#211e3d';
+  for(const [height,points] of art.buildings) {
+    const dx=height*2.8,dz=height*1.8;
+    shadow.beginPath();
+    for(let i=0;i<points.length;i+=2) {
+      const x=points[i]+dx,z=points[i+1]+dz;
+      if(i===0) shadow.moveTo(x,z);
+      else shadow.lineTo(x,z);
+    }
+    shadow.closePath();
+    shadow.fill();
+    for(let i=0;i<points.length;i+=2) {
+      const next=(i+2)%points.length;
+      const a=points[i],b=points[i+1],x=points[next],z=points[next+1];
+      shadow.beginPath();
+      shadow.moveTo(a,b);
+      shadow.lineTo(x,z);
+      shadow.lineTo(x+dx,z+dz);
+      shadow.lineTo(a+dx,b+dz);
+      shadow.closePath();
+      shadow.fill();
+    }
+  }
+  ctx.save();
+  ctx.resetTransform();
+  ctx.globalAlpha=.36;
+  ctx.drawImage(stencil,0,0);
+  ctx.restore();
+}
+function mapTexture(art,night) {
   const canvas=document.createElement('canvas');
-  const scale=29;
+  const scale=22;
   canvas.width=art.w*scale;
   canvas.height=art.h*scale;
   const ctx=canvas.getContext('2d');
   ctx.scale(scale,scale);
   ctx.translate(.5,.5);
-  ctx.fillStyle='#4b5655';
+  ctx.fillStyle='#8b8077';
   ctx.fillRect(-.5,-.5,art.w,art.h);
   ctx.lineJoin='round';
   ctx.lineCap='round';
   ctx.lineWidth=.045;
-  areas(ctx,art.parks,'#526e5e','#688575');
-  ctx.strokeStyle='#306674';
+  areas(ctx,art.parks,'#758b71','#a1a589');
+  ctx.strokeStyle='#526f91';
   for(const [width,points] of art.rivers) {
     ctx.lineWidth=width;
     ctx.beginPath();
@@ -37,17 +74,22 @@ function mapTexture(art) {
     ctx.stroke();
   }
   ctx.lineWidth=.14;
-  areas(ctx,art.water,'#306674','#61929a');
+  areas(ctx,art.water,'#526f91','#a0a3ac',art.waterCutouts);
   for(let group=0;group<=2;group++) {
     const width=[.105,.218,.35][group];
     ctx.lineWidth=width+.083;
-    ctx.strokeStyle=['#46504c','#6f7469','#9a967f'][group];
+    ctx.strokeStyle=['#7f7375','#9e8b83','#c4a994'][group];
     ctx.beginPath();
     for(const [kind,,points] of art.roads) if(kind===group) path(ctx,points,false);
     ctx.stroke();
     ctx.lineWidth=width;
-    ctx.strokeStyle=['#293634','#252d32','#283138'][group];
+    ctx.strokeStyle=['#655b63','#504852','#49444f'][group];
     ctx.stroke();
+  }
+  paintShadows(ctx,art,scale);
+  if(night) {
+    ctx.fillStyle='#10132987';
+    ctx.fillRect(-.5,-.5,art.w,art.h);
   }
   const texture=new T.CanvasTexture(canvas);
   texture.colorSpace=T.SRGBColorSpace;
@@ -65,8 +107,8 @@ function buildings(art) {
   for(const [n,[height,coords]] of art.buildings.entries()) {
     const points=[];
     for(let i=0;i<coords.length;i+=2) points.push(new T.Vector2(coords[i],coords[i+1]));
-    roof.set(['#9c947f','#c2b39b','#aeaa99','#b7b0a0','#a9a498','#c6b9a2','#989c91'][n%7]);
-    facade.copy(roof).multiplyScalar(.61);
+    roof.set(['#c4b6aa','#e0c6b0','#cec1bb','#d9b4a5','#b5b8b1','#eed0b8','#aaa7b6'][n%7]);
+    facade.copy(roof).multiplyScalar(.65);
     for(const [i,j,k] of T.ShapeUtils.triangulateShape(points,[])) {
       vertex(points[k],height,roof);vertex(points[j],height,roof);vertex(points[i],height,roof);
     }
@@ -84,9 +126,9 @@ function buildings(art) {
   return geometry;
 }
 
-export function buildMapArt(group,art) {
-  const texture=mapTexture(art);
-  const surface=new T.Mesh(new T.PlaneGeometry(art.w,art.h),new T.MeshBasicMaterial({map:texture}));
+export function buildMapArt(group,art,night) {
+  const texture=mapTexture(art,night);
+  const surface=new T.Mesh(new T.PlaneGeometry(art.w,art.h),new T.MeshBasicMaterial({map:texture,toneMapped:false}));
   surface.rotation.x=-Math.PI/2;
   surface.position.set((art.w-1)/2,-.022,(art.h-1)/2);
   const blocks=new T.Mesh(buildings(art),new T.MeshLambertMaterial({vertexColors:true,side:T.DoubleSide}));

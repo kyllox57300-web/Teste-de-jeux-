@@ -3,8 +3,8 @@
   "private": true,
   "scripts": {
     "build": "esbuild main.mjs --bundle --format=iife --target=es2022 --minify --legal-comments=eof --outfile=../game.js",
-    "test": "node ../tools/sim.mjs",
-    "qa": "node ../tools/browser.mjs"
+    "test": "node ../tools/sim.mjs && node ../tools/sim-atlas.mjs",
+    "qa": "node ../tools/browser.mjs && node ../tools/browser-atlas.mjs"
   },
   "devDependencies": {
     "esbuild": "0.28.2",

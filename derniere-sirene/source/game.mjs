@@ -1,4 +1,4 @@
-import { defenses, support, infected, difficulty, canUse, terrain as t } from './data.mjs';
+import { defenses, support, atlasSupport, infected, difficulty, canUse, terrain as t } from './data.mjs';
 import { random, generate, open, baseGrid } from './city.mjs';
 import { largestArea,polygonError,rectangle,simplify,wallSections,within } from './placement.mjs';
 import { Fortifications } from './fortification.mjs';
@@ -13,7 +13,9 @@ export class Game {
     this.mission=mission;
     this.level=level;
     this.difficulty=difficulty[level];
+    this.training=mission.atlas?new Set(skills):new Set();
     this.skills=[...new Set([...skills,...(mission.loadout||[])])];
+    this.support=mission.atlas?atlasSupport:support;
     this.map=generate(mission);
     this.grid=this.map.grid||baseGrid;
     this.rng=random(mission.seed+4321);
@@ -27,6 +29,8 @@ export class Game {
     this.marches=[];
     this.reinf=[];
     this.guide=[];
+    this.waitingZones=[];
+    this.personCount=0;
     this.zombies=[];
     this.civs=[];
     this.fog=new Float32Array(this.grid.w*this.grid.h);
@@ -43,7 +47,7 @@ export class Game {
     this.friendly=0;
     this.lost=0;
     this.evacuated=0;
-    this.quota=mission.metro?Math.ceil(mission.pop*mission.quota):0;
+    this.quota=mission.quota?Math.ceil(mission.pop*mission.quota):0;
     this.clearedAt=null;
     this.extractions=0;
     this.flags=new Set();
@@ -58,8 +62,9 @@ export class Game {
     }
     const favorable=homes.filter(i=>far[i]>(mission.id===0?13:8) && towards[i]<(mission.metro?60:24));
     const exposed=mission.containment?homes.filter(i=>far[i]<(mission.metro?15:12)):[];
+    const exposure=mission.atlas?17:5;
     for(let i=0;i<mission.pop;i++) {
-      const group=exposed.length&&i%5===0?exposed:i%4!==0&&favorable.length?favorable:homes;
+      const group=exposed.length&&i%exposure===0?exposed:i%4!==0&&favorable.length?favorable:homes;
       this.civs.push(this.person(group[i%group.length],{speed:(1.15+this.rng()*.55)*(this.has('train')?1.25:1), wait:this.rng()*(mission.containment?3.5:2)}));
     }
     this.spawnWave(true);
@@ -71,7 +76,7 @@ export class Game {
     const [x,z]=this.location(i);
     const spacing=this.walls.near.has(i)?0:this.mission.metro?.42:.59;
     const ox=(this.rng()-.5)*spacing, oz=(this.rng()-.5)*spacing;
-    return {i,target:i,x:x+ox,z:z+oz,ox,oz, angle:0, ...extra};
+    return {i,target:i,x:x+ox,z:z+oz,ox,oz,visualID:this.personCount++,angle:0,...extra};
   }
   get sheltered() {
     let total=this.evacuated;
@@ -83,7 +88,7 @@ export class Game {
   get canConfirm() { return this.combat&&this.clearedAt!==null&&this.evacuated>=this.quota; }
   get latestBreach() { return this.breaches.at(-1); }
   zoneAt(i) { return this.zoneCells.get(i); }
-  baseCapacity() { return (this.mission.cap||defenses.safe.cap)+(this.has('bunks')?8:0); }
+  baseCapacity() { return (this.mission.cap||defenses.safe.cap)+(this.has('bunks')?(this.mission.atlas?40:8):0); }
   canBuild(i) { return open(this.map.cells,i)&&this.grid.dist(this.map.start,i)>(this.mission.containment?2:0); }
   civilPass(i,from=i) {
     const u=this.units.get(i),structure=defenses[u?.id];
@@ -134,18 +139,18 @@ export class Game {
   }
   legal(id,i) {
     if(id==='safe'&&this.zoneAt(i)) return false;
-    if(id==='safe'&&this.combat&&this.mission.metro) return open(this.map.cells,i)&&!this.units.has(i)&&!this.marches.some(m=>m.to===i)&&this.money>=this.cost(id);
+    if(id==='safe'&&this.combat&&this.quota) return open(this.map.cells,i)&&!this.units.has(i)&&!this.marches.some(m=>m.to===i)&&this.money>=this.cost(id);
     if(id==='gate'&&this.phase==='prep'&&this.canBuild(i)) {
       const before=this.units.get(i);
       return (!before||before.id==='wall'||before.id==='barricade')&&this.money>=this.gateCost(i);
     }
-    if (!this.combat || !support[id]) return this.phase==='prep' && defenses[id] && this.canBuild(i)
+    if (!this.combat || !this.support[id]) return this.phase==='prep' && defenses[id] && this.canBuild(i)
       && !this.units.has(i) && canUse(id,this.skills) && this.money>=this.cost(id);
-    return open(this.map.cells,i) && !(this.mission.noair && support[id].air) && canUse(id,this.skills) && this.money>=this.cost(id) && !(this.cd[id]>this.time);
+    return open(this.map.cells,i) && !(this.mission.noair && this.support[id].air) && canUse(id,this.skills) && this.money>=this.cost(id) && !(this.cd[id]>this.time);
   }
   cost(id) {
-    const info=defenses[id]||support[id];
-    return Math.round(info.price*(support[id]?.air && this.has('wing') ? .7 : 1));
+    const info=defenses[id]||this.support[id];
+    return Math.round(info.price*(this.support[id]?.air && this.has('wing') ? .7 : 1));
   }
   place(id,i,free=false) {
     if (!free && !this.legal(id,i)) return false;
@@ -155,7 +160,8 @@ export class Game {
     const old=id==='gate'?this.units.get(i):null;
     const paid=free?0:this.cost(id);
     const debit=old?this.gateCost(i):paid;
-    const u={id,i,hp,maxHp:hp,level:this.has('veteran')?2:1,xp:0,fireAt:0,sheltered:0,cap,rescueAt:this.time+12,charges:d.charges,fixed:free,angle:old?.angle||0,paid};
+    const charges=id==='mines'&&this.training.has('mining')?d.charges+1:d.charges;
+    const u={id,i,hp,maxHp:hp,level:this.has('veteran')?2:1,xp:0,fireAt:0,sheltered:0,cap,rescueAt:this.time+12,charges,fixed:free,angle:old?.angle||0,paid};
     this.units.set(i,u);
     if(id==='safe') {
       u.tiles=[i];
@@ -173,25 +179,18 @@ export class Game {
   planZone(from,to) {
     const contour=Array.isArray(from)?simplify(from,true):rectangle(this.grid,from,to);
     const plan={tiles:[],contour,price:this.cost('safe'),cap:this.baseCapacity()};
-    if(this.phase!=='prep'&&!(this.combat&&this.mission.metro)) return {...plan,error:'Le tracé se fait pendant la préparation.'};
+    if(this.phase!=='prep'&&!(this.combat&&this.quota)) return {...plan,error:'Le tracé se fait pendant la préparation.'};
     const error=polygonError(contour);
     if(error) return {...plan,error};
     plan.validShape=true;
-    const xs=contour.map(p=>p[0]),zs=contour.map(p=>p[1]), {w,h,cell}=this.grid;
+    const xs=contour.map(p=>p[0]),zs=contour.map(p=>p[1]);
     const left=Math.min(...xs),right=Math.max(...xs),top=Math.min(...zs),bottom=Math.max(...zs);
-    const area=[];
-    for(let z=Math.max(0,Math.floor(top)-1);z<=Math.min(h-1,Math.ceil(bottom)+1);z++) {
-      for(let x=Math.max(0,Math.floor(left)-1);x<=Math.min(w-1,Math.ceil(right)+1);x++) {
-        const i=cell(x,z);
-        if((this.combat?open(this.map.cells,i):this.canBuild(i))&&!this.zoneAt(i)&&!defenses[this.units.get(i)?.id]?.barrier
-            &&within(this.location(i),contour)) area.push(i);
-      }
-    }
-    plan.tiles=largestArea(this.grid,area);
+    plan.tiles=this.cellsInside(contour,i=>(this.combat?open(this.map.cells,i):this.canBuild(i))
+      &&!this.zoneAt(i)&&!defenses[this.units.get(i)?.id]?.barrier);
     const limit=this.mission.metro?48:32;
     if(plan.tiles.length>limit) return {...plan,error:`Réduis le tracé à ${limit} cases accessibles.`};
     if(plan.tiles.length<2) return {...plan,error:'Trace une zone avec au moins deux cases de rue ou de parc reliées.'};
-    const position=cell(Math.floor((left+right)/2),Math.floor((top+bottom)/2));
+    const position=this.grid.cell(Math.floor((left+right)/2),Math.floor((top+bottom)/2));
     const choices=plan.tiles.filter(i=>!this.units.has(i)&&!this.marches.some(m=>m.to===i));
     plan.anchor=choices.sort((a,b)=>this.grid.dist(a,position)-this.grid.dist(b,position))[0];
     plan.price+=(plan.tiles.length-1)*10;
@@ -200,6 +199,41 @@ export class Game {
     else if(this.zombies.some(z=>within(this.location(z.i),contour))) plan.error='Écarte le tracé des infectés.';
     else if(plan.price>this.money) plan.error=`Budget insuffisant · ${plan.price} cr nécessaires.`;
     return plan;
+  }
+  cellsInside(contour,pass) {
+    const xs=contour.map(p=>p[0]),zs=contour.map(p=>p[1]),{w,h,cell}=this.grid;
+    const tiles=[];
+    const right=Math.min(w-1,Math.ceil(Math.max(...xs))+1);
+    const bottom=Math.min(h-1,Math.ceil(Math.max(...zs))+1);
+    for(let z=Math.max(0,Math.floor(Math.min(...zs))-1);z<=bottom;z++) {
+      for(let x=Math.max(0,Math.floor(Math.min(...xs))-1);x<=right;x++) {
+        const i=cell(x,z);
+        if(pass(i)&&within(this.location(i),contour)) tiles.push(i);
+      }
+    }
+    return largestArea(this.grid,tiles);
+  }
+  planWaiting(path) {
+    const contour=simplify(path,true), plan={contour,tiles:[]};
+    const error=polygonError(contour);
+    if(error||!this.mission.atlas||this.phase!=='prep'&&!this.combat) return {...plan,error:error||'Tracé indisponible.'};
+    plan.validShape=true;
+    if(this.waitingZones.length>=4) return {...plan,error:'Libère les zones d’attente avant d’en tracer d’autres.'};
+    plan.tiles=this.cellsInside(contour,i=>this.civilPass(i)&&!this.zoneAt(i)&&!this.waitingZones.some(z=>z.tiles.includes(i)));
+    if(plan.tiles.length<2||plan.tiles.length>48) plan.error='Trace de 2 à 48 cases de rue ou de parc reliées.';
+    else if(this.zombies.some(z=>within([z.x,z.z],contour))) plan.error='Écarte la zone d’attente des infectés.';
+    return plan;
+  }
+  drawWaiting(path) {
+    const plan=this.planWaiting(path);
+    if(plan.error) return false;
+    this.waitingZones.push(plan);
+    this.routeClock=0;
+    return true;
+  }
+  releaseWaiting() {
+    this.waitingZones=[];
+    this.routeClock=0;
   }
   drawZone(from,to) {
     const plan=this.planZone(from,to);
@@ -380,8 +414,10 @@ export class Game {
     const starts=[origin,...this.grid.adjacent[origin].filter(i=>open(this.map.cells,i))];
     if(this.mission.containment) {
       const paths=this.grid.field([origin],i=>open(this.map.cells,i));
-      const margin=this.map.cells.flatMap((_,i)=>paths[i]>=2&&paths[i]<=(this.mission.metro?9:5)?[i]:[]);
-      for(let n=0; n<(this.mission.metro?14:6) && margin.length; n++) starts.push(margin.splice(Math.floor(this.rng()*margin.length),1)[0]);
+      const reach=this.mission.mapId==='strasbourg'?8:this.mission.atlas?6:this.mission.metro?9:5;
+      const margin=this.map.cells.flatMap((_,i)=>paths[i]>=2&&paths[i]<=reach?[i]:[]);
+      const spread=this.mission.atlas?7:this.mission.metro?14:6;
+      for(let n=0; n<spread && margin.length; n++) starts.push(margin.splice(Math.floor(this.rng()*margin.length),1)[0]);
     }
     const breach=!first&&this.map.breach!=null&&wave%2===1 ? this.map.breach : null;
     const number=first ? count : (id==='survival' ? 10+wave*5 : Math.round(count*(.28+.055*wave)));
@@ -411,7 +447,7 @@ export class Game {
     z.hp-=hit;
     if(z.hp>0) return;
     this.kills++;
-    this.money+=infected[z.id].value;
+    if(!this.mission.atlas) this.money+=infected[z.id].value;
     this.emit('down',z.i,z.id);
     if(this.kills>=150) this.flags.add('score');
     if(z.id==='boss') this.flags.add('boss');
@@ -433,11 +469,22 @@ export class Game {
       if(kind!=='infected') this.friendly++;
     }
     if(this.mission.fragile && hit>=90) {
+      const broken=new Set();
       for(let j=0;j<this.map.cells.length;j++) if(this.map.cells[j]===t.bridge && this.grid.dist(i,j)<=radius) {
         this.map.cells[j]=t.water;
+        broken.add(j);
         this.bridgeDamage.add(j);
         const u=this.units.get(j)||this.zoneAt(j);
         if(u) this.collapse(u,j);
+      }
+      if(broken.size) {
+        for(const c of this.civs) if(!c.dead&&broken.has(c.i)) {
+          c.dead=true;
+          this.lost++;
+          if(kind!=='infected') this.friendly++;
+        }
+        for(const z of this.zombies) if(broken.has(z.i)) this.damage(z,Infinity,u);
+        for(const p of [...this.civs,...this.zombies]) if(broken.has(p.target)) p.target=p.i;
       }
       this.routeClock=0;
     }
@@ -478,10 +525,12 @@ export class Game {
   call(id,i) {
     if(!this.combat || !this.legal(id,i)) return false;
     this.money-=this.cost(id);
-    this.cd[id]=this.time+support[id].cd*(this.has('dispatch')?.75:1);
+    this.cd[id]=this.time+this.support[id].cd*(this.has('dispatch')?.75:1);
     this.emit('support',i,id);
     if(id==='air') this.flags.add('air');
-    this.reinf.push({id,i,t:this.time+({para:1.4,air:1.05,missile:1.55,gas:.65,heli:1.45,tank:.85}[id]),until:this.time+(id==='heli'?12:28), saved:0,angle:0,level:1,xp:0,fireAt:0});
+    const delay={para:1.4,air:1.05,missile:1.55,gas:.65,heli:1.45,tank:.85,decoy:.45,medevac:1.45,flash:.7};
+    const duration=id==='heli'?(this.training.has('rotor')?18:12):id==='tank'&&this.training.has('tank')?36:28;
+    this.reinf.push({id,i,t:this.time+delay[id],until:this.time+duration,saved:0,angle:0,level:1,xp:0,fireAt:0});
     return true;
   }
   operateSupport() {
@@ -507,11 +556,26 @@ export class Game {
         }
         continue;
       }
-      if(r.id==='missile') this.blast(r.i,315,2.25,.62);
-      if(r.id==='air') for(const n of [-2,0,2]) this.blast(this.grid.cell(Math.round(clamp(x+n,0,this.grid.w-1)),Math.round(z)),119,1.75,.43);
+      if(r.id==='missile') this.blast(r.i,315,2.25,this.training.has('guided')?.39:.62,null,'impact');
+      if(r.id==='air') for(const n of [-2,0,2]) this.blast(this.grid.cell(Math.round(clamp(x+n,0,this.grid.w-1)),Math.round(z)),119,1.75,.43,null,'impact');
       if(r.id==='gas') {
         this.clouds.push({i:r.i,x,z,until:this.time+7});
         this.emit('gas',r.i);
+      }
+      if(r.id==='decoy') {
+        this.shout(r.i,18,12);
+        this.routeClock=0;
+        this.emit('decoy',r.i);
+      }
+      if(r.id==='medevac') {
+        const nearby=this.civs.filter(c=>!c.dead&&metric({x,z},c)<5).slice(0,80);
+        for(const c of nearby) c.dead=true;
+        this.evacuated+=nearby.length;
+        this.emit('convoy',r.i,nearby.length);
+      }
+      if(r.id==='flash') {
+        for(const z of this.zombies) if(metric({x,z},z)<4) z.stunnedUntil=this.time+5;
+        this.emit('flash',r.i);
       }
       r.done=true;
     }
@@ -537,7 +601,8 @@ export class Game {
       const d=metric({x,z},foe);
       if(d>range) continue;
       const p=u.id==='sniper' ? Math.min(foe.hp,95)-d : -d;
-      if(p>value && (!this.mission.containment||!streetFire.has(u.id)||this.visible(x,z,foe))) {
+      const rooftop=this.mission.atlas&&u.id==='sniper';
+      if(p>value && (rooftop||!this.mission.containment||!streetFire.has(u.id)||this.visible(x,z,foe))) {
         best=foe;
         value=p;
       }
@@ -556,11 +621,13 @@ export class Game {
   shoot(u) {
     const d=defenses[u.id];
     if(!d.range || u.fireAt>this.time) return;
-    const target=this.target(u,d.range);
+    const range=u.id==='sniper'&&this.training.has('marks')?d.range*1.2:d.range;
+    const target=this.target(u,range);
     if(!target) return;
     const [x,z]=this.location(u.i);
     u.angle=Math.atan2(target.x-x,target.z-z);
-    u.fireAt=this.time+d.delay*(1-(u.level-1)*.1);
+    const reload=u.id==='mortar'&&this.training.has('artillery')?.77:1;
+    u.fireAt=this.time+d.delay*(1-(u.level-1)*.1)*reload;
     const hit=d.hit*(1+(u.level-1)*.25)*(this.has('burst')?1.25:1);
     if(d.blast) {
       this.blast(target.i,hit,d.blast,d.friendly||0,u,u.id==='flame'?'flame':'blast');
@@ -579,8 +646,19 @@ export class Game {
     this.safeField=this.grid.field(intake,civilPass);
     this.guideRoute=new Set(this.guide);
     this.guideField=this.grid.field(this.guide.filter(i=>this.safeField[i]<30000),civilPass);
+    this.guideNext=null;
+    if(this.mission.atlas&&this.guide.length>1) {
+      const route=this.safeField[this.guide[0]]<this.safeField[this.guide.at(-1)]?this.guide.slice().reverse():this.guide;
+      this.guideExit=this.safeField[route.at(-1)];
+      this.guideNext=new Map();
+      for(let n=1;n<route.length;n++) if(this.grid.dist(route[n-1],route[n])===1&&civilPass(route[n],route[n-1])) {
+        this.guideNext.set(route[n-1],route[n]);
+      }
+    }
     const live=this.zombies.filter(z=>z.hp>0);
     this.threat=this.grid.field(live.map(z=>z.i),(i,j)=>pass(i)&&!this.walls.obstruction(i,j));
+    this.waitingField=this.waitingZones.length?this.grid.field(
+      this.waitingZones.flatMap(z=>z.tiles.filter(i=>this.threat[i]>=9)),civilPass):null;
     const occupied=this.civs.filter(c=>!c.dead).map(c=>c.i);
     const targets=[...occupied,...this.units.keys(),...this.zoneCells.keys()];
     this.hunt=this.grid.field(targets.length?targets:[this.map.end],pass);
@@ -609,26 +687,37 @@ export class Game {
     const shelter=this.zoneAt(c.i);
     if(shelter&&shelter.sheltered<shelter.cap&&this.civilPass(c.i)) {
       shelter.sheltered++;
-      this.money+=3;
+      if(!this.mission.atlas) this.money+=3;
       this.emit('rescue',c.i);
       c.dead=true;
       return;
     }
     const danger=this.threat[c.i];
+    const waiting=this.waitingField?.[c.i];
+    if(waiting===0&&danger>=9) return;
+    const staging=waiting<19&&danger>=9;
+    const follow=this.guideNext?.get(c.i);
+    if(!staging&&follow!==undefined&&this.civilPass(follow,c.i)&&(this.threat[follow]>=8||this.threat[follow]>=danger)) {
+      c.target=follow;
+      return;
+    }
     const here=this.guideRoute.has(c.i);
     let best=c.i, high=-Infinity;
     for(const i of this.grid.adjacent[c.i]) if(this.civilPass(i,c.i)) {
       const goal=clamp(this.safeField[c.i]-this.safeField[i],-2,2);
       const escape=clamp(this.threat[i]-danger,-2,2)*(danger<5?5:danger<8?1.5:.35);
       const guide=clamp(this.guideField[c.i]-this.guideField[i],-2,2);
-      const score=goal*(here?5:3)+escape+(here?Number(this.guideRoute.has(i))*1.2:guide*.9)+this.rng()*.7;
+      const stage=staging?clamp(waiting-this.waitingField[i],-2,2)*9:0;
+      const junction=this.guideField[c.i]<8&&this.safeField[c.i]>this.guideExit+2&&danger>=6;
+      const guidance=this.mission.atlas?(junction?guide*4.6:0):here?Number(this.guideRoute.has(i))*1.2:guide*.9;
+      const score=goal*(here?5:3)+escape+guidance+stage+this.rng()*.7;
       if(score>high) { best=i; high=score; }
     }
     if(high>0 || (danger<4 && high>-1) || this.rng()<.11) c.target=best;
     c.wait=this.time+.09+this.rng()*.14;
   }
   moveFoe(z,dt) {
-    if(z.hp<=0 || this.travel(z,dt,z.speed*(z.gassed?.58:1))) return;
+    if(z.hp<=0 || z.stunnedUntil>this.time || this.travel(z,dt,z.speed*(z.gassed?.58:1))) return;
     const spec=infected[z.id];
     const near=[z.i,...this.grid.adjacent[z.i]];
     if (z.attackAt<=this.time && z.id==='spit') {
@@ -640,13 +729,14 @@ export class Game {
         this.emit('spit',victim.i,z.id,z.i);
       }
     }
+    const reach=this.mission.atlas?.47:this.mission.containment?.56:.43;
     for(const i of near) for(const c of (this.civByCell.get(i)||[])) {
-      if(!c.dead&&metric(z,c)<(this.mission.containment?.56:.43)&&z.attackAt<=this.time
+      if(!c.dead&&metric(z,c)<reach&&z.attackAt<=this.time
         &&!this.walls.obstruction(z.i,c.i)&&!this.walls.crosses(z.i,[z.x,z.z],[c.x,c.z])) {
         c.dead=true; this.lost++;
         this.spawn(c.i,this.rng()<.18?'fast':'slow');
         this.emit('infect',c.i);
-        z.attackAt=this.time+(this.mission.containment?.32:.55);
+        z.attackAt=this.time+(this.mission.atlas?.46:this.mission.containment?.32:.55);
         return;
       }
     }
@@ -683,7 +773,7 @@ export class Game {
     if(this.routeClock<=0) { this.routes(); this.routeClock=.27; }
     this.operateSupport();
     if(this.marches.length) this.march(dt);
-    if(this.mission.metro) this.operateConvoys();
+    if(this.quota) this.operateConvoys();
     for(const u of this.units.values()) this.shoot(u);
     this.clouds=this.clouds.filter(g=>g.until>this.time);
     for(const z of this.zombies) {
@@ -700,15 +790,17 @@ export class Game {
     }
     this.zombies=this.zombies.filter(z=>z.hp>0);
     this.civs=this.civs.filter(c=>!c.dead);
-    for(let i=0;i<this.fog.length;i++) if(this.fog[i]>.015) this.fog[i]*=Math.pow(.77,dt);
+    const fading=Math.pow(this.mission.atlas?.89:.77,dt);
+    for(let i=0;i<this.fog.length;i++) if(this.fog[i]>.015) this.fog[i]*=fading;
     const overrun=this.mission.id==='survival' && this.zombies.length>0 && !this.units.size && !this.marches.length
       && !this.reinf.some(r=>['para','tank','heli'].includes(r.id));
     const cutOff=this.mission.containment && this.zombies.length>0 && !this.civs.length && !this.units.size
       && !this.marches.length && !this.reinf.length && !this.clouds.length
-      && !Object.keys(support).some(id=>canUse(id,this.skills)&&this.money>=this.cost(id));
-    if((!this.civs.length&&!this.sheltered)||overrun||cutOff||(this.mission.metro&&this.sheltered+this.civs.length<this.quota)) this.phase='lost';
+      && !Object.keys(this.support).some(id=>canUse(id,this.skills)&&this.money>=this.cost(id));
     const final=this.wave>this.mission.waves;
-    if(this.combat&&final&&!this.zombies.length&&this.mission.metro) {
+    if((!this.civs.length&&!this.sheltered&&(!this.mission.atlas||this.remaining))||overrun||cutOff
+      ||this.quota&&this.sheltered+this.civs.length<this.quota) this.phase='lost';
+    if(this.combat&&final&&!this.zombies.length&&this.quota) {
       if(this.clearedAt===null) {
         this.clearedAt=this.time;
         this.emit('secure',this.map.end);
@@ -723,9 +815,9 @@ export class Game {
     }
   }
   result() {
-    const saved=this.mission.metro?this.evacuated:this.sheltered;
+    const saved=this.quota?this.evacuated:this.sheltered+(this.mission.atlas?this.civs.length:0);
     const ratio=saved/this.mission.pop;
-    const score=Math.max(0,Math.round(saved*100+this.kills*8-this.friendly*175));
+    const score=Math.max(0,Math.round(saved*100+(this.mission.atlas?0:this.kills*8)-this.friendly*175));
     const rank=ratio>=.88&&this.friendly<=2?3:ratio>=.60?2:1;
     return {saved, lost:this.lost, kills:this.kills, friendly:this.friendly, score, time:Math.floor(this.time), wave:this.wave, stars:this.phase==='won'?rank:0, money:this.money};
   }

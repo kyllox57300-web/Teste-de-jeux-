@@ -47,8 +47,9 @@ export class Audio {
       if(types.has('shot')&&time>(this.lastShot||0)) {
         this.rustle(1600,.11,.034); this.lastShot=time+.085;
       }
-      if(types.has('blast')||types.has('collapse')) {
-        this.rustle(550,.66,.08);this.voice(83,25,.49,.066,'triangle');
+      if(types.has('blast')||types.has('impact')||types.has('collapse')) {
+        const impact=types.has('impact');
+        this.rustle(impact?720:550,impact?.96:.66,impact?.11:.08);this.voice(83,25,.49,.066,'triangle');
       }
       if(types.has('flame')) this.rustle(2100,.34,.031);
       if(types.has('infect')&&time>(this.lastGrowl||0)) {
@@ -57,7 +58,7 @@ export class Audio {
       if(types.has('siren')||types.has('boss')||types.has('wave')||types.has('breach')) {
         this.voice(280,490,.42,.041,'triangle');this.voice(490,260,.63,.042,'triangle',.37);
       }
-      if(types.has('support')&&events.some(e=>e.id==='heli'||e.id==='air')) {
+      if(events.some(e=>e.type==='support'&&['heli','air','medevac'].includes(e.id))) {
         for(let n=0;n<12;n++) this.voice(70-n*2,37,.18,.027,'triangle',n*.11);
       }
       if(types.has('build')||types.has('level')) this.voice(520,680,.14,.029,'triangle');

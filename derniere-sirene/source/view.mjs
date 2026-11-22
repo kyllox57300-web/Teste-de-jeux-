@@ -18,6 +18,7 @@ const atmos={
   day:{fog:0x374c60,sky:0xc6e2ff,sun:0xffebca,energy:2.45,ambient:2.75,x:-13,y:22,z:-10}
 };
 const daylight=[atmos.day,atmos.dusk,atmos.night];
+const atlasSunset={...atmos.dusk,sky:0xd4c9ea,sun:0xffb784,y:7,ambient:2.25};
 const tint={safe:0x50e4bc,soldier:0x86cbd4,watch:0x9ad4ea,sniper:0x9faeff,flame:0xffad61,turret:0x71c8dd,mortar:0xb2a6e8,wall:0x798c9c,barricade:0xcb894d,gate:0x77ae91,mines:0xffbc68,explosive:0xff7454,tank:0x8eb399,para:0x9dd6e8,heli:0x73caae};
 function barrierColor(u,base,time) {
   const ratio=u.hp/u.maxHp;
@@ -161,16 +162,16 @@ export class View {
   }
   reset(title=false) {
     this.angle=title?-.52:this.tactical?0:.16;
-    this.tilt=title?.63:this.tactical?(this.map.art?1.51:1.45):.99;
+    this.tilt=title?(this.map.art?1.15:.63):this.tactical?(this.map.art?1.48:1.45):.99;
     const {w,h}=this.grid;
     this.fit=Math.max(h,w/this.camera.aspect)/(2*Math.tan(T.MathUtils.degToRad(this.camera.fov/2)))*1.08;
-    this.zoom=this.map.art?this.fit:title?30:this.tactical?(this.camera.aspect<1?41:29):(this.camera.aspect<1?35:27);
-    this.focus.set(title?10.5:(w-1)/2,0,title?7:(h-1)/2);
+    this.zoom=this.map.art?(title?Math.min(this.fit*.78,94):this.fit):title?30:this.tactical?(this.camera.aspect<1?41:29):(this.camera.aspect<1?35:27);
+    this.focus.set(title&&!this.map.art?10.5:(w-1)/2,0,title&&!this.map.art?7:(h-1)/2);
     this.cameraAt();
   }
   switchProjection() {
     this.tactical=!this.tactical;
-    this.tilt=this.tactical?(this.map.art?1.51:1.45):.99;
+    this.tilt=this.tactical?(this.map.art?1.48:1.45):.99;
     this.angle=this.tactical?0:.16;
     this.city.scale.y=this.tactical?.69:1;
     this.renderer.shadowMap.needsUpdate=true;
@@ -248,20 +249,27 @@ export class View {
     this.inspected=null;
     this.hover.visible=false;
     this.city.scale.y=this.tactical?.69:1;
+    const night=game.mission.light==='night';
     this.light=atmos[game.mission.light]||atmos.dusk;
+    if(game.mission.atlas&&!night) this.light=atlasSunset;
     this.scene.background=new T.Color(this.light.fog);
     this.scene.fog.color.copy(this.scene.background);
     this.scene.fog.density=this.map.art?.0027:.016;
-    this.disposeArt?.();
-    this.disposeArt=null;
-    remove(this.city);
+    const reuseArt=this.map.art&&this.art===this.map.art&&this.artNight===night;
+    if(!reuseArt) {
+      this.disposeArt?.();
+      this.disposeArt=null;
+      remove(this.city);
+    }
+    this.art=this.map.art;
+    this.artNight=night;
     this.fx.length=0;
     this.last=-1;
     if(this.map.art) {
-      this.disposeArt=buildMapArt(this.city,this.map.art);
+      if(!reuseArt) this.disposeArt=buildMapArt(this.city,this.map.art,night);
       if(!this.diffusion) {
-        this.diffusion=batch(this.dynamic,'flat',this.grid.w*this.grid.h,
-          basic(0xffffff,{map:diffusionTexture(),transparent:true,opacity:.61,side:T.DoubleSide,depthWrite:false}));
+        this.diffusion=batch(this.dynamic,'flat',112*112,
+          basic(0xffffff,{map:diffusionTexture(),transparent:true,opacity:.79,side:T.DoubleSide,depthWrite:false,toneMapped:false}));
         this.diffusion.renderOrder=1;
       }
     } else this.cityParts(game);
@@ -383,7 +391,7 @@ export class View {
   }
   addEffects(events) {
     for(const {type,i,id,from} of events) {
-      if(['wave','breach','boss','gas','blast','infected','flame','shot','spit','infect','collapse','rescue','support','siren','level','build','convoy','repair'].includes(type)) {
+      if(['wave','breach','boss','gas','blast','impact','infected','flame','shot','spit','infect','collapse','rescue','support','siren','level','build','convoy','repair','flash','decoy'].includes(type)) {
         this.fx.push({type,i,id,from,age:0,seed:Math.random()*1000});
       }
     }
@@ -392,9 +400,9 @@ export class View {
   render(game,now,dt,title=false, paused=false) {
     this.resize();
     if(title) { this.angle=-.52+Math.sin(now*.19)*.085; this.cameraAt(); }
-    const progression=Math.max(0,game.time-12)/93;
+    const progression=game.mission.atlas?0:Math.max(0,game.time-12)/93;
     const segment=(daylight.indexOf(this.light)+Math.floor(progression))%daylight.length;
-    const light=daylight[segment], next=daylight[(segment+1)%daylight.length];
+    const light=game.mission.atlas?this.light:daylight[segment], next=game.mission.atlas?light:daylight[(segment+1)%daylight.length];
     const cycle=T.MathUtils.smoothstep(progression%1,0,1);
     const mix=T.MathUtils.lerp;
     this.sun.color.set(light.sun).lerp(this.skyBlend.set(next.sun),cycle);
@@ -411,19 +419,22 @@ export class View {
     }
     const bodies=[],heads=[],contacts=[],gear=[],marks=[],trace=[],particles=[],hot=[],routes=[],heat=[],areas=[],outline=[];
     const detail=this.setting!=='low'||this.zoom<18;
+    const reduced=this.crowd==='low'||(this.crowd==='auto'&&(this.width<700||this.setting==='low'));
     for(const list of [game.civs,game.zombies]) for(const p of list) {
       if(bodies.length+contacts.length>=4096) break;
       const spec=infected[p.id];
+      if(reduced&&list.length>160&&p.visualID%3!==0) continue;
       const s=spec?.size||.91;
       if(this.tactical) {
         const marker=this.map.art?(spec?.size||1)*(spec?.32:.25):(spec?.size||1)*(p.id==='fast'?.31:.19);
-        placeAt(contacts,p.x,p.z,.12,marker,.041,marker,spec?0xff795b:0xaeeefa);
+        placeAt(contacts,p.x,p.z,.12,marker,.041,marker,spec?(game.mission.atlas?0xf6aaff:0xff795b):0xe4fff2);
         if(p.id==='boss') placeAt(hot,p.x,p.z,.37,.46,.46,.46,0xff512f);
         continue;
       }
       const bob=.016*Math.sin(now*16+p.ox*21)*s;
-      placeAt(bodies,p.x,p.z,.17*s+bob,.14*s,.22*s,.11*s,spec?spec.color:0x78ddf5,p.angle);
-      if(detail||p.id==='boss') placeAt(heads,p.x,p.z,.32*s+bob,.13*s,.145*s,.13*s,spec?spec.color:0xf4c3a6,p.angle);
+      const body=spec?(game.mission.atlas?0xcf6df9:spec.color):0xb1e3cd;
+      placeAt(bodies,p.x,p.z,.17*s+bob,.14*s,.22*s,.11*s,body,p.angle);
+      if(detail||p.id==='boss') placeAt(heads,p.x,p.z,.32*s+bob,.13*s,.145*s,.13*s,spec?body:0xf4c3a6,p.angle);
       if(p.id==='boss') {
         placeAt(gear,p.x,p.z,.33,.78,.16,.18,0xb1527b,p.angle);
         placeAt(hot,p.x,p.z,.96,.5,.04,.08,0xff5b5b);
@@ -431,6 +442,14 @@ export class View {
     }
     const flatPlan=this.tactical&&!!this.map.art;
     const planHeight=this.planHeight();
+    for(const {contour} of game.waitingZones) {
+      areas.push({points:contour,c:0x52cef7,y:planHeight});
+      for(let i=0;i<contour.length;i++) this.segment(outline,contour.at(i-1),contour[i],planHeight+.04,.024,.075,0x89e3ff);
+    }
+    if(this.map.art) for(const i of game.bridgeDamage) {
+      const [x,z]=this.location(i);
+      placeAt(outline,x,z,planHeight+.04,.63,.03,.69,0x26223b,Math.PI/4);
+    }
     for(const u of game.units.values()) {
       this.unit(gear,marks,hot,u,now);
       if(u.contour) {
@@ -470,8 +489,8 @@ export class View {
     }
     if(this.placementPreview) {
       const p=this.placementPreview;
-      const c=p.error?0xf58970:0xa5ffe1;
-      if(p.kind==='safe') {
+      const c=p.error?0xf58970:p.kind==='waiting'?0x89e3ff:0xa5ffe1;
+      if(p.kind==='safe'||p.kind==='waiting') {
         const path=p.contour;
         if(p.validShape) areas.push({points:path,c,y:planHeight+.025});
         for(let i=1;i<path.length;i++) this.segment(outline,path[i-1],path[i],planHeight+.062,.025,.085,c);
@@ -500,8 +519,9 @@ export class View {
       const v=game.fog[i];
       if(v<.16 || !open(game.map.cells,i)) continue;
       const [x,z]=this.location(i);
-      const c=this.tactical?(v>.69?0xc65340:v>.35?0x953d37:0x633632):(v>.69?0xe77740:v>.35?0xab5753:0x764755);
-      const size=this.map.art?1.21+v*2.25:.91;
+      const c=game.mission.atlas?(v>.69?0xbe39ff:v>.35?0x944adc:0x7248b3)
+        :this.tactical?(v>.69?0xc65340:v>.35?0x953d37:0x633632):(v>.69?0xe77740:v>.35?0xab5753:0x764755);
+      const size=this.map.art?1.03+v*1.68:.91;
       heat.push([x,.026,z,size,size,1,c,0,-Math.PI/2]);
     }
     if(game.guide.length) {
@@ -519,8 +539,9 @@ export class View {
       const [x,z]=this.location(game.map.start);
       const signal=(now*1.45)%1;
       const width=.74+signal*1.65;
-      marks.push([x,.042,z,width,width,1,signal<.55?0xffa571:0x964c49,0,-Math.PI/2]);
-      if(game.mission.containment&&game.phase==='prep') marks.push([x,.043,z,4.5,4.5,1,0xbf6551,0,-Math.PI/2]);
+      const c=game.mission.atlas?0xd88bff:signal<.55?0xffa571:0x964c49;
+      marks.push([x,.042,z,width,width,1,c,0,-Math.PI/2]);
+      if(game.mission.containment&&game.phase==='prep') marks.push([x,.043,z,4.5,4.5,1,c,0,-Math.PI/2]);
     }
     for(const fx of this.fx) {
       if(!paused) fx.age+=dt;
@@ -627,20 +648,21 @@ export class View {
       placeAt(trace,(x+u)/2,(z+v)/2,.29,.026,.025,d,c,Math.atan2(x-u,z-v));
       placeAt(hot,x,z,.28,.115,.115,.115,c);
       placeAt(particles,u+.14+a,v-.16,.2+a*.65,.05,.055,.09,0xcba564);
-    } else if((fx.type==='convoy'||fx.type==='repair')&&a<1.55) {
+    } else if(['convoy','repair','decoy','flash'].includes(fx.type)&&a<1.55) {
       const radius=.16+Math.sqrt(a)*(fx.type==='repair'?1.1:1.7);
       for(let n=0;n<16;n++) {
         const angle=n*Math.PI/8+a*.7;
-        placeAt(hot,x+Math.cos(angle)*radius,z+Math.sin(angle)*radius,.13,.14,.12,.14,0x77e7c7);
+        placeAt(hot,x+Math.cos(angle)*radius,z+Math.sin(angle)*radius,.13,.14,.12,.14,fx.type==='flash'?0xffffcd:0x77e7c7);
       }
-    } else if(fx.type==='blast'||fx.type==='infected'||fx.type==='flame'||fx.type==='collapse') {
+    } else if(['blast','impact','infected','flame','collapse'].includes(fx.type)) {
       const fire=fx.type==='flame';
+      const scale=fx.type==='impact'&&this.map.art?1.8:1;
       const max=this.setting==='low'?4:fire?5:12;
       for(let n=0;n<max;n++) {
-        const th=n*2.399+fx.seed, rad=(n%4+1)*a*.49;
+        const th=n*2.399+fx.seed, rad=(n%4+1)*a*.49*scale;
         const y=.18+Math.max(0,Math.sin(Math.min(1,a)*Math.PI*.85))*(n%3+1)*.47;
         if(a<.56) {
-          const s=(this.tactical?.29+.115*(n%4):.38+.18*(n%5))*(1-a)*(fire?.56:1);
+          const s=(this.tactical?.29+.115*(n%4):.38+.18*(n%5))*(1-a)*(fire?.56:scale);
           placeAt(hot,x+Math.cos(th)*rad,z+Math.sin(th)*rad,y,s,s*1.1,s,n%2?0xffbb54:0xff713d);
         }
         if(!fire && a<2.8) {
@@ -650,15 +672,20 @@ export class View {
         }
       }
     } else if(fx.type==='support' && a<1.8) {
-      if(fx.id==='air'||fx.id==='heli') {
+      const scale=this.map.art?2.2:1;
+      if(['air','heli','medevac'].includes(fx.id)) {
         const xx=x+12-a*11, zz=z-5+a*5.2, y=2.7-a*.55;
-        placeAt(trace,xx,zz,y,1.32,.13,.31,0x8db2cc,-.44);
-        placeAt(trace,xx,zz,y,.26,.19,.91,0xacc3d5,-.44);
-        if(fx.id==='heli') placeAt(trace,xx,zz,y+.17,1.9,.027,.05,0xa9d4d7,now*22);
+        placeAt(trace,xx,zz,y,1.32*scale,.13,.31*scale,0x8db2cc,-.44);
+        placeAt(trace,xx,zz,y,.26*scale,.19,.91*scale,0xacc3d5,-.44);
+        if(fx.id!=='air') placeAt(trace,xx,zz,y+.17,1.9*scale,.027,.05*scale,0xa9d4d7,now*22);
       } else if(fx.id==='missile'&&a<1.57) {
-        const h=2.3*(1.6-a);
-        placeAt(hot,x+a*.26,z+.23,h,.19,.53,.18,0xffb654);
-        for(let n=0;n<8;n++) placeAt(particles,x+a*.26,z+.23,h+n*.23,.23,.30,.23,0xa2a0ad);
+        const h=2.3*(1.6-a)*scale;
+        const xx=x+(1.56-a)*scale,zShift=(1.56-a)*scale*.5;
+        placeAt(hot,xx,z+zShift,h,.19*scale,.53*scale,.18*scale,0xffb654);
+        for(let n=0;n<10;n++) {
+          const k=n*.13*scale;
+          placeAt(particles,xx+k,z+zShift+k*.5,h+k*2,.23*scale,.30*scale,.23*scale,n<2?0xffd083:0xa2a0ad);
+        }
       } else if(fx.id==='para'&&a<1.45) {
         for(let n=0;n<3;n++) {
           const h=1.8*(1.45-a);

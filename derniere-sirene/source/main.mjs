@@ -1,9 +1,10 @@
-import { W,H,terrain as t,defenses,support,missions,specials,endless,metz,containment,difficulty,tree,badges,canUse } from './data.mjs';
+import { W,H,terrain as t,defenses,missions,specials,endless,metz,containment,atlas,mutators,withMutators,difficulty,tree,badges,canUse } from './data.mjs';
 import { Game } from './game.mjs';
 import { generate,open,point,cell,validCustom } from './city.mjs';
 import { available,award,finish,learn,load,parseSave,skillPoints,store } from './progress.mjs';
 import { View } from './view.mjs';
 import { Audio } from './sound.mjs';
+import { convertOSM,parseOSM } from './osm.mjs';
 
 const $=id=>document.getElementById(id);
 const dom=Object.fromEntries(['app','topbar','screen','hud','metrics','stage','brief','dock','pins','world','radar','modal','toast','file'].map(id=>[id,$(id)]));
@@ -11,15 +12,22 @@ const escape=text=>String(text).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','
 const button=(text,action,cls='button',value='')=>`<button class="${cls}" data-action="${action}" data-value="${value}">${text}</button>`;
 const clock=t=>`${String(Math.floor(t/60)).padStart(2,'0')}:${String(Math.floor(t%60)).padStart(2,'0')}`;
 const stars=n=>'★'.repeat(n)+'☆'.repeat(3-n);
-const routeTabs=[['containment','Confinement'],['campaign','Campagne'],['special','Opérations spéciales'],['survival','Survie'],['tree','Compétences'],['badges','Succès'],['editor','Éditeur']];
+const routeTabs=[['atlas','Villes réelles'],['tree','Compétences'],['campaign','Campagne'],['containment','Confinement'],['special','Opérations spéciales'],['survival','Survie'],['badges','Succès'],['editor','Éditeur']];
 const estuary=[[5,62],[13,68],[21,51],[29,41],[37,59],[45,56],[53,34],[61,46],[69,64],[77,57],[85,39],[94,41]];
 const speeds=[0,.5,1,2,4];
 const speedName=v=>v===0?'Ⅱ':v===.5?'×0,5':'×'+v;
 const colors=['#414c61','#75839d','#245872','#4e705e','#b9a083'];
-const tools=[...Object.keys(support)];
 const structureNames={safe:'Zone sûre',wall:'Mur',gate:'Porte',barricade:'Barricade'};
 const sectors=[metz,...containment];
-const citySupport={...support,safe:{...defenses.safe,name:'Refuge avancé',info:'Ouvre un refuge desservi par les navettes.'}};
+const advancedShelter={...defenses.safe,name:'Refuge avancé',info:'Ouvre un refuge desservi par les navettes.'};
+const atlasDefenses={
+  soldier:{...defenses.soldier,name:'Garnison'},sniper:defenses.sniper,turret:defenses.turret,mortar:defenses.mortar,mines:defenses.mines,
+  explosive:{...defenses.explosive,name:'C4'},safe:{...defenses.safe,info:'Trace un refuge et ceinture-le. Ajoute des portes pour laisser entrer les civils.'},
+  wall:defenses.wall,gate:defenses.gate
+};
+const modifiers=new Set();
+const atlasMaps=new Map();
+let loading=null;
 const pointers=new Map();
 const audio=new Audio();
 const radarCtx=dom.radar.getContext('2d');
@@ -28,6 +36,7 @@ let tut=0,tutSteps=0,toastTimer,result,frameClock=0,hudClock=0,acc=0,rafLast=0,v
 
 try {
   view=new View(dom.world,save.opts.quality);
+  view.crowd=save.opts.crowd;
 } catch {
   dom.stage.innerHTML='';
   showModal('error','WebGL indisponible',`<p>Le rendu 3D nécessite WebGL 2. Activez l’accélération graphique ou ouvrez le jeu dans un navigateur récent.</p><p><a class="button" href="../">Revenir aux jeux</a></p>`);
@@ -48,32 +57,33 @@ function notify(text) {
 }
 function header() {
   dom.topbar.innerHTML=`<button class="brand" data-action="${page==='mission'?'pause':'home'}"><span class="logo" aria-hidden="true">◬</span> Dernière Sirène</button><div class="top-actions">${page==='mission'
-    ?button('Pause','pause','small')+button('Paramètres','settings','small')
+    ?(game.mission.atlas?button('Rejouer','retry','small'):'')+button('Pause','pause','small')+button('Paramètres','settings','small')
     :button('Paramètres','settings','small')+'<a class="small" href="../">Mes jeux</a>'}</div>`;
 }
 function go(next) {
   page=next;
+  loading=null;
   pointers.clear();
   gesture=null;
   view.placementPreview=null;
   closeModal();
   dom.app.className='app '+(page==='mission'?'mission':page==='title'?'title':'menu');
+  dom.app.classList.toggle('atlas-mission',page==='mission'&&!!game.mission.atlas);
   dom.hud.hidden=page!=='mission';
   dom.stage.hidden=page!=='mission'&&page!=='title';
-  $('map-source').hidden=page!=='mission'||!game.mission.metro;
+  $('map-source').hidden=page!=='title'&&(page!=='mission'||!game.mission.metro);
   dom.pins.replaceChildren();
   header();
   if(page==='title') {
-    game=new Game({...containment[0],light:'dusk'});
+    game=new Game(atlas[0]);
     view.resize();
     view.build(game,true);
     dom.screen.innerHTML=`<section class="title-copy">
       <div class="eyebrow">Commandement de crise</div>
       <h1>Dernière<br><em>Sirène</em></h1>
-      <p>Un foyer vient d’apparaître. Tiens les rues, ouvre les refuges et fais partir les premières navettes avant que la horde ne gagne les ponts.</p>
-      <div class="title-actions">${button('Contenir un foyer','nav','button primary','containment')}${button('Campagne','nav','button outline','campaign')}</div>
-    </section><footer class="title-footer">CONFINEMENT · CAMPAGNE · SURVIE</footer>
-    <div class="title-address"><span>◬ NOUVEAU SECTEUR</span><br>METZ · MOSELLE</div>`;
+      <p>Une sirène. Des milliers de civils. Boucle les rues avant que l’infection franchisse ton périmètre.</p>
+      <div class="title-actions">${button('Villes réelles','nav','button primary','atlas')}${button('Campagne','nav','button outline','campaign')}${button('Contenir un foyer','nav','button outline','containment')}</div>
+    </section><div class="title-address">METZ · MOSELLE</div>`;
     return;
   }
   if(page==='mission') {
@@ -127,10 +137,19 @@ function paintEstuary() {
   }
 }
 function menu() {
-  const titles={containment:'Confinement',campaign:'Carte des missions',special:'Opérations spéciales',survival:'Survie infinie',tree:'Arbre de compétences',badges:'Succès',editor:'Éditeur de ville'};
+  const titles={atlas:'Villes réelles',containment:'Confinement',campaign:'Carte des missions',special:'Opérations spéciales',survival:'Survie infinie',tree:'Arbre de compétences',badges:'Succès',editor:'Éditeur de ville'};
   const total=Object.values(save.records).reduce((a,b)=>a+b.stars,0);
-  const captions={containment:'Un foyer au départ. Chaque civil infecté rejoint la horde. Élimine-la pour sécuriser le secteur.',campaign:`${Object.keys(save.records).length} / 12 terminées · ${total} / 36 étoiles`,special:'Des règles qui changent la défense.',survival:`Record · ${save.survival} vague${save.survival===1?'':'s'}`,tree:`${skillPoints(save)} point(s) disponible(s). Une première victoire rapporte un point.`,badges:`${save.badges.length} / ${badges.length} déverrouillés`,editor:'Dessinez votre ville, testez-la et sauvegardez-la sur cet appareil.'};
+  const captions={atlas:'Choisis un secteur. La carte et les traversées viennent d’OpenStreetMap.',containment:'Un foyer au départ. Chaque civil infecté rejoint la horde. Élimine-la pour sécuriser le secteur.',campaign:`${Object.keys(save.records).length} / 12 terminées · ${total} / 36 étoiles`,special:'Des règles qui changent la défense.',survival:`Record · ${save.survival} vague${save.survival===1?'':'s'}`,tree:`${skillPoints(save)} point(s) disponible(s). Une première victoire rapporte un point.`,badges:`${save.badges.length} / ${badges.length} déverrouillés`,editor:'Dessinez votre ville, testez-la et sauvegardez-la sur cet appareil.'};
   let body='';
+  if(page==='atlas') body=`<div class="atlas-controls"><div class="options-row" aria-label="Mutateurs">${Object.entries(mutators).map(([id,name])=>
+    `<button class="tab ${modifiers.has(id)?'active':''}" data-action="mutator" data-value="${id}" aria-pressed="${modifiers.has(id)}">${name}</button>`).join('')}</div>
+    ${button('Importer une carte OSM','osm-help','button outline')}</div>
+    <div class="matrix atlas-grid">${atlas.map(m=>{
+      const record=save.containment[m.id];
+      return `<button class="mission-card ${m.theme}" data-action="atlas-city" data-value="${m.id}" ${loading?'disabled':''}>
+        <small class="eyebrow">${m.zone}</small><strong>${m.name}</strong><small>${loading?.id===m.id?'Chargement…':m.pop.toLocaleString('fr-FR')+' civils'}${record?' · '+record.saved+' sauvés':''}</small>
+        ${record?`<span class="stars">${stars(record.stars)}</span>`:''}</button>`;
+    }).join('')}</div>`;
   if(page==='containment') body=`<div class="matrix">${sectors.map(m=>{
     const record=save.containment[m.id];
     return `<button class="mission-card ${m.metro?'atlas-card':''} ${m.theme}" data-action="mission" data-value="${m.id}">
@@ -155,7 +174,7 @@ function menu() {
       <div id="cities">${save.cities.map((c,i)=>`<div class="city-card"><strong>${escape(c.name)}</strong><div class="options-row">${button('Modifier','editCity','small',i)}${button('Jouer','runCity','small',i)}${button('Supprimer','deleteCity','small',i)}</div></div>`).join('')}</div>
     </div></div>`;
   }
-  const diffSelect=['containment','campaign','special','survival'].includes(page)?`<div class="options-row">${Object.entries(difficulty).map(([id,d])=>button(d.name,'difficulty','tab '+(id===save.opts.level?'active':''),id)).join('')}</div>`:'';
+  const diffSelect=['atlas','containment','campaign','special','survival'].includes(page)?`<div class="options-row">${Object.entries(difficulty).map(([id,d])=>button(d.name,'difficulty','tab '+(id===save.opts.level?'active':''),id)).join('')}</div>`:'';
   dom.screen.innerHTML=`<section class="shell"><div class="content"><div class="heading"><div><div class="eyebrow">Poste de commandement</div><h1>${titles[page]}</h1><p>${captions[page]}</p></div>${diffSelect}</div>
     <nav class="tabs" aria-label="Modes de jeu">${routeTabs.map(([id,name])=>button(name,'nav','tab '+(id===page?'active':''),id)).join('')}</nav>${body}
   </div></section>`;
@@ -213,15 +232,65 @@ function editCity(test=false) {
   award(save,'builder');
   writeSave();menu();notify('Ville enregistrée.');
 }
-function start(m) {
+async function startAtlas(m) {
+  if(!m||loading) return;
+  const mission=withMutators(m,modifiers);
+  if(m.mapId==='metz') return start(mission);
+  loading=m;
+  menu();
+  try {
+    let geography=atlasMaps.get(m.mapId);
+    if(!geography) {
+      const response=await fetch('./maps/'+m.mapId+'.json');
+      if(!response.ok) throw Error('Carte indisponible.');
+      geography=await response.json();
+      atlasMaps.set(m.mapId,geography);
+    }
+    if(loading===m&&page==='atlas') start({...mission,geography});
+  } catch {
+    if(loading!==m||page!=='atlas') return;
+    loading=null;
+    menu();
+    showModal('map-error','Carte indisponible',`<p>Ouvre cette ville une première fois avec une connexion Internet. Metz est disponible immédiatement.</p>
+      <div class="dialog-actions">${button('Fermer','close','button primary')}</div>`);
+  }
+}
+function osmHelp() {
+  showModal('osm','Importer une ville',`<ol class="osm-steps">
+    <li>Sur <a href="https://www.openstreetmap.org/export" target="_blank" rel="noopener">OpenStreetMap</a>, zoome sur un quartier d’environ 1 à 3 km de large.</li>
+    <li>Dans <strong>Exporter</strong>, utilise au besoin la sélection manuelle de la zone, puis télécharge <em>map.osm</em>.</li>
+    <li>Sélectionne le fichier téléchargé. Les exports OpenStreetMap XML et les réponses JSON avec nœuds et chemins sont acceptés.</li>
+    </ol><div class="dialog-actions">${button('Choisir le fichier','osm-choose','button primary')}${button('Fermer','close')}</div>`);
+}
+async function importOSM(file) {
+  try {
+    if(file.size>40*1024*1024) throw Error('Le fichier dépasse 40 Mo. Exporte un quartier plus petit.');
+    showModal('osm-loading','Lecture de la ville', '<p>Construction du réseau de rues depuis le fichier local…</p>');
+    const raw=await file.text();
+    if(modal!=='osm-loading') return;
+    const geography=convertOSM([parseOSM(raw)]);
+    const name=file.name.replace(/\.(osm|xml|json)$/i,'').trim().slice(0,38)||'Quartier importé';
+    const pop=Math.min(2650,Math.max(420,Math.round(geography.anchors.length*.5)));
+    start(withMutators({...atlas[0],id:'atlas-local',name,zone:'CARTE OPENSTREETMAP IMPORTÉE',geography,pop,
+      count:Math.round(12+pop*.017),briefing:['Générale Varga','Reconnais les rues et trace un repli vers le refuge.']},modifiers));
+  } catch(error) {
+    showModal('osm-error','Import impossible',`<p>${escape(error.message)}</p><div class="dialog-actions">
+      ${button('Réessayer','osm-help','button primary')}${button('Fermer','close')}</div>`);
+  }
+}
+function start(m,brief=true) {
   if(!m) return;
   game=new Game(m,save.opts.level,save.skills.slice());
   selected='soldier';speed=save.opts.speed;acc=0;status='';result=null;
+  if(m.atlas) freehand=true;
   tut=m.id===0&&!save.seen?1:0;
   tutSteps=0;
   go('mission');
   if(tut) opening();
-  else showModal('briefing',m.name,`<p class="eyebrow">${escape(m.briefing[0])}</p><p>« ${escape(m.briefing[1])} »</p>${m.metro?`<p><strong>Objectif</strong> · Élimine la horde et évacue au moins ${game.quota} personnes. Les navettes partent des refuges toutes les 12 secondes. Zoome pour bien viser les rues.</p>`:m.containment?'<p>Les escouades peuvent changer de rue après le départ. Sélectionne « Ordres », une escouade, puis sa destination.</p>':m.rule?`<p>${escape(m.rule)}</p>`:''}<div class="dialog-actions">${button('Examiner la carte','close','button primary')}</div>`);
+  else if(brief) showModal('briefing',m.name,`<p class="eyebrow">${escape(m.briefing[0])}</p><p>« ${escape(m.briefing[1])} »</p>${m.atlas?
+    `<p>Place tes défenses à l’arrêt. Garde des crédits pour les renforts, puis élimine tous les infectés.</p>${m.modifiers?.length?`<p>${m.modifiers.map(id=>mutators[id]).join(' · ')}</p>`:''}`
+    :game.quota?`<p><strong>Objectif</strong> · Élimine la horde et évacue au moins ${game.quota} personnes. Les navettes partent des refuges toutes les 12 secondes. Zoome pour bien viser les rues.</p>`
+    :m.containment?'<p>Les escouades peuvent changer de rue après le départ. Sélectionne « Ordres », une escouade, puis sa destination.</p>':m.rule?`<p>${escape(m.rule)}</p>`:''}<div class="dialog-actions">${button('Examiner la carte','close','button primary')}</div>`);
 }
 function opening() {
   showModal('briefing','La première sirène',`<p class="eyebrow">Générale Varga · Canal 01</p><p>« Foyer confirmé à l’est. Protégez les carrefours et conduisez les habitants au refuge. Nous commençons quand vous êtes prêt. »</p>
@@ -242,7 +311,12 @@ function begin() {
 }
 function showHUD(rebuild=false) {
   const live=game.combat;
-  const items=live?(game.mission.metro?citySupport:support):defenses;
+  const support=game.support, tools=Object.keys(support);
+  let items=live?(game.quota?{...support,safe:advancedShelter}:support):defenses;
+  if(!live&&game.mission.atlas) {
+    items={...atlasDefenses};
+    for(const id of ['flame','watch']) if(canUse(id,game.skills)) items[id]=defenses[id];
+  }
   if(rebuild) {
     dom.dock.innerHTML=`<div class="dock-head"><div><span class="eyebrow">${live?'Épidémie':'Préparation'}</span><h2>${escape(game.mission.name)}</h2></div><span class="clock" id="clock"></span></div>
       <div class="kit" aria-label="${live?'Renforts':'Défenses'}">${Object.entries(items).map(([id,info],n)=>`<button class="tool" data-action="tool" data-value="${id}" title="${info.info}" aria-label="${info.name}"><span class="icon" aria-hidden="true">${info.icon}</span><span><span class="tool-label">${info.name}</span><span class="tool-price" id="price-${id}">${live&&support[id]?(n+1)+' · ':''}${game.cost(id)} cr</span></span></button>`).join('')}</div>
@@ -254,6 +328,7 @@ function showHUD(rebuild=false) {
       </div>
       <div class="tools-extra" id="normal-tools"><button class="small" data-action="tool" data-value="guide" aria-label="Tracer un couloir">Couloir</button>
       <button id="erase-guide" class="small" data-action="erase" aria-label="Effacer le couloir" hidden>Effacer</button>
+      ${game.mission.atlas?button('Zone d’attente','tool','small','waiting')+'<button id="release-waiting" class="small" data-action="release-waiting" hidden>Libérer l’attente</button>':''}
       <button id="shape" class="small" data-action="shape" aria-pressed="false" hidden>Main levée</button>
       ${live?button('Ordres','tool','small','command')+button('Fortifs','tool','small','inspect')+button('Détoner','tool','small','boom'):button('Retirer','tool','small','sell')+'<button id="fortify" class="small" data-action="fortify" hidden>Ceinturer</button>'}</div>
       <div class="tools-extra" id="fort-controls" hidden>
@@ -261,10 +336,10 @@ function showHUD(rebuild=false) {
         <button id="repair" class="small" data-action="repair">Réparer</button>
         <button class="small" data-action="inspect-back">Retour</button>
       </div>
-      <footer><div class="speed" aria-label="Vitesse">${speeds.map(v=>button(speedName(v),'speed','',v)).join('')}</div>${live?(game.mission.metro?'<button id="confirm-rescue" class="button mint" data-action="confirm-rescue" hidden>Valider le bilan</button>':''):button('Prêt · lancer l’épidémie','ready','button primary')}</footer>`;
+      <footer><div class="speed" aria-label="Vitesse">${speeds.map(v=>button(speedName(v),'speed','',v)).join('')}</div>${live?(game.quota?'<button id="confirm-rescue" class="button mint" data-action="confirm-rescue" hidden>Valider le bilan</button>':''):button('Prêt · lancer l’épidémie','ready','button primary')}</footer>`;
   }
   const metrics=[['cash','Crédits',game.money],['rescue','À l’abri',game.sheltered+'/'+game.mission.pop],['infect','Infectés',game.remaining],['','Victimes',game.lost]];
-  if(game.mission.metro) metrics[1]=['rescue','Évacués',game.evacuated+'/'+game.quota];
+  if(game.quota) metrics[1]=['rescue','Évacués',game.evacuated+'/'+game.quota];
   if(game.mission.containment) metrics.splice(2,0,['street','En rue',game.civs.length]);
   if(rebuild) dom.metrics.innerHTML=metrics.map(([cls,name])=>{
     const value=`<strong></strong><small>${name}</small>`;
@@ -289,6 +364,7 @@ function showHUD(rebuild=false) {
     fortify.title=perimeter?.segments.length?`Suivre le contour · ${perimeter.price} cr`:'Entourer la zone de murs';
   }
   $('erase-guide').hidden=!game.guide.length;
+  if($('release-waiting')) $('release-waiting').hidden=!game.waitingZones.length;
   const shape=$('shape');
   shape.hidden=selected!=='safe';
   shape.setAttribute('aria-pressed',String(freehand));
@@ -302,11 +378,12 @@ function showHUD(rebuild=false) {
       :'Glisse d’un coin à l’autre pour tracer un rectangle. Active Main levée pour dessiner le contour.';
   const drawHint={
     safe:shelterInfo,
+    waiting:'Trace une zone bleue à main levée. Les civils proches y attendent si la rue est sûre. Libère la zone pour les laisser repartir.',
     wall:'Glisse pour tracer un mur continu. Utilise deux doigts ou Maj + glisser pour déplacer la carte.',
     gate:`Touche un point vert sur le mur pour poser une porte (${game.wallGatePrice()} cr). Les infectés doivent la briser.`
   };
   $('detail').textContent=(preview?preview.error||(
-    preview.kind==='safe'?`${preview.tiles.length} cases · ${preview.cap} places · ${preview.price} cr`
+    preview.kind==='waiting'?`${preview.tiles.length} cases d’attente`:preview.kind==='safe'?`${preview.tiles.length} cases · ${preview.cap} places · ${preview.price} cr`
       :`${preview.segments.length} section(s) de mur · ${preview.price} cr`):null)||drawHint[selected]||items[selected]?.info||({
     guide:'Glissez sur les rues pour tracer un itinéraire vers la croix verte. Sur mobile, utilisez deux doigts pour déplacer la carte.',
     sell:'Touchez une défense pour la retirer et récupérer son coût.',
@@ -343,7 +420,7 @@ function showHUD(rebuild=false) {
   if(live&&game.latestBreach) brief=`<strong>Brèche · ${structureNames[game.latestBreach.id]} détruit${['safe','gate','barricade'].includes(game.latestBreach.id)?'e':''}</strong>
     ${button('Voir la brèche','locate-breach','small breach-focus')}`;
   else if(live&&game.clearedAt!==null) brief=`<strong>Ville assainie</strong><p>${game.canConfirm?'Objectif atteint. Continue les évacuations ou valide le bilan.':'Ouvre des refuges et laisse les navettes atteindre le quota.'}</p>`;
-  else brief=hint?`<strong>${hint[0]}</strong><p>${hint[1]}</p>`:status?`<strong>${escape(status)}</strong>`:!live?`<strong>${escape(game.mission.zone)}</strong><p>${escape(game.mission.rule||(game.mission.metro?'Prévois plusieurs refuges et protège les accès.':game.mission.containment?'Interdiction de placer des défenses dans le périmètre orange.':'Protégez les accès aux refuges. Le temps est arrêté.'))}</p>`:'';
+  else brief=hint?`<strong>${hint[0]}</strong><p>${hint[1]}</p>`:status?`<strong>${escape(status)}</strong>`:!live?`<strong>${escape(game.mission.zone)}</strong><p>${escape(game.mission.rule||(game.mission.atlas?'Place tes défenses hors du foyer violet.':game.mission.metro?'Prévois plusieurs refuges et protège les accès.':game.mission.containment?'Interdiction de placer des défenses dans le périmètre orange.':'Protégez les accès aux refuges. Le temps est arrêté.'))}</p>`:'';
   if(dom.brief.innerHTML!==brief) dom.brief.innerHTML=brief;
 }
 function showFortification() {
@@ -382,8 +459,9 @@ function projectionLabel() {
   dom.app.classList.toggle('tactical',view.tactical);
 }
 function choose(id) {
-  if(id==='guide' || id==='boom' || id==='sell' || id==='command'||id==='inspect') selected=selected===id?'':id;
-  else if(game.combat&&id==='safe'&&game.mission.metro&&game.money>=game.cost(id)) selected=id;
+  const support=game.support;
+  if(['guide','waiting','boom','sell','command','inspect'].includes(id)) selected=selected===id?'':id;
+  else if(game.combat&&id==='safe'&&game.quota&&game.money>=game.cost(id)) selected=id;
   else if(game.combat
     ?support[id]&&canUse(id,game.skills)&&game.cost(id)<=game.money&&!(game.cd[id]>game.time)&&!(game.mission.noair&&support[id].air)
     :defenses[id]&&canUse(id,game.skills)&&(id==='gate'?minimumGateCost():game.cost(id))<=game.money) selected=id;
@@ -450,7 +528,7 @@ function mapAction(i,append=false) {
   } else if(game.combat&&!selected) {
     if(!game.detonate(i)) return;
   } else if(selected) {
-    const ok=game.combat&&support[selected]?game.call(selected,i):game.place(selected,i);
+    const ok=game.combat&&game.support[selected]?game.call(selected,i):game.place(selected,i);
     if(ok&&selected==='safe') view.activeZone=game.zoneAt(i);
     if(ok&&selected==='gate') notify('Porte posée. Les civils peuvent la franchir.');
     if(ok && tut===1 && ++tutSteps>=2) tut=2;
@@ -469,6 +547,7 @@ function settings() {
     <label class="setting">Effets sonores <input type="checkbox" data-opt="sound" ${opts.sound?'checked':''}></label>
     <label class="setting">Musique <input type="checkbox" data-opt="music" ${opts.music?'checked':''}></label>
     <label class="setting">Qualité graphique <select data-opt="quality">${options([['low','Bas'],['medium','Moyen'],['high','Haut']],opts.quality)}</select></label>
+    <label class="setting">Foule à l’écran <select data-opt="crowd">${options([['auto','Automatique'],['full','Complète'],['low','Réduite']],opts.crowd)}</select></label>
     <label class="setting">Vitesse initiale <select data-opt="speed">${options(speeds.slice(1).map(v=>[v,speedName(v)]),opts.speed)}</select></label>
     <label class="setting">Difficulté <select data-opt="level">${options(Object.entries(difficulty).map(([k,v])=>[k,v.name]),opts.level)}</select></label>
     <div class="dialog-actions">${button('Exporter la sauvegarde','export')}${button('Importer','import')}${button('Fermer','close','button primary')}</div>`);
@@ -495,18 +574,26 @@ function endMission() {
   if(finale) audio.tick([{type:'rescue'}],save.opts,false,true);
   const title=finale?'Après la sirène':survival?'Fin de transmission':won?'Ville sécurisée':'Opération compromise';
   const total=Object.values(save.records).reduce((a,b)=>a+b.stars,0);
-  const stats=[[game.mission.metro?'Évacués':'Sauvés',result.saved+'/'+game.mission.pop],['Victimes',result.lost],['Infectés éliminés',result.kills],['Pertes alliées',result.friendly],['Score',result.score.toLocaleString('fr-FR')],[survival?'Vague':'Durée',survival?result.wave:clock(result.time)]];
+  const stats=[[game.quota?'Évacués':'Sauvés',result.saved+'/'+game.mission.pop],['Victimes',result.lost],['Infectés éliminés',result.kills],['Tirs alliés',result.friendly],['Score',result.score.toLocaleString('fr-FR')],[survival?'Vague':'Durée',survival?result.wave:clock(result.time)]];
   const epilogue=finale?`<p>« Les bateaux ont quitté l’estuaire. Imani a fermé l’installation. Pour la première fois depuis les Verriers, la radio ne demande plus de secours. » — Capitaine Sol</p><p>Bilan de campagne · ${Object.keys(save.records).length} villes sécurisées · ${total}/36 étoiles · ${Object.values(save.records).reduce((a,b)=>a+b.saved,0)} civils sauvés sur vos meilleurs résultats.</p>`:'';
   const next=won&&typeof game.mission.id==='number'&&game.mission.id<missions.length-1?button('Mission suivante','next','button primary'):'';
   showModal('result',title,`${won?`<p class="stars" aria-label="${result.stars} étoiles">${stars(result.stars)}</p>`:''}${epilogue}
     <div class="stats">${stats.map(([label,n])=>`<div><strong>${n}</strong>${label}</div>`).join('')}</div>
-    <div class="dialog-actions">${next}${button('Rejouer','retry')}${button('Retour au commandement','quit')}</div>`);
+    <div class="dialog-actions">${next}${button('Rejouer','retry',game.mission.atlas?'button primary':'button')}${won&&game.mission.atlas?button('Compétences','nav','button','tree'):''}${button('Retour au commandement','quit')}</div>`);
 }
 function dispatch(action,value) {
   audio.wake();
   if(action==='home') go('title');
   if(action==='nav') go(value);
   if(action==='mission') start(missions.find(m=>String(m.id)===value&&available(save,m.id))||sectors.find(m=>m.id===value)||specials.find(m=>m.id===value)||(value===endless.id?endless:null));
+  if(action==='atlas-city') startAtlas(atlas.find(m=>m.id===value));
+  if(action==='osm-help') osmHelp();
+  if(action==='osm-choose') $('osm-file').click();
+  if(action==='mutator'&&Object.hasOwn(mutators,value)) {
+    if(modifiers.has(value)) modifiers.delete(value);
+    else modifiers.add(value);
+    menu();
+  }
   if(action==='settings') settings();
   if(action==='difficulty') {save.opts.level=value;writeSave();menu();}
   if(action==='learn'&&learn(save,value)) {writeSave();menu();notify('Compétence acquise.');}
@@ -527,6 +614,7 @@ function dispatch(action,value) {
     notify('Contour fortifié. Pose une porte sur un point vert pour laisser entrer les civils.');
   }
   if(action==='erase') {game.setGuide([]);showHUD();}
+  if(action==='release-waiting') {game.releaseWaiting();showHUD();}
   if(action==='ready') begin();
   if(action==='confirm-rescue'&&game.confirmRescue()) endMission();
   if(action==='pause') pause();
@@ -554,11 +642,11 @@ function dispatch(action,value) {
   }
   if(action==='close') closeModal();
   if(action==='skip') {tut=0;save.seen=true;writeSave();closeModal();showHUD();}
-  if(action==='retry') start(game.mission);
+  if(action==='retry') start(game.mission,!game.mission.atlas);
   if(action==='next') start(missions[game.mission.id+1]);
   if(action==='quit') {
     const id=game.mission.id;
-    go(typeof id==='number'?'campaign':game.mission.containment?'containment':id==='survival'?'survival':id.startsWith('local')?'editor':'special');
+    go(typeof id==='number'?'campaign':game.mission.atlas?'atlas':game.mission.containment?'containment':id==='survival'?'survival':id.startsWith('local')?'editor':'special');
   }
   if(action==='export') {
     const url=URL.createObjectURL(new Blob([JSON.stringify(save,null,2)],{type:'application/json'}));
@@ -592,6 +680,7 @@ dom.modal.addEventListener('change',e=>{
   if(!opt) return;
   save.opts[opt]=e.target.type==='checkbox'?e.target.checked:opt==='speed'?Number(e.target.value):e.target.value;
   if(opt==='quality') view.quality(save.opts.quality);
+  if(opt==='crowd') view.crowd=save.opts.crowd;
   if(opt==='speed'&&page==='mission') {speed=save.opts.speed;showHUD();}
   writeSave();
 });
@@ -602,10 +691,15 @@ dom.file.addEventListener('change',async()=>{
     const data=parseSave(await file.text());
     save=data;
     edit=null;
-    writeSave();view.quality(save.opts.quality);go('campaign');
+    writeSave();view.quality(save.opts.quality);view.crowd=save.opts.crowd;go('campaign');
     notify('Sauvegarde importée.');
   } catch(e) {notify('Import impossible. '+e.message);}
   dom.file.value='';
+});
+$('osm-file').addEventListener('change',e=>{
+  const file=e.target.files[0];
+  e.target.value='';
+  if(file) importOSM(file);
 });
 window.addEventListener('keydown',e=>{
   if(e.key==='Escape') {
@@ -617,10 +711,15 @@ window.addEventListener('keydown',e=>{
   if(e.code==='Space'&&!e.target.closest('button')) {
     e.preventDefault();speed=speed?0:save.opts.speed;showHUD();
   }
-  if(/^[1-6]$/.test(e.key)&&game.combat) choose(tools[Number(e.key)-1]);
-  if(e.key==='7'&&game.combat) choose('boom');
-  if(e.key==='8') choose('guide');
-  if(e.key==='9') {speed=speed?0:save.opts.speed;showHUD();}
+  if(game.combat&&/^[1-9]$/.test(e.key)) {
+    const tools=Object.keys(game.support);
+    const id=tools[Number(e.key)-1];
+    if(id) choose(id);
+  }
+  if(e.code==='KeyC'&&game.combat||!game.mission.atlas&&e.key==='7'&&game.combat) choose('boom');
+  if(e.code==='KeyG'||!game.mission.atlas&&e.key==='8') choose('guide');
+  if(e.code==='KeyZ'&&game.mission.atlas) choose('waiting');
+  if(!game.mission.atlas&&e.key==='9') {speed=speed?0:save.opts.speed;showHUD();}
   if(e.code==='KeyM'&&game.combat) choose('command');
   if(e.code==='KeyI'&&game.combat) choose('inspect');
   const dirs={ArrowLeft:[45,0],ArrowRight:[-45,0],ArrowUp:[0,45],ArrowDown:[0,-45]};
@@ -638,6 +737,7 @@ function previewPlacement(x,y) {
     if(!q||path.length>=512||Math.hypot(q[0]-p[0],q[1]-p[1])<.13) return;
     path.push(q);
     if(kind==='safe') view.placementPreview={kind,from:path,...game.planZone(path)};
+    else if(kind==='waiting') view.placementPreview={kind,from:path,...game.planWaiting(path)};
     else {
       const plan=game.planWalls(path);
       const error=plan.price>game.money?`Budget insuffisant · ${plan.price} cr nécessaires.`:'';
@@ -663,6 +763,8 @@ function finishPlacement() {
       view.activeZone=zone;
       notify(`Zone tracée · ${zone.cap} places`);
     } else notify('Le terrain a changé. Trace une nouvelle zone.');
+  } else if(plan.kind==='waiting') {
+    if(game.drawWaiting(plan.from)) notify('Zone d’attente tracée.');
   } else if(game.drawWalls(plan.from)) notify('Mur continu posé.');
   showHUD();
 }
@@ -677,9 +779,9 @@ canvas.addEventListener('pointerdown',e=>{
   pointers.set(e.pointerId,location(e));
   if(pointers.size===1) {
     const left=e.button===0&&!e.shiftKey;
-    const kind=left&&(selected==='safe'||selected==='wall')?selected:'';
+    const kind=left&&['safe','wall','waiting'].includes(selected)?selected:'';
     const first=kind?view.pick(e.clientX,e.clientY,false):-1;
-    const p=first>=0&&(kind==='wall'||freehand)?view.drawPoint(e.clientX,e.clientY):null;
+    const p=first>=0&&(kind!=='safe'||freehand)?view.drawPoint(e.clientX,e.clientY):null;
     view.placementPreview=null;
     gesture={start:location(e),moved:false,rotate:e.button===2,pan:e.button===1||e.shiftKey,kind:first>=0?kind:'',
       first,last:first,path:p?[p]:null,drawing:left&&selected==='guide',painted:false};
@@ -760,14 +862,14 @@ function mapOverlay() {
   ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
   for(const [i,type] of game.map.cells.entries()) {
     const [x,z]=point(i);
-    ctx.fillStyle=game.fog[i]>.42?'#a7544c':colors[type];
+    ctx.fillStyle=game.fog[i]>.42?(game.mission.atlas?'#a944e4':'#a7544c'):colors[type];
     ctx.fillRect(x*sx,z*sz,sx+.4,sz+.4);
   }
   for(const c of game.civs) {
     ctx.fillStyle='#8bd7ee';ctx.fillRect((c.x+.4)*sx,(c.z+.4)*sz,game.mission.metro?1:2,game.mission.metro?1:2);
   }
   for(const z of game.zombies) {
-    ctx.fillStyle='#ff9c72';ctx.fillRect((z.x+.4)*sx,(z.z+.4)*sz,2,2);
+    ctx.fillStyle=game.mission.atlas?'#f0a5ff':'#ff9c72';ctx.fillRect((z.x+.4)*sx,(z.z+.4)*sz,2,2);
   }
   for(const u of game.units.values()) {
     const [x,z]=point(u.i);
@@ -832,7 +934,7 @@ function loop(nowMs) {
     }
     if(now-frameClock>(save.opts.quality==='low'?.031:.015)) {
       frameClock=now;
-      view.render(game,now,dt,false,!!modal||speed===0);
+      view.render(game,now,game.mission.atlas?dt*speed:dt,false,!!modal||speed===0);
       pins();
     }
   } else if(page==='title'&&now-frameClock>.033) {
