@@ -11,14 +11,14 @@ const missions=await Promise.all(atlas.filter(m=>!requested||m.mapId===requested
 )})));
 const steps=.08;
 function prepare(game,offset) {
-  const {cells,start,end,homes}=game.map;
+  const {cells,end,homes}=game.map;
   const {field,dist,adjacent}=game.grid;
-  const distance=field([start],i=>open(cells,i));
+  const distance=field([game.outbreak],i=>open(cells,i));
   const ring=5+offset;
   const options=cells.flatMap((_,i)=>game.canBuild(i)&&Math.abs(distance[i]-ring)<=5&&adjacent[i].filter(j=>open(cells,j)).length>=2?[i]:[]);
   for(const id of ['mortar','sniper','turret','sniper','mortar','soldier','sniper','turret','mines','explosive','soldier']) {
     const spec=defenses[id];
-    if(game.money<spec.price+300) break;
+    if(game.money<spec.price+(game.stage===1?300:0)) continue;
     const ranked=options.filter(i=>game.legal(id,i)).map(i=>{
       const [x,z]=game.location(i);
       const contacts=game.zombies.filter(foe=>Math.hypot(foe.x-x,foe.z-z)<(spec.range||2)
@@ -68,14 +68,16 @@ function react(game) {
 }
 function run(mission,offset,options) {
   const game=new Game(mission,'normal',[],options);
-  if(offset!==null) prepare(game,offset);
-  game.prepare();
   let peak=game.remaining;
-  for(let tick=0;tick<3400&&game.combat;tick++) {
-    if(offset!==null&&tick%28===0) react(game);
-    game.step(steps);
-    peak=Math.max(peak,game.remaining);
-    game.events.length=0;
+  while(game.phase==='prep') {
+    if(offset!==null) prepare(game,offset);
+    game.prepare();
+    for(let tick=0;tick<3400&&game.combat;tick++) {
+      if(offset!==null&&tick%28===0) react(game);
+      game.step(steps);
+      peak=Math.max(peak,game.remaining);
+      game.events.length=0;
+    }
   }
   return {game,peak,...game.result()};
 }
@@ -115,7 +117,7 @@ for(const mission of missions) {
   const winner=attempts.filter(r=>r.game.phase==='won').sort((a,b)=>b.saved-a.saved)[0];
   report.push({ville:mission.name,population:mission.pop,
     'sans défense':failure.game.phase, 'pic sans défense':failure.peak,
-    'essais (sauvés)':attempts.map(r=>r.game.phase==='won'?r.saved:r.game.phase+' '+r.saved).join(' / '),
+    'essais (sauvés)':attempts.map(r=>r.game.phase==='won'?r.saved:`${r.game.phase} ${r.game.stage}/${r.game.stages} · ${r.saved}`).join(' / '),
     'meilleur (s)':winner?.time||0});
   if(winner) {
     assert.equal(winner.game.remaining,0);
@@ -294,5 +296,51 @@ if(!explore) {
     evacuation.moveCiv(evacuee,steps);
   }
   assert.equal(evacuation.sheltered,1);
-  console.log('Appuis immédiats, aide au départ, foyers masqués, améliorations et évacuation par un détour sûr vérifiés.');
+
+  const staged=new Game(missions[0]);
+  const defended=staged.map.homes.find(i=>staged.legal('soldier',i));
+  assert.ok(staged.place('soldier',defended));
+  const defender=staged.units.get(defended);
+  assert.ok(staged.upgradeUnit(defender));
+  const shelter=staged.zoneAt(staged.map.end);
+  shelter.sheltered=1;
+  staged.civs.pop();
+  const accounts=defaults();
+  const outbreaks=new Set();
+  for(let stage=1;stage<=staged.stages;stage++) {
+    assert.equal(staged.phase,'prep');
+    assert.equal(staged.stage,stage);
+    assert.equal(staged.visibleZombies.length,0);
+    assert.equal(staged.visibleFog,null);
+    outbreaks.add(staged.outbreak);
+    const time=staged.time;
+    staged.step(30);
+    assert.equal(staged.time,time);
+    assert.ok(staged.prepare());
+    assert.equal(staged.stageStartedAt,time);
+    assert.ok(staged.call('missile',staged.outbreak));
+    assert.ok(staged.call('air',staged.outbreak));
+    if(stage<staged.stages) assert.ok(staged.call('heli',staged.outbreak));
+    const money=staged.money;
+    staged.zombies.forEach(z=>z.hp=0);
+    staged.step(steps);
+    assert.equal(staged.units.get(defended),defender);
+    assert.equal(defender.equipment,2);
+    assert.equal(staged.zoneAt(staged.map.end),shelter);
+    assert.ok(shelter.sheltered>=1);
+    if(stage<staged.stages) {
+      assert.equal(staged.money,money+staged.stageGrant);
+      assert.equal(staged.supportReserve,stage===1?6:4);
+      assert.equal(staged.reinf.length,0);
+      assert.equal(staged.result().saved,staged.mission.pop);
+      finish(accounts,staged);
+      assert.equal(skillPoints(accounts),0);
+    }
+  }
+  assert.equal(outbreaks.size,3);
+  assert.equal(staged.phase,'won');
+  assert.equal(staged.remaining,0);
+  assert.equal(finish(accounts,staged).saved,staged.mission.pop);
+  assert.equal(skillPoints(accounts),1);
+  console.log('Appuis immédiats, évacuation et progression jusqu’à la dernière étape vérifiés.');
 }

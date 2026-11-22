@@ -94,7 +94,65 @@ function osmFixture() {
   return Buffer.from(`<osm version="0.6"><bounds minlon="6" minlat="49" maxlon="6.01" maxlat="49.01"/>${nodes.join('')}${ways.join('')}</osm>`);
 }
 
+async function playFirstStage() {
+  const page=await browser.newPage({viewport:{width:1440,height:900}});
+  monitor(page);
+  await atlasMenu(page);
+  await city(page,'metz');
+  const metz=await contents('metz');
+  const focus=metz.grid.point(metz.outbreak);
+  await center(page,metz,focus,2);
+  const aim=await project(page,metz,focus,2);
+  const plan=[
+    ['mortar',[66.38,17.71]],['sniper',[70.115,13.945]],['turret',[70.685,12.505]],
+    ['sniper',[70.2,17.455]],['mortar',[69.9033,18.1167]],['soldier',[64.985,13.33]],
+    ['sniper',[67.12,18.2]],['turret',[69.785,17.1]],['mines',[73,16]],
+    ['explosive',[62,14]],['soldier',[63.64,13.84]]
+  ];
+  let mortar;
+  for(const [id,point] of plan) {
+    const roof=metz.usesRoof(id)?roofNear(metz,id,point):null;
+    const i=roof?metz.roofAccess(id,roof):metz.grid.cell(...point);
+    const target=roof?aim(roof.point,roof.height*.69):aim(point,0);
+    if(id==='mortar'&&!mortar) mortar=target;
+    await page.locator(`.kit [data-value="${id}"]`).click();
+    await page.mouse.click(...target);
+    assert.ok(metz.place(id,i,false,roof));
+    assert.equal(Number(await page.locator('.metric.cash strong').textContent()),metz.money);
+  }
+  await button(page,'Mettre en pause').click();
+  await button(page,'Prêt · lancer l’épidémie').click();
+  for(const id of ['missile','heli','para']) {
+    await page.locator(`.kit [data-value="${id}"]`).click();
+    await page.mouse.click(...aim(focus,0));
+  }
+  assert.equal(await page.locator('#support-stock').textContent(),'Appuis · 3');
+  await button(page,'Vitesse ×4').click();
+  await page.locator('#stage-count[aria-label="Étape 2 sur 3"]').waitFor({timeout:25000});
+  assert.equal(await page.locator('#modal').isVisible(),false);
+  assert.equal(await page.locator('#clock').textContent(),'EN ATTENTE');
+  assert.equal(await page.locator('.metric.infect strong').textContent(),'Masqué');
+  assert.equal(await button(page,'Centrer sur les infectés').count(),0);
+  assert.equal(await page.locator('#support-stock').textContent(),'Appuis · 7');
+  assert.equal(await page.locator('#retry-count').textContent(),'0');
+  assert.equal(Number(await page.locator('.metric.cash strong').textContent()),metz.money+576);
+  await page.waitForFunction(radarShowsInfection,false);
+  await page.mouse.click(...mortar);
+  assert.equal(await page.locator('#unit-name').textContent(),'Mortier');
+  await button(page,'Fermer la fiche').click();
+  await snap(page,'37-metz-etape-2');
+  await button(page,'Mettre en pause').click();
+  await button(page,'Prêt · lancer l’épidémie').click();
+  assert.equal(await page.locator('#stage-count').textContent(),'2/3');
+  assert.equal(await page.locator('#clock').textContent(),'00:00');
+  assert.equal(await page.locator('.metric.infect strong').textContent(),'50');
+  await button(page,'Rejouer').click();
+  assert.equal(await page.locator('#stage-count').textContent(),'1/3');
+  await page.close();
+}
+
 try {
+  await playFirstStage();
   const desktop=await browser.newPage({viewport:{width:1440,height:900}});
   monitor(desktop);
   await atlasMenu(desktop);
@@ -355,7 +413,7 @@ try {
   await snap(mobile,'27-dunkerque-mobile');
 
   assert.deepEqual(errors,[],'Erreurs ou avertissements Chromium');
-  console.log('Renforts disponibles dès le départ, réserve, aide après les défaites, foyer masqué et tactile vérifiés.');
+  console.log('Passage à l’étape 2 sur la même carte, appuis immédiats, foyers masqués et tactile vérifiés.');
   console.log(`Profil tactile Chromium (412 × 883, DPR 2, foule réduite) : médiane de ${frameTime} ms entre images.`);
   console.log('Captures : '+folder);
 } finally {

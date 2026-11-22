@@ -297,7 +297,7 @@ function start(m,brief=true) {
   go('mission');
   if(tut) opening();
   else if(brief) showModal('briefing',m.name,`<p class="eyebrow">${escape(m.briefing[0])}</p><p>« ${escape(m.briefing[1])} »</p>${m.atlas?
-    `<p>Prépare tes défenses. Dès l’épidémie, tu peux utiliser tes ${game.supportReserve} charges d’appui pour appeler les renforts.</p>${m.modifiers?.length?`<p>${m.modifiers.map(id=>mutators[id]).join(' · ')}</p>`:''}`
+    `<p>Défends la ville en ${game.stages} étapes. Entre les foyers, tu gardes tes défenses et tes survivants et tu reçois un budget de préparation.</p><p>Tes ${game.supportReserve} charges d’appui sont disponibles dès le début du combat.</p>${m.modifiers?.length?`<p>${m.modifiers.map(id=>mutators[id]).join(' · ')}</p>`:''}`
     :game.quota?`<p><strong>Objectif</strong> · Élimine la horde et évacue au moins ${game.quota} personnes. Les navettes partent des refuges toutes les 12 secondes. Zoome pour bien viser les rues.</p>`
     :m.containment?'<p>Les escouades peuvent changer de rue après le départ. Sélectionne « Ordres », une escouade, puis sa destination.</p>':m.rule?`<p>${escape(m.rule)}</p>`:''}<div class="dialog-actions">${button('Examiner la carte','close','button primary')}</div>`);
 }
@@ -337,7 +337,7 @@ function showHUD(rebuild=false) {
     for(const id of ['flame','watch']) if(canUse(id,game.skills)) items[id]=defenses[id];
   }
   if(rebuild) {
-    dom.dock.innerHTML=`<div class="dock-head"><div><span class="eyebrow">${live?'Épidémie':'Préparation'}</span><h2>${escape(game.mission.name)}</h2>
+    dom.dock.innerHTML=`<div class="dock-head"><div><span class="eyebrow">${live?'Épidémie':'Préparation'}${game.mission.atlas?` · <span id="stage-count" aria-label="Étape ${game.stage} sur ${game.stages}">${game.stage}/${game.stages}</span>`:''}</span><h2>${escape(game.mission.name)}</h2>
       ${game.mission.atlas?`<span class="retry-count">Relances <strong id="retry-count">${retryCount(game.mission)}</strong></span>`:''}</div>
       <div class="dock-time"><span class="clock" id="clock"></span>${game.mission.atlas?'<small id="support-stock" title="Réserve commune aux renforts"></small>':''}</div></div>
       <div class="kit" aria-label="${live?'Renforts':'Défenses'}">${kitMarkup(items,live)}</div>
@@ -378,7 +378,7 @@ function showHUD(rebuild=false) {
   }
   const locate=dom.metrics.querySelector('.metric-locate');
   if(locate) locate.disabled=!game.remaining;
-  $('clock').textContent=live?clock(game.time)+(game.mission.containment?'':' · V'+game.wave):'EN ATTENTE';
+  $('clock').textContent=live?clock(game.time-game.stageStartedAt)+(game.mission.containment?'':' · V'+game.wave):'EN ATTENTE';
   if($('support-stock')) $('support-stock').textContent=`Appuis · ${game.supportReserve}`;
   dom.dock.classList.toggle('combat',live);
   if(view.activeZone&&game.units.get(view.activeZone.i)!==view.activeZone) view.activeZone=null;
@@ -461,6 +461,7 @@ function showHUD(rebuild=false) {
   if(live&&game.latestBreach) brief=`<strong>Brèche · ${structureNames[game.latestBreach.id]} détruit${['safe','gate','barricade'].includes(game.latestBreach.id)?'e':''}</strong>
     ${button('Voir la brèche','locate-breach','small breach-focus')}`;
   else if(live&&game.clearedAt!==null) brief=`<strong>Ville assainie</strong><p>${game.canConfirm?'Objectif atteint. Continue les évacuations ou valide le bilan.':'Ouvre des refuges et laisse les navettes atteindre le quota.'}</p>`;
+  else if(game.phase==='prep'&&game.stage>1) brief=`<strong>Foyer éliminé · étape ${game.stage}/${game.stages}</strong><p>Défenses conservées. +${game.stageGrant} cr pour préparer le prochain foyer.</p>`;
   else if(game.phase==='prep'&&game.recoveryAid) brief=`<strong>Aide au départ · +${game.recoveryAid} cr</strong><p>${defeatCount(game.mission)} défaites d’affilée dans cette ville.</p>`;
   else brief=hint?`<strong>${hint[0]}</strong><p>${hint[1]}</p>`:status?`<strong>${escape(status)}</strong>`:!live&&!game.mission.atlas?`<strong>${escape(game.mission.zone)}</strong><p>${escape(game.mission.rule||(game.mission.metro?'Prévois plusieurs refuges et protège les accès.':game.mission.containment?'Interdiction de placer des défenses dans le périmètre orange.':'Protégez les accès aux refuges. Le temps est arrêté.'))}</p>`:'';
   if(dom.brief.innerHTML!==brief) dom.brief.innerHTML=brief;
@@ -1088,7 +1089,20 @@ function loop(nowMs) {
       if(game.mission.id==='survival'&&game.wave>save.survival) {
         save.survival=game.wave;for(const id of game.flags) award(save,id);writeSave();
       }
-      if(!game.combat) endMission();
+      if(game.phase==='prep') {
+        acc=0;
+        selected='';
+        status='';
+        pointers.clear();
+        gesture=null;
+        view.placementPreview=null;
+        view.commandOrigin=-1;
+        view.inspected=null;
+        view.hoverWall=null;
+        view.hoverRoof=null;
+        view.highlight(-1,'',false);
+        showHUD(true);
+      } else if(!game.combat) endMission();
     }
     if(game.events.length) {
       view.addEffects(game.events);

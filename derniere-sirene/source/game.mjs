@@ -14,6 +14,7 @@ const hiddenZombies=[];
 const unreachable=30000;
 const evacuationClearance=5;
 const waitingClearance=9;
+const atlasStageStrength=[1,1.20,1.40];
 
 export class Game {
   constructor(mission, level='normal', skills=[], {attempt=0,bonus=0}={}) {
@@ -23,7 +24,8 @@ export class Game {
     this.training=mission.atlas?new Set(skills):new Set();
     this.skills=[...new Set([...skills,...(mission.loadout||[])])];
     this.support=mission.atlas?atlasSupport:support;
-    this.supportReserve=mission.atlas?reserves[level]+(this.has('wing')?2:0):null;
+    this.supportCapacity=mission.atlas?reserves[level]+(this.has('wing')?2:0):null;
+    this.supportReserve=this.supportCapacity;
     this.map=generate(mission);
     this.grid=this.map.grid||baseGrid;
     this.rng=random(mission.seed+4321);
@@ -48,6 +50,9 @@ export class Game {
     this.events=[];
     this.cd={};
     this.time=0;
+    this.stage=1;
+    this.stageStartedAt=0;
+    this.stageGrant=0;
     this.wave=0;
     this.nextWave=mission.id==='survival'?19:14;
     this.routeClock=0;
@@ -77,6 +82,7 @@ export class Game {
       this.civs.push(this.person(group[i%group.length],{speed:(1.15+this.rng()*.55)*(this.has('train')?1.25:1), wait:this.rng()*(mission.containment?3.5:2)}));
     }
     this.outbreak=mission.atlas&&attempt?this.chooseOutbreak(attempt,far,towards):this.map.start;
+    this.outbreakHistory=new Set([this.outbreak]);
     this.spawnWave(true);
   }
 
@@ -115,6 +121,7 @@ export class Game {
     return total;
   }
   get remaining() { return this.zombies.length; }
+  get stages() { return this.mission.atlas?atlasStageStrength.length:1; }
   get outbreakHidden() { return this.mission.atlas&&this.phase==='prep'; }
   get visibleZombies() { return this.outbreakHidden?hiddenZombies:this.zombies; }
   get visibleFog() { return this.outbreakHidden?null:this.fog; }
@@ -251,6 +258,7 @@ export class Game {
   }
   legal(id,i,building=null) {
     if(id==='safe'&&this.zoneAt(i)) return false;
+    if(this.phase==='prep'&&this.marches.some(m=>m.to===i)) return false;
     if(id==='safe'&&this.combat&&this.quota) return open(this.map.cells,i)&&!this.units.has(i)&&!this.marches.some(m=>m.to===i)&&this.money>=this.cost(id);
     if(id==='gate'&&this.phase==='prep'&&this.canBuild(i)) {
       const before=this.units.get(i);
@@ -539,9 +547,40 @@ export class Game {
     if(this.walls.sections.size) for(const p of [...this.civs,...this.zombies]) if(this.walls.near.has(p.i)) {
       [p.x,p.z]=this.location(p.i);
     }
+    this.stageStartedAt=this.time;
     this.phase='live';
     this.emit('siren',this.outbreak);
     return true;
+  }
+  advanceStage() {
+    const {cells,homes}=this.map;
+    const walkable=i=>open(cells,i);
+    const territory=this.grid.field([...this.civs.map(c=>c.i),...this.zoneCells.keys()].filter(walkable),walkable);
+    const previous=this.grid.field([this.outbreak],walkable);
+    const sites=homes.filter(i=>cells[i]===t.road&&territory[i]<unreachable&&!this.zoneAt(i)&&!this.outbreakHistory.has(i));
+    const nearby=sites.filter(i=>previous[i]>=12&&previous[i]<=34);
+    const choices=nearby.length?nearby:sites;
+    this.outbreak=choices[Math.floor(this.rng()*choices.length)]??cells.findIndex(walkable);
+    this.outbreakHistory.add(this.outbreak);
+    this.stage++;
+    this.stageGrant=Math.round(this.mission.budget*this.difficulty.budget*(this.stage===2?.40:.48));
+    this.money+=this.stageGrant;
+    this.supportReserve=Math.min(this.supportCapacity,this.supportReserve+Math.ceil(this.supportCapacity/2));
+    this.reinf=[];
+    this.clouds=[];
+    this.noises=[];
+    this.breaches=[];
+    this.cd={};
+    for(const m of this.marches) {
+      [m.x,m.z]=this.location(m.i);
+      m.target=m.i;
+      m.route=null;
+      m.retryAt=0;
+    }
+    this.fog.fill(0);
+    this.wave=0;
+    this.phase='prep';
+    this.spawnWave(true);
   }
   confirmRescue() {
     if(!this.canConfirm) return false;
@@ -570,7 +609,8 @@ export class Game {
       for(let n=0; n<spread && margin.length; n++) starts.push(margin.splice(Math.floor(this.rng()*margin.length),1)[0]);
     }
     const breach=!first&&this.map.breach!=null&&wave%2===1 ? this.map.breach : null;
-    const number=first ? count : (id==='survival' ? 10+wave*5 : Math.round(count*(.28+.055*wave)));
+    const number=first ? count*(this.mission.atlas?atlasStageStrength[this.stage-1]:1)
+      : (id==='survival' ? 10+wave*5 : Math.round(count*(.28+.055*wave)));
     const amount=Math.round(number*this.difficulty.factor);
     for(let n=0;n<amount;n++) {
       const r=this.rng();
@@ -969,7 +1009,7 @@ export class Game {
         return status==='ready'||status==='cooldown';
       });
     const final=this.wave>this.mission.waves;
-    if((!this.civs.length&&!this.sheltered&&(!this.mission.atlas||this.remaining))||overrun||cutOff
+    if((!this.civs.length&&!this.sheltered)||overrun||cutOff
       ||this.quota&&this.sheltered+this.civs.length<this.quota) this.phase='lost';
     if(this.combat&&final&&!this.zombies.length&&this.quota) {
       if(this.clearedAt===null) {
@@ -980,9 +1020,12 @@ export class Game {
         this.phase=this.evacuated>=this.quota?'won':'lost';
       }
     } else if(this.combat && final && !this.zombies.length) {
-      this.evacuated+=this.civs.length;
-      this.civs.length=0;
-      this.phase='won';
+      if(this.stage<this.stages) this.advanceStage();
+      else {
+        this.evacuated+=this.civs.length;
+        this.civs.length=0;
+        this.phase='won';
+      }
     }
   }
   result() {
