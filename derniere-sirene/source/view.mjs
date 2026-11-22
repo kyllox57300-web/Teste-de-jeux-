@@ -18,8 +18,13 @@ const atmos={
   day:{fog:0x374c60,sky:0xc6e2ff,sun:0xffebca,energy:2.45,ambient:2.75,x:-13,y:22,z:-10}
 };
 const daylight=[atmos.day,atmos.dusk,atmos.night];
-const atlasSunset={...atmos.dusk,sky:0xd4c9ea,sun:0xffb784,y:7,ambient:2.25};
+const atlasSunset={...atmos.dusk,fog:0x252931,sky:0xd7dce2,sun:0xffcfaa,y:7,ambient:2.15,energy:2.7};
 const tint={safe:0x50e4bc,soldier:0x86cbd4,watch:0x9ad4ea,sniper:0x9faeff,flame:0xffad61,turret:0x71c8dd,mortar:0xb2a6e8,wall:0x798c9c,barricade:0xcb894d,gate:0x77ae91,mines:0xffbc68,explosive:0xff7454,tank:0x8eb399,para:0x9dd6e8,heli:0x73caae};
+const defenseMarkers={soldier:0x89d6f6,sniper:0xd4b9ff,turret:0x98ddd6,mortar:0xffbc83,mines:0xeece85,explosive:0xf99079,watch:0xa3d6f7,flame:0xf98d67};
+const atlasAngle=.43, atlasTilt=1.48;
+export function atlasPlanCamera({w,h},aspect) {
+  return {angle:atlasAngle,tilt:atlasTilt,zoom:Math.max(9,Math.min(w/(1.19*aspect),h/1.35))};
+}
 function barrierColor(u,base,time) {
   const ratio=u.hp/u.maxHp;
   if(u.lastHit!==undefined&&time-u.lastHit<.27) return 0xff8768;
@@ -153,6 +158,7 @@ export class View {
     this.renderer.setSize(w,h,false);
     this.camera.aspect=w/h;
     this.camera.updateProjectionMatrix();
+    this.updateFit();
   }
   cameraAt() {
     this.camera.position.set(this.focus.x+Math.sin(this.angle)*Math.cos(this.tilt)*this.zoom,
@@ -160,19 +166,38 @@ export class View {
     this.camera.lookAt(this.focus);
     this.camera.updateMatrixWorld();
   }
+  updateFit() {
+    const {w,h}=this.grid;
+    this.fit=Math.max(h,w/this.camera.aspect)/(2*Math.tan(T.MathUtils.degToRad(this.camera.fov/2)))*1.08;
+  }
   reset(title=false) {
     this.angle=title?-.52:this.tactical?0:.16;
     this.tilt=title?(this.map.art?1.15:.63):this.tactical?(this.map.art?1.48:1.45):.99;
     const {w,h}=this.grid;
-    this.fit=Math.max(h,w/this.camera.aspect)/(2*Math.tan(T.MathUtils.degToRad(this.camera.fov/2)))*1.08;
+    this.updateFit();
     this.zoom=this.map.art?(title?Math.min(this.fit*.78,94):this.fit):title?30:this.tactical?(this.camera.aspect<1?41:29):(this.camera.aspect<1?35:27);
     this.focus.set(title&&!this.map.art?10.5:(w-1)/2,0,title&&!this.map.art?7:(h-1)/2);
+    if(this.atlasPlan) {
+      const opening=atlasPlanCamera(this.grid,this.camera.aspect);
+      this.angle=opening.angle;
+      this.tilt=this.tactical?opening.tilt:.99;
+      this.zoom=opening.zoom;
+      const [x,z]=this.grid.point(this.map.start),[u,v]=this.grid.point(this.map.end);
+      this.focus.x=T.MathUtils.lerp(this.focus.x,(x+u)/2,.36);
+      this.focus.z=T.MathUtils.lerp(this.focus.z,(z+v)/2,.36);
+    }
+    this.cameraAt();
+  }
+  overview() {
+    this.angle=0;
+    this.zoom=this.fit;
+    this.focus.set((this.grid.w-1)/2,0,(this.grid.h-1)/2);
     this.cameraAt();
   }
   switchProjection() {
     this.tactical=!this.tactical;
     this.tilt=this.tactical?(this.map.art?1.48:1.45):.99;
-    this.angle=this.tactical?0:.16;
+    this.angle=this.atlasPlan?atlasAngle:this.tactical?0:.16;
     this.city.scale.y=this.tactical?.69:1;
     this.renderer.shadowMap.needsUpdate=true;
     this.cameraAt();
@@ -241,6 +266,8 @@ export class View {
     this.camera.updateProjectionMatrix();
     this.sun.target.position.set((this.grid.w-1)/2,0,(this.grid.h-1)/2);
     this.tactical=!title&&!!game.mission.containment;
+    const atlas=!!game.mission.atlas;
+    this.atlasPlan=!title&&atlas;
     this.commandOrigin=-1;
     this.activeZone=null;
     this.placementPreview=null;
@@ -255,7 +282,7 @@ export class View {
     this.scene.background=new T.Color(this.light.fog);
     this.scene.fog.color.copy(this.scene.background);
     this.scene.fog.density=this.map.art?.0027:.016;
-    const reuseArt=this.map.art&&this.art===this.map.art&&this.artNight===night;
+    const reuseArt=this.map.art&&this.art===this.map.art&&this.artNight===night&&this.artAtlas===atlas;
     if(!reuseArt) {
       this.disposeArt?.();
       this.disposeArt=null;
@@ -263,10 +290,12 @@ export class View {
     }
     this.art=this.map.art;
     this.artNight=night;
+    this.artAtlas=atlas;
+    this.zoneFill.material.opacity=this.atlasPlan?.24:.32;
     this.fx.length=0;
     this.last=-1;
     if(this.map.art) {
-      if(!reuseArt) this.disposeArt=buildMapArt(this.city,this.map.art,night);
+      if(!reuseArt) this.disposeArt=buildMapArt(this.city,this.map.art,night,atlas);
       if(!this.diffusion) {
         this.diffusion=batch(this.dynamic,'flat',112*112,
           basic(0xffffff,{map:diffusionTexture(),transparent:true,opacity:.79,side:T.DoubleSide,depthWrite:false,toneMapped:false}));
@@ -427,7 +456,7 @@ export class View {
       const s=spec?.size||.91;
       if(this.tactical) {
         const marker=this.map.art?(spec?.size||1)*(spec?.32:.25):(spec?.size||1)*(p.id==='fast'?.31:.19);
-        placeAt(contacts,p.x,p.z,.12,marker,.041,marker,spec?(game.mission.atlas?0xf6aaff:0xff795b):0xe4fff2);
+        placeAt(contacts,p.x,p.z,.12,marker,.041,marker,spec?(game.mission.atlas?0xf6aaff:0xff795b):0xf6f3e6);
         if(p.id==='boss') placeAt(hot,p.x,p.z,.37,.46,.46,.46,0xff512f);
         continue;
       }
@@ -441,6 +470,7 @@ export class View {
       }
     }
     const flatPlan=this.tactical&&!!this.map.art;
+    const atlasPlan=flatPlan&&this.atlasPlan;
     const planHeight=this.planHeight();
     for(const {contour} of game.waitingZones) {
       areas.push({points:contour,c:0x52cef7,y:planHeight});
@@ -452,23 +482,32 @@ export class View {
     }
     for(const u of game.units.values()) {
       this.unit(gear,marks,hot,u,now);
+      if(atlasPlan&&defenseMarkers[u.id]) {
+        const [x,z]=this.location(u.i);
+        placeAt(outline,x,z,.034,.94,.025,.94,0x26333b,Math.PI/4);
+        placeAt(outline,x,z,.066,.76,.028,.76,defenseMarkers[u.id],Math.PI/4);
+      }
       if(u.contour) {
-        const c=u===this.activeZone||u===this.inspected?0x82f7d1:0x44c69a;
-        areas.push({points:u.contour,c,y:planHeight});
-        for(const s of u.edge) if(!game.walls.sections.has(s.key)) this.segment(outline,s.a,s.b,planHeight+.03,.024,.062,c);
+        const chosen=u===this.activeZone||u===this.inspected;
+        const c=atlasPlan?(chosen?0x96ebff:0x6dc5e5):(chosen?0x82f7d1:0x44c69a);
+        areas.push({points:u.contour,c:atlasPlan?0x247d9a:c,y:planHeight});
+        for(const s of u.edge) if(!game.walls.sections.has(s.key)) {
+          this.perimeter(outline,s.a,s.b,planHeight+.03,c,atlasPlan?.10:.062,atlasPlan);
+        }
       }
       if(flatPlan&&defenses[u.id]?.barrier) {
         const [x,z]=this.location(u.i);
         const a=u.angle;
         if(u.id==='gate'&&!u.closed) {
+          const c=barrierColor(u,atlasPlan?0xffca7b:0x72ffd0,game.time);
           for(const side of [-1,1]) placeAt(outline,x+side*Math.cos(a)*.36,z-side*Math.sin(a)*.36,
-            planHeight+.08,.31,.022,.13,barrierColor(u,0x72ffd0,game.time),a);
+            planHeight+.08,.31,.022,atlasPlan?.24:.13,c,a);
         } else placeAt(outline,x,z,planHeight+.08,1,.023,.13,barrierColor(u,u.closed?0xeeab64:0xd5dce3,game.time),a);
       }
     }
     for(const wall of game.walls.sections.values()) {
       const focused=this.hoverWall===wall||this.inspected===wall;
-      const base=wall.id==='gate'?(wall.closed?0xf0aa59:0x72ffd0):0xd8e3e8;
+      const base=wall.id==='gate'?(wall.closed?0xf0aa59:atlasPlan?0xffc979:0x72ffd0):atlasPlan?0x72d7ff:0xd8e3e8;
       const c=barrierColor(wall,focused?0xffdc9d:base,game.time);
       if(wall.id==='gate'&&!wall.closed) {
         const [x,z]=wall.a,[u,v]=wall.b;
@@ -476,20 +515,23 @@ export class View {
         const pieces=[[wall.a,at(.22)],[at(.78),wall.b]];
         for(const [a,b] of pieces) {
           this.segment(gear,a,b,.225,.45,.17,c);
-          if(flatPlan||focused) this.segment(outline,a,b,flatPlan?planHeight+.08:.48,.025,.16,c);
+          if(flatPlan||focused) this.perimeter(outline,a,b,flatPlan?planHeight+.08:.48,c,atlasPlan?.24:.16,atlasPlan);
         }
+        if(atlasPlan) this.segment(outline,at(.24),at(.76),planHeight+.073,.018,.053,0xffd697);
         this.segment(gear,wall.a,wall.b,.47,.055,.15,0x75edc3);
       } else {
         this.segment(gear,wall.a,wall.b,.21,.42,.17,c);
-        if(flatPlan||focused) this.segment(outline,wall.a,wall.b,flatPlan?planHeight+.08:.46,.025,wall.closed?.18:.13,c);
+        if(flatPlan||focused) this.perimeter(outline,wall.a,wall.b,flatPlan?planHeight+.08:.46,c,atlasPlan?.17:wall.closed?.18:.13,atlasPlan);
       }
       if(this.showEntrances&&wall.id==='wall') for(const [x,z] of game.walls.openings(wall)) {
-        placeAt(outline,x,z,flatPlan?planHeight+.11:.48,.16,.025,.16,0x64efbc,Math.PI/4);
+        const size=atlasPlan?.29:.16;
+        if(atlasPlan) placeAt(outline,x,z,planHeight+.101,size+.1,.026,size+.1,0x25333b,Math.PI/4);
+        placeAt(outline,x,z,flatPlan?planHeight+.13:.48,size,.025,size,0x8fffd3,Math.PI/4);
       }
     }
     if(this.placementPreview) {
       const p=this.placementPreview;
-      const c=p.error?0xf58970:p.kind==='waiting'?0x89e3ff:0xa5ffe1;
+      const c=p.error?0xf58970:p.kind==='waiting'?0x89e3ff:atlasPlan?0xa0edff:0xa5ffe1;
       if(p.kind==='safe'||p.kind==='waiting') {
         const path=p.contour;
         if(p.validShape) areas.push({points:path,c,y:planHeight+.025});
@@ -570,6 +612,10 @@ export class View {
   segment(items,a,b,y,height,width,c) {
     const dx=b[0]-a[0],dz=b[1]-a[1];
     placeAt(items,(a[0]+b[0])/2,(a[1]+b[1])/2,y,Math.hypot(dx,dz)+.023,height,width,c,-Math.atan2(dz,dx));
+  }
+  perimeter(items,a,b,y,c,width,tactical) {
+    if(tactical) this.segment(items,a,b,y-.021,.025,width+.14,0x254655);
+    this.segment(items,a,b,y,.025,width,c);
   }
   paintAreas(areas) {
     if(areas.length===this.areas.length&&areas.every(({points,c,y},i)=>

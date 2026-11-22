@@ -90,6 +90,7 @@ function go(next) {
     dom.screen.replaceChildren();
     view.resize();
     view.build(game);
+    $('overview').hidden=!game.mission.atlas;
     projectionLabel();
     showHUD(true);
     return;
@@ -309,6 +310,16 @@ function begin() {
   if(tut) {tut=4;save.seen=true;writeSave();}
   showHUD(true);
 }
+function kitMarkup(items,live,support) {
+  const tools=Object.entries(items).map(([id,info],n)=>`<button class="tool" data-action="tool" data-value="${id}" title="${info.info}" aria-label="${info.name}"><span class="icon" aria-hidden="true">${info.icon}</span><span><span class="tool-label">${info.name}</span><span class="tool-price" id="price-${id}">${live&&support[id]?(n+1)+' · ':''}${game.cost(id)} cr</span></span></button>`);
+  if(!game.mission.atlas) return tools.join('');
+  const group=(label,list)=>`<div class="kit-group" role="group" aria-label="${label}"><h3>${label}</h3><div class="kit-slots">${list.join('')}</div></div>`;
+  if(live) return group('Renforts',tools);
+  const fieldwork=['safe','wall','gate'];
+  const entries=Object.keys(items);
+  return group('Déployer',tools.filter((_,n)=>!fieldwork.includes(entries[n])))
+    +group('Fortifier',tools.filter((_,n)=>fieldwork.includes(entries[n])));
+}
 function showHUD(rebuild=false) {
   const live=game.combat;
   const support=game.support, tools=Object.keys(support);
@@ -319,7 +330,8 @@ function showHUD(rebuild=false) {
   }
   if(rebuild) {
     dom.dock.innerHTML=`<div class="dock-head"><div><span class="eyebrow">${live?'Épidémie':'Préparation'}</span><h2>${escape(game.mission.name)}</h2></div><span class="clock" id="clock"></span></div>
-      <div class="kit" aria-label="${live?'Renforts':'Défenses'}">${Object.entries(items).map(([id,info],n)=>`<button class="tool" data-action="tool" data-value="${id}" title="${info.info}" aria-label="${info.name}"><span class="icon" aria-hidden="true">${info.icon}</span><span><span class="tool-label">${info.name}</span><span class="tool-price" id="price-${id}">${live&&support[id]?(n+1)+' · ':''}${game.cost(id)} cr</span></span></button>`).join('')}</div>
+      <div class="kit" aria-label="${live?'Renforts':'Défenses'}">${kitMarkup(items,live,support)}</div>
+      ${game.mission.atlas?'<div class="field-label">'+(live?'Terrain':'Civils et tracés')+'</div>':''}
       <div class="tool-detail" id="detail"></div>
       <div class="tool-detail fort-status" id="fort-status" hidden>
         <div><strong id="fort-name"></strong><span id="fort-percent"></span></div>
@@ -354,6 +366,7 @@ function showHUD(rebuild=false) {
   }
   if(game.mission.metro) dom.metrics.querySelector('.metric-locate').disabled=!game.remaining;
   $('clock').textContent=live?clock(game.time)+(game.mission.containment?'':' · V'+game.wave):'EN ATTENTE';
+  dom.dock.classList.toggle('combat',live);
   if(view.activeZone&&game.units.get(view.activeZone.i)!==view.activeZone) view.activeZone=null;
   const zone=view.activeZone;
   const perimeter=!live&&zone?game.fortification(zone):null;
@@ -420,7 +433,7 @@ function showHUD(rebuild=false) {
   if(live&&game.latestBreach) brief=`<strong>Brèche · ${structureNames[game.latestBreach.id]} détruit${['safe','gate','barricade'].includes(game.latestBreach.id)?'e':''}</strong>
     ${button('Voir la brèche','locate-breach','small breach-focus')}`;
   else if(live&&game.clearedAt!==null) brief=`<strong>Ville assainie</strong><p>${game.canConfirm?'Objectif atteint. Continue les évacuations ou valide le bilan.':'Ouvre des refuges et laisse les navettes atteindre le quota.'}</p>`;
-  else brief=hint?`<strong>${hint[0]}</strong><p>${hint[1]}</p>`:status?`<strong>${escape(status)}</strong>`:!live?`<strong>${escape(game.mission.zone)}</strong><p>${escape(game.mission.rule||(game.mission.atlas?'Place tes défenses hors du foyer violet.':game.mission.metro?'Prévois plusieurs refuges et protège les accès.':game.mission.containment?'Interdiction de placer des défenses dans le périmètre orange.':'Protégez les accès aux refuges. Le temps est arrêté.'))}</p>`:'';
+  else brief=hint?`<strong>${hint[0]}</strong><p>${hint[1]}</p>`:status?`<strong>${escape(status)}</strong>`:!live&&!game.mission.atlas?`<strong>${escape(game.mission.zone)}</strong><p>${escape(game.mission.rule||(game.mission.metro?'Prévois plusieurs refuges et protège les accès.':game.mission.containment?'Interdiction de placer des défenses dans le périmètre orange.':'Protégez les accès aux refuges. Le temps est arrêté.'))}</p>`:'';
   if(dom.brief.innerHTML!==brief) dom.brief.innerHTML=brief;
 }
 function showFortification() {
@@ -623,6 +636,7 @@ function dispatch(action,value) {
   if(action==='zoom-out') view.zoomBy(1.19);
   if(action==='rotate') {view.angle+=Math.PI/4;view.cameraAt();}
   if(action==='resetcam') view.reset();
+  if(action==='overview') view.overview();
   if(action==='projection') {view.switchProjection();projectionLabel();}
   if(action==='locate-breach'&&game.latestBreach) {
     const [x,z]=game.latestBreach.point;
@@ -813,7 +827,7 @@ canvas.addEventListener('pointermove',e=>{
     gesture.moved=true;
     if(gesture.rotate) {
       view.angle-=(at.x-before.x)*.0085;
-      view.tilt=Math.max(.48,Math.min(1.44,view.tilt+(at.y-before.y)*.004));
+      view.tilt=Math.max(.48,Math.min(game.mission.atlas?1.53:1.44,view.tilt+(at.y-before.y)*.004));
       view.cameraAt();
     } else if(gesture.kind) {
       previewPlacement(at.x,at.y);
@@ -891,11 +905,15 @@ function pins() {
   if(game.hasStructure(inspected)&&inspected.id!=='safe') {
     pinData.push([game.structurePosition(inspected),`${structureNames[inspected.id]} · ${Math.floor(inspected.hp/inspected.maxHp*100)} %`,'chosen']);
   }
+  const wall=view.hoverWall;
+  if(game.mission.atlas&&selected==='gate'&&wall?.id==='wall'&&game.walls.openings(wall).length) {
+    pinData.push([game.structurePosition(wall),`Porte · ${game.wallGatePrice()} cr`,'gate-label']);
+  }
   if(game.map.art) for(const [label,x,z] of game.map.art.labels) pinData.push([[x,z],label,'geo']);
   while(dom.pins.children.length<pinData.length) dom.pins.append(document.createElement('div'));
   while(dom.pins.children.length>pinData.length) dom.pins.lastChild.remove();
   pinData.forEach(([[x,z],text,cls],index)=>{
-    const [sx,sy,on]=view.project(x,z,.82);
+    const [sx,sy,on]=view.project(x,z,cls==='gate-label'?view.planHeight()+.12:.82);
     const pin=dom.pins.children[index];
     pin.className='pin '+cls;
     if(pin.textContent!==text) pin.textContent=text;

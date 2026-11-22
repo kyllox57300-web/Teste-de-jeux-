@@ -16,14 +16,14 @@ function areas(ctx,shapes,fill,outline,cutouts={}) {
     if(outline) ctx.stroke();
   }
 }
-function paintShadows(ctx,art,scale) {
+function paintShadows(ctx,art,scale,tactical) {
   const stencil=document.createElement('canvas');
   stencil.width=ctx.canvas.width;
   stencil.height=ctx.canvas.height;
   const shadow=stencil.getContext('2d');
   shadow.scale(scale,scale);
   shadow.translate(.5,.5);
-  shadow.fillStyle='#211e3d';
+  shadow.fillStyle=tactical?'#262435':'#211e3d';
   for(const [height,points] of art.buildings) {
     const dx=height*2.8,dz=height*1.8;
     shadow.beginPath();
@@ -52,7 +52,7 @@ function paintShadows(ctx,art,scale) {
   ctx.drawImage(stencil,0,0);
   ctx.restore();
 }
-function mapTexture(art,night) {
+function mapTexture(art,night,tactical) {
   const canvas=document.createElement('canvas');
   const scale=22;
   canvas.width=art.w*scale;
@@ -60,13 +60,14 @@ function mapTexture(art,night) {
   const ctx=canvas.getContext('2d');
   ctx.scale(scale,scale);
   ctx.translate(.5,.5);
-  ctx.fillStyle='#8b8077';
+  ctx.fillStyle=tactical?'#696658':'#8b8077';
   ctx.fillRect(-.5,-.5,art.w,art.h);
   ctx.lineJoin='round';
   ctx.lineCap='round';
   ctx.lineWidth=.045;
-  areas(ctx,art.parks,'#758b71','#a1a589');
-  ctx.strokeStyle='#526f91';
+  areas(ctx,art.parks,tactical?'#626c54':'#758b71',tactical?'#83856a':'#a1a589');
+  const water=tactical?'#446983':'#526f91';
+  ctx.strokeStyle=water;
   for(const [width,points] of art.rivers) {
     ctx.lineWidth=width;
     ctx.beginPath();
@@ -74,19 +75,19 @@ function mapTexture(art,night) {
     ctx.stroke();
   }
   ctx.lineWidth=.14;
-  areas(ctx,art.water,'#526f91','#a0a3ac',art.waterCutouts);
+  areas(ctx,art.water,water,tactical?'#748794':'#a0a3ac',art.waterCutouts);
   for(let group=0;group<=2;group++) {
     const width=[.105,.218,.35][group];
     ctx.lineWidth=width+.083;
-    ctx.strokeStyle=['#7f7375','#9e8b83','#c4a994'][group];
+    ctx.strokeStyle=(tactical?['#6a675f','#7b776a','#918876']:['#7f7375','#9e8b83','#c4a994'])[group];
     ctx.beginPath();
     for(const [kind,,points] of art.roads) if(kind===group) path(ctx,points,false);
     ctx.stroke();
     ctx.lineWidth=width;
-    ctx.strokeStyle=['#655b63','#504852','#49444f'][group];
+    ctx.strokeStyle=(tactical?['#535252','#41434b','#353941']:['#655b63','#504852','#49444f'])[group];
     ctx.stroke();
   }
-  paintShadows(ctx,art,scale);
+  paintShadows(ctx,art,scale,tactical);
   if(night) {
     ctx.fillStyle='#10132987';
     ctx.fillRect(-.5,-.5,art.w,art.h);
@@ -97,9 +98,12 @@ function mapTexture(art,night) {
   return texture;
 }
 
-function buildings(art) {
+function buildings(art,tactical) {
   const positions=[],colors=[];
   const roof=new T.Color(), facade=new T.Color();
+  const roofs=tactical?
+    ['#a09981','#ada489','#9b9787','#b2a68e','#a4a08a','#b7ae96','#969485']
+    :['#c4b6aa','#e0c6b0','#cec1bb','#d9b4a5','#b5b8b1','#eed0b8','#aaa7b6'];
   function vertex(p,y,c) {
     positions.push(p.x,y,p.y);
     colors.push(c.r,c.g,c.b);
@@ -107,8 +111,8 @@ function buildings(art) {
   for(const [n,[height,coords]] of art.buildings.entries()) {
     const points=[];
     for(let i=0;i<coords.length;i+=2) points.push(new T.Vector2(coords[i],coords[i+1]));
-    roof.set(['#c4b6aa','#e0c6b0','#cec1bb','#d9b4a5','#b5b8b1','#eed0b8','#aaa7b6'][n%7]);
-    facade.copy(roof).multiplyScalar(.65);
+    roof.set(roofs[n%roofs.length]);
+    facade.copy(roof).multiplyScalar(tactical?.55:.65);
     for(const [i,j,k] of T.ShapeUtils.triangulateShape(points,[])) {
       vertex(points[k],height,roof);vertex(points[j],height,roof);vertex(points[i],height,roof);
     }
@@ -126,12 +130,12 @@ function buildings(art) {
   return geometry;
 }
 
-export function buildMapArt(group,art,night) {
-  const texture=mapTexture(art,night);
+export function buildMapArt(group,art,night,tactical) {
+  const texture=mapTexture(art,night,tactical);
   const surface=new T.Mesh(new T.PlaneGeometry(art.w,art.h),new T.MeshBasicMaterial({map:texture,toneMapped:false}));
   surface.rotation.x=-Math.PI/2;
   surface.position.set((art.w-1)/2,-.022,(art.h-1)/2);
-  const blocks=new T.Mesh(buildings(art),new T.MeshLambertMaterial({vertexColors:true,side:T.DoubleSide}));
+  const blocks=new T.Mesh(buildings(art,tactical),new T.MeshLambertMaterial({vertexColors:true,side:T.DoubleSide}));
   group.add(surface,blocks);
   return ()=>{
     for(const mesh of [surface,blocks]) {

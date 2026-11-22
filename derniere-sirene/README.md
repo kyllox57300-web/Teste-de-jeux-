@@ -7,6 +7,7 @@
 ## Prendre le commandement
 
 - Examinez la ville pendant que le temps est arrêté. Placez garnisons, snipers, tourelles, mortiers, mines et C4. Retirer un équipement pendant la préparation rembourse son coût.
+- Le plan tactique ouvre sur le quartier. **Vue d’ensemble** cadre toute la ville et **Recentrer** rétablit le cadrage initial. Les outils sont regroupés en bas de l’écran sur ordinateur.
 - Tracez les zones sûres à main levée ou en rectangle. Utilisez **Ceinturer** pour suivre le contour et posez des **Portes** aux points verts pour laisser passer les civils. En combat, **Fortifs** permet de vérifier l’intégrité des murs, de fermer les portes et de commander des réparations.
 - Dessinez un **Couloir** le long des rues et délimitez une **Zone d’attente** bleue loin du foyer. Les civils proches y restent si l’endroit est sûr. Utilisez **Libérer l’attente** pour qu’ils repartent vers les refuges.
 - Appuyez sur **Prêt**. Les civils attrapés rejoignent la horde. Chaque rue récemment infectée reste marquée en violet. La partie se termine à l’élimination du dernier infecté. Chaque personne sauvée rapporte 100 points et chaque victime de tirs alliés coûte 175 points supplémentaires.

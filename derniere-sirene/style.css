@@ -263,6 +263,94 @@ h1,h2,h3,p { margin-top:0 }
 .atlas-mission .dock { background:#1d202b; border-color:#555360; box-shadow:none }
 .atlas-mission .tool-detail { background:#222535 }
 .atlas-mission [data-value=waiting].active,.atlas-mission #release-waiting { color:#baeaff; border-color:#659eaf }
+.atlas-mission .kit-group,.atlas-mission .kit-slots { display:contents }
+.atlas-mission .kit-group h3,.atlas-mission .field-label { display:none }
+.atlas-mission .pin.gate-label { color:#ffe2a7; border-color:#e7b766; background:#23242af2; }
+.atlas-mission .pin.geo { background:#1c2126cf; border-color:#a0a49d64; color:#e7e9dd; letter-spacing:.09em; }
+@media (min-width:691px) and (min-height:500px) {
+  .atlas-mission { --atlas-dock:151px; --top:46px }
+  .atlas-mission .stage { inset:0 0 var(--atlas-dock) }
+  .atlas-mission .hud { inset:0 }
+  .atlas-mission .topbar { border:0; background:none; padding:0 12px; pointer-events:none }
+  .atlas-mission .topbar button { pointer-events:auto }
+  .atlas-mission .brand { min-height:32px; padding:4px 7px; border-radius:4px; background:#1b2028e8; font-size:.73rem; letter-spacing:.075em }
+  .atlas-mission .logo { width:23px; height:22px; font-size:1rem }
+  .atlas-mission .top-actions { gap:4px }
+  .atlas-mission .top-actions .small { min-height:32px; padding:.3rem .55rem; border-radius:4px; background:#1b2028e8; font-size:.73rem }
+  .atlas-mission .top-actions .small:hover { background:#374352 }
+  .atlas-mission .metrics { top:7px; left:50%; transform:translateX(-50%); max-width:calc(100% - 18px); gap:0; border:1px solid #8e92837d; background:#20262df0; border-radius:5px }
+  .atlas-mission .metric { display:flex; align-items:center; gap:6px; min-width:0; min-height:30px; padding:5px 9px; border:0; border-radius:0; border-right:1px solid #74778577; background:none; box-shadow:none; backdrop-filter:none; white-space:nowrap }
+  .atlas-mission .metric:last-child { border-right:0 }
+  .atlas-mission .metric strong { font-size:.96rem; letter-spacing:0 }
+  .atlas-mission .metric small { margin:0; font-size:.62rem; letter-spacing:.02em }
+  .atlas-mission .metric-locate:hover { background:#533569 }
+  .atlas-mission .brief { top:46px; left:12px }
+  .atlas-mission .radar { bottom:calc(var(--atlas-dock) + 28px); left:12px; padding:4px; border-radius:5px }
+  .atlas-mission .radar canvas { width:96px; height:73px; margin-bottom:2px }
+  .atlas-mission .radar div { font-size:.56rem }
+  .atlas-mission .camera { bottom:calc(var(--atlas-dock) + 9px); right:12px }
+  .atlas-mission .camera button { width:34px; min-height:32px; border-radius:4px }
+  .atlas-mission .camera #projection { width:38px }
+  .atlas-mission .toast { bottom:calc(var(--atlas-dock) + 11px); padding:6px 11px; font-size:.77rem }
+  .atlas-mission .dock {
+    inset:auto 0 0; height:var(--atlas-dock); width:100%; padding:9px 13px;
+    display:grid; grid-template-columns:minmax(0,1fr) clamp(216px,22vw,320px) clamp(176px,15vw,235px);
+    grid-template-rows:18px 52px minmax(0,1fr); gap:6px 13px;
+    background:#20252e; border:0; border-top:2px solid #65747d; overflow:auto
+  }
+  .atlas-mission .kit {
+    grid-area:1 / 1 / 4; display:grid; grid-template-columns:minmax(0,1fr) minmax(118px,.34fr);
+    gap:12px; align-content:start; border-right:1px solid #4a525e; padding-right:12px; min-width:0
+  }
+  .atlas-mission .kit-group { min-width:0; display:block }
+  .atlas-mission .kit-group h3,.atlas-mission .field-label {
+    display:block; margin:0 0 6px; font:700 .69rem var(--mono);
+    color:#b9cbd3; text-transform:uppercase; letter-spacing:.08em
+  }
+  .atlas-mission .kit-slots { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px }
+  .atlas-mission .kit-group:last-child:not(:only-child) .kit-slots { grid-template-columns:minmax(0,1fr) }
+  .atlas-mission .dock.combat .kit { grid-template-columns:minmax(0,1fr) }
+  .atlas-mission .dock.combat .kit-slots { grid-template-columns:repeat(5,minmax(0,1fr)) }
+  .atlas-mission .tool { min-height:37px; grid-template-columns:17px minmax(0,1fr); padding:3px 5px; border-radius:4px; background:#272f39 }
+  .atlas-mission .tool-label { font-size:.72rem; overflow-wrap:normal }
+  .atlas-mission .tool-price { font-size:.63rem }
+  .atlas-mission .tool .icon { font-size:.92rem }
+  .atlas-mission .tool.active { background:#27424d; border-color:#85d6f1 }
+  .atlas-mission .tool:hover:not(:disabled) { border-color:#a7c5d7 }
+  .atlas-mission .kit-group:last-child:not(:only-child) .tool { min-height:29px; padding-block:2px }
+  .atlas-mission .kit-group:last-child:not(:only-child) .tool > span:last-child { display:flex; align-items:center; justify-content:space-between; gap:4px }
+  .atlas-mission .field-label { grid-area:1 / 2; margin-top:1px }
+  .atlas-mission .tools-extra { grid-area:2 / 2; align-content:start; gap:4px; overflow:auto }
+  .atlas-mission .tools-extra .small { min-height:24px; font-size:.7rem; padding:3px 6px; border-radius:4px }
+  .atlas-mission .tool-detail { grid-area:3 / 2; min-height:0; align-self:stretch; padding:4px 6px; font-size:.69rem; background:#191f28; border-color:#424956; overflow:auto }
+  .atlas-mission .fort-status { font-size:.65rem; line-height:1 }
+  .atlas-mission .dock-head { grid-area:1 / 3 / 3; align-self:start; gap:3px; border-left:1px solid #4a525e; padding-left:10px }
+  .atlas-mission .dock-head h2 { margin:2px 0 0; font-size:1.04rem }
+  .atlas-mission .dock-head .eyebrow { font-size:.59rem; letter-spacing:.09em }
+  .atlas-mission .clock { font-size:.65rem; padding-top:4px }
+  .atlas-mission .dock footer { grid-area:2 / 3 / 4; align-self:end; padding-left:10px; gap:6px }
+  .atlas-mission .dock footer .button { min-height:37px; font-size:.75rem; padding:4px 6px; border-radius:4px }
+  .atlas-mission .speed button { min-height:27px; font-size:.67rem; border-radius:4px }
+  .atlas-mission .dock-head h2,.atlas-mission .metric strong { font-variant-numeric:tabular-nums }
+}
+@media (min-width:691px) and (max-width:1130px) and (min-height:500px) {
+  .atlas-mission .metrics { top:45px }
+  .atlas-mission .brief { top:83px }
+  .atlas-mission .dock { grid-template-columns:minmax(0,1fr) 205px 174px; gap:6px 8px; padding-inline:8px }
+  .atlas-mission .kit { gap:7px; padding-right:7px; grid-template-columns:minmax(0,1fr) minmax(98px,.4fr) }
+  .atlas-mission .dock.combat .kit-slots { grid-template-columns:repeat(4,minmax(0,1fr)) }
+  .atlas-mission .tool { grid-template-columns:12px minmax(0,1fr); gap:3px; padding-inline:3px }
+  .atlas-mission .tool-label { font-size:.64rem }
+}
+@media (min-width:691px) and (max-width:850px) and (min-height:500px) {
+  .atlas-mission .dock { grid-template-columns:minmax(0,1fr) 165px 147px }
+  .atlas-mission .kit { grid-template-columns:minmax(0,1fr) minmax(85px,.37fr) }
+  .atlas-mission .dock.combat .kit-slots { grid-template-columns:repeat(3,minmax(0,1fr)) }
+  .atlas-mission .kit-group:last-child:not(:only-child) .tool > span:last-child { display:block }
+  .atlas-mission .tool { min-height:33px }
+  .atlas-mission .tool > span:last-child { font-size:.64rem; line-height:1.07 }
+  .atlas-mission .clock { font-size:.56rem }
+}
 @media (max-width:690px) {
   .atlas-mission .radar { bottom:calc(var(--bottom) + 8px + env(safe-area-inset-bottom)) }
   .atlas-mission .map-credit { left:auto; right:5px; bottom:1px; font-size:.56rem }
@@ -272,6 +360,12 @@ h1,h2,h3,p { margin-top:0 }
   .atlas-mission .kit { min-height:48px }
   .atlas-mission .camera { bottom:calc(var(--bottom) + 22px + env(safe-area-inset-bottom)) }
   .title .map-credit { font-size:.62rem }
+}
+@media (max-width:360px) {
+  .atlas-mission .camera { gap:3px }
+  .atlas-mission .camera button { width:29px }
+  .atlas-mission .camera #projection { width:35px }
+  .atlas-mission .radar canvas { width:62px; height:48px }
 }
 @media (orientation:landscape) and (max-height:460px) {
   .atlas-mission .radar { bottom:24px }

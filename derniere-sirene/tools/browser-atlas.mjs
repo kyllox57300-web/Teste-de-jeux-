@@ -6,6 +6,7 @@ import {chromium} from '../source/node_modules/playwright-core/index.mjs';
 import {PerspectiveCamera,Vector3} from '../source/node_modules/three/build/three.module.js';
 import {atlas} from '../source/data.mjs';
 import {Game} from '../source/game.mjs';
+import {atlasPlanCamera} from '../source/view.mjs';
 import {serve} from './serve.mjs';
 
 const folder=process.env.SIRENE_CAPTURES||join(tmpdir(),'sirene-atlas');
@@ -49,9 +50,10 @@ async function center(page,game,[x,z],steps) {
 async function project(page,game,[x,z],steps) {
   const box=await page.locator(canvas).boundingBox();
   const aspect=box.width/box.height;
-  const zoom=Math.max(game.grid.h,game.grid.w/aspect)/(2*Math.tan(22*Math.PI/180))*1.08*.84**steps;
+  const {angle,tilt,zoom:initialZoom}=atlasPlanCamera(game.grid,aspect);
+  const zoom=Math.max(9,initialZoom*.84**steps);
   const camera=new PerspectiveCamera(44,aspect,.12,290);
-  camera.position.set(x,zoom*Math.sin(1.48),z+zoom*Math.cos(1.48));
+  camera.position.set(x+zoom*Math.sin(angle)*Math.cos(tilt),zoom*Math.sin(tilt),z+zoom*Math.cos(angle)*Math.cos(tilt));
   camera.lookAt(x,0,z);
   camera.updateMatrixWorld();
   return (point,height=1.46)=>{
@@ -89,8 +91,16 @@ try {
   await button(desktop,'Quitter la mission').click();
   for(const id of ['horde','fragile','austerity','night']) await desktop.locator(`[data-value="${id}"]`).click();
   await city(desktop,'metz');
+  const desktopMap=await desktop.locator(canvas).boundingBox();
+  const dock=await desktop.locator('#dock').boundingBox();
+  assert.equal(desktopMap.width,1440);
+  assert.equal(desktopMap.y,0);
+  assert.equal(Math.round(desktopMap.height+dock.height),900);
+  assert.equal(Math.round(dock.y),Math.round(desktopMap.height));
+  await button(desktop,'Vue d’ensemble').click();
+  await button(desktop,'Recentrer').click();
   const metz=await contents('metz');
-  const focus=[46,39], steps=5;
+  const focus=[47,39], steps=2;
   await center(desktop,metz,focus,steps);
   const screen=await project(desktop,metz,focus,steps);
   const refuge=[[44,37],[46,35.65],[48.75,36.45],[49.55,38.75],[47.75,41.75],[43.7,41.4],[43.15,38.8]];
@@ -100,13 +110,31 @@ try {
   const zone=metz.drawZone(refuge);
   assert.ok(zone&&metz.surround(zone));
   const gate=[...metz.walls.sections.values()].find(s=>s.a[0]>49&&s.a[1]<38&&metz.walls.openings(s).length);
-  await desktop.mouse.click(...screen(metz.walls.openings(gate)[0],1.54));
+  const entrance=screen(metz.walls.openings(gate)[0],1.54);
+  await desktop.mouse.move(...entrance);
+  await desktop.locator('.pin.gate-label').waitFor();
+  await desktop.mouse.click(...entrance);
   assert.match(await desktop.locator('#toast').textContent(),/Porte posée/);
+  assert.ok(metz.gateWall(gate));
+  const stations=[];
+  for(const [id,name,point] of [['soldier','Garnison',[46,39]],['sniper','Sniper',[47,36]],['mortar','Mortier',[49,41]],['explosive','C4',[42,37]]]) {
+    const candidates=metz.map.homes.filter(i=>metz.legal(id,i)&&stations.every(j=>metz.grid.dist(i,j)>2));
+    const site=candidates.sort((a,b)=>{
+      const [x,z]=metz.location(a),[u,v]=metz.location(b);
+      return Math.hypot(x-point[0],z-point[1])-Math.hypot(u-point[0],v-point[1]);
+    })[0];
+    assert.ok(metz.place(id,site));
+    stations.push(site);
+    await button(desktop,name).click();
+    await desktop.mouse.click(...screen(metz.location(site),0));
+  }
+  assert.equal(Number(await desktop.locator('.metric.cash strong').textContent()),metz.money);
+  await snap(desktop,'24-plan-tactique-metz');
   const wait=[[51.5,37],[54,36.2],[56.5,38],[57,41],[53,42],[51.5,39]];
   await button(desktop,'Zone d’attente').click();
   await draw(desktop,wait.map(p=>screen(p)));
   await button(desktop,'Libérer l’attente').waitFor();
-  await snap(desktop,'19-metz-perimetre');
+  await snap(desktop,'25-zone-attente-metz');
   await button(desktop,'Libérer l’attente').click();
   assert.equal(await button(desktop,'Libérer l’attente').isVisible(),false);
   await button(desktop,'Pause').click();
@@ -124,7 +152,7 @@ try {
   await button(desktop,'Vitesse ×4').click();
   await desktop.waitForFunction(()=>Number(document.querySelector('.metric.infect strong')?.textContent)>170);
   await button(desktop,'Mettre en pause').click();
-  await snap(desktop,'21-toulouse-infection');
+  await snap(desktop,'26-toulouse-infection');
   for(let key=1;key<=9;key++) {
     await desktop.keyboard.press(String(key));
     const tool=desktop.locator('.kit .tool').nth(key-1);
@@ -132,8 +160,8 @@ try {
   }
   const toulouse=await contents('toulouse');
   const outbreak=toulouse.grid.point(toulouse.map.start);
-  await center(desktop,toulouse,outbreak,7);
-  const aim=await project(desktop,toulouse,outbreak,7);
+  await center(desktop,toulouse,outbreak,3);
+  const aim=await project(desktop,toulouse,outbreak,3);
   await desktop.keyboard.press('3');
   await desktop.mouse.click(...aim(toulouse.location(toulouse.map.start),0));
   assert.equal(await desktop.locator('.metric.cash strong').textContent(),'1520');
@@ -151,6 +179,23 @@ try {
   await button(desktop,'Examiner la carte').click();
   assert.equal(await desktop.locator('.dock h2').textContent(),'Quartier test');
   await desktop.getByRole('link',{name:/OpenStreetMap/}).waitFor();
+
+  const narrow=await browser.newPage({viewport:{width:768,height:730}});
+  monitor(narrow);
+  await atlasMenu(narrow);
+  await city(narrow,'metz');
+  const narrowMap=await narrow.locator(canvas).boundingBox();
+  const narrowDock=await narrow.locator('#dock').boundingBox();
+  assert.equal(narrowMap.width,768);
+  assert.equal(narrowDock.y,Math.round(narrowMap.height));
+  await button(narrow,'Prêt · lancer l’épidémie').click();
+  await button(narrow,'Mettre en pause').click();
+  for(const tool of await narrow.locator('.kit .tool').all()) {
+    const box=await tool.boundingBox();
+    assert.ok(box.x>=0&&box.x+box.width<=768);
+    assert.ok(box.y>=narrowDock.y&&box.y+box.height<=730);
+  }
+  await narrow.close();
 
   const mobile=await browser.newPage({viewport:{width:412,height:883},deviceScaleFactor:2,hasTouch:true,isMobile:true});
   monitor(mobile);
@@ -184,7 +229,10 @@ try {
     requestAnimationFrame(sample);
   }));
   await button(mobile,'Mettre en pause').tap();
-  await snap(mobile,'22-dunkerque-mobile');
+  await button(mobile,'Centrer sur les infectés').tap();
+  await button(mobile,'Éloigner').tap();
+  await button(mobile,'Éloigner').tap();
+  await snap(mobile,'27-dunkerque-mobile');
 
   assert.deepEqual(errors,[],'Erreurs ou avertissements Chromium');
   console.log('Six villes dans le menu, mutateurs cumulés, portes, zones d’attente, touches 1–9, import OSM, reprise et tactile vérifiés.');
