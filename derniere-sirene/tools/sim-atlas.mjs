@@ -200,13 +200,62 @@ if(!explore) {
 
   const staging=new Game(missions[0]);
   staging.money=staging.cost('soldier')*2+30;
-  const batchStart=[44,36],batchEnd=[50,41];
-  const launch=staging.planGarrisons(batchStart,batchEnd);
+  const frame=[[44,36],[50,36],[50,41],[44,41]];
+  const launch=staging.planRoofBatch('soldier',frame);
   assert.equal(launch.placements.length,2);
   assert.equal(new Set(launch.placements.map(p=>p.site.id)).size,2);
   assert.equal(new Set(launch.placements.map(p=>p.i)).size,2);
-  assert.equal(staging.deployGarrisons(batchStart,batchEnd),2);
+  assert.equal(staging.deployRoofBatch('soldier',launch),2);
   assert.equal(staging.money,30);
+  const shortage=staging.planRoofBatch('turret',frame);
+  assert.match(shortage.error,/Il manque 95 cr/);
+  assert.equal(shortage.placements.length,0);
+
+  const turretBatch=new Game(missions[0]);
+  const batch=turretBatch.planRoofBatch('turret',frame);
+  assert.ok(batch.placements.length>=2);
+  assert.equal(turretBatch.deployRoofBatch('turret',batch),batch.placements.length);
+  assert.ok(batch.placements.every(({i,site})=>turretBatch.units.get(i).building===site&&turretBatch.units.get(i).id==='turret'));
+
+  const shared=new Game(missions[0]);
+  const [common,alternate]=shared.map.homes;
+  const row=[
+    {id:0,point:[45,37],polygon:[[44.8,36.8],[45.2,36.8],[45.2,37.2],[44.8,37.2]],access:[common,alternate]},
+    {id:1,point:[46,37],polygon:[[45.8,36.8],[46.2,36.8],[46.2,37.2],[45.8,37.2]],access:[common]}
+  ];
+  shared.map.buildings={near:()=>row};
+  const sharedBatch=shared.planRoofBatch('soldier',frame);
+  assert.equal(sharedBatch.placements.length,2);
+  assert.equal(sharedBatch.placements.find(({site})=>site===row[0]).i,alternate);
+
+  const aftermath=new Game(missions[0]);
+  assert.ok(aftermath.place('safe',aftermath.map.end));
+  aftermath.zoneAt(aftermath.map.end).sheltered=6;
+  aftermath.lost=aftermath.mission.pop-6;
+  aftermath.civs=[];
+  aftermath.zombies=[];
+  for(let n=0;n<2140;n++) aftermath.spawn(aftermath.outbreak);
+  for(const z of aftermath.zombies) z.stunnedUntil=Infinity;
+  assert.ok(aftermath.prepare());
+  aftermath.step(steps);
+  assert.equal(aftermath.remaining,2140);
+  assert.equal(aftermath.contactGroups[0].count,2140);
+  assert.equal(aftermath.survivors,6);
+  assert.equal(aftermath.phase,'lost');
+
+  const fire=new Game(missions[0]);
+  const emplaced=fire.map.homes.find(i=>fire.legal('mortar',i));
+  assert.ok(fire.place('mortar',emplaced));
+  const civilian=fire.person(emplaced,{wait:0,speed:2});
+  fire.civs=[civilian];
+  fire.zombies=[];
+  fire.spawn(emplaced);
+  fire.rng=()=>.01;
+  fire.shoot(fire.units.get(emplaced));
+  assert.equal(fire.zombies[0].hp<=0,true);
+  assert.equal(fire.friendly,0);
+  fire.blast(emplaced,315,2.25,.62,null,'impact');
+  assert.equal(fire.friendly,1);
 
   const sniperGame=new Game(missions[0],'normal',['marks']);
   const perch=sniperGame.map.buildings.sites.find(site=>sniperGame.roofAccess('sniper',site)!==undefined);

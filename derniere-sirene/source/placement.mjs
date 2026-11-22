@@ -88,7 +88,12 @@ function segmentKey(a,b) {
   return [a,b].map(p=>p.map(v=>Math.round(v*32)).join(',')).sort().join('/');
 }
 
-export function wallSections(path,closed=false) {
+export function polygonsOverlap(a,b) {
+  if(a.some(p=>within(p,b))||b.some(p=>within(p,a))) return true;
+  return a.some((p,i)=>b.some((q,j)=>crossing(a.at(i-1),p,b.at(j-1),q)));
+}
+
+export function wallSections(path,closed=false,rate=24) {
   if(path.length<2) return [];
   const segments=[];
   const count=closed?path.length:path.length-1;
@@ -101,7 +106,7 @@ export function wallSections(path,closed=false) {
     let p=a;
     for(let j=1;j<=n;j++) {
       const q=j===n?b:at(j/n);
-      segments.push({a:p,b:q,key:segmentKey(p,q),price:Math.max(1,Math.round(24*length/n)),
+      segments.push({a:p,b:q,key:segmentKey(p,q),price:Math.max(1,Math.round(rate*length/n)),
         endpoint:!closed&&i===count-1&&j===n});
       p=q;
     }

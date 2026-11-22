@@ -3,7 +3,7 @@ import {mkdir,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {chromium} from '../source/node_modules/playwright-core/index.mjs';
-import {PerspectiveCamera,Vector3} from '../source/node_modules/three/build/three.module.js';
+import {PerspectiveCamera,Plane,Raycaster,Vector3} from '../source/node_modules/three/build/three.module.js';
 import {atlas} from '../source/data.mjs';
 import {Game} from '../source/game.mjs';
 import {atlasPlanCamera} from '../source/view.mjs';
@@ -69,10 +69,19 @@ async function project(page,game,[x,z],steps) {
   camera.position.set(x+zoom*Math.sin(angle)*Math.cos(tilt),zoom*Math.sin(tilt),z+zoom*Math.cos(angle)*Math.cos(tilt));
   camera.lookAt(x,0,z);
   camera.updateMatrixWorld();
-  return (point,height=1.46)=>{
+  const screen=(point,height=1.46)=>{
     const p=new Vector3(point[0],height,point[1]).project(camera);
     return [box.x+(p.x+1)*box.width/2,box.y+(1-p.y)*box.height/2];
   };
+  screen.frame=([x1,y1],[x2,y2])=>{
+    const ray=new Raycaster(),plane=new Plane(new Vector3(0,1,0),-1.46),hit=new Vector3();
+    return [[x1,y1],[x2,y1],[x2,y2],[x1,y2]].map(([x,y])=>{
+      ray.setFromCamera({x:2*(x-box.x)/box.width-1,y:1-2*(y-box.y)/box.height},camera);
+      assert.ok(ray.ray.intersectPlane(plane,hit));
+      return [hit.x,hit.z];
+    });
+  };
+  return screen;
 }
 async function draw(page,points) {
   await page.mouse.move(...points[0]);
@@ -311,15 +320,17 @@ try {
   await desktop.keyboard.press('Escape');
   assert.equal(await desktop.locator('#unit-inspector').isVisible(),false);
 
-  const batchStart=[53,34],batchEnd=[59,39];
-  const batch=metz.planGarrisons(batchStart,batchEnd);
+  const batchStart=screen([53,34]),batchEnd=screen([59,39]);
+  const batch=metz.planRoofBatch('soldier',screen.frame(batchStart,batchEnd));
   assert.ok(batch.placements.length>=2);
-  await button(desktop,'Garnisons en série').click();
-  await desktop.mouse.move(...screen(batchStart));
+  await button(desktop,'Couverture').click();
+  assert.equal(await button(desktop,'Couverture').getAttribute('aria-pressed'),'true');
+  await button(desktop,'Garnison').click();
+  await desktop.mouse.move(...batchStart);
   await desktop.mouse.down();
-  await desktop.mouse.move(...screen(batchEnd),{steps:10});
-  assert.match(await desktop.locator('#detail').textContent(),new RegExp(`${batch.placements.length} garnison`));
-  await snap(desktop,'31-garnisons-en-serie');
+  await desktop.mouse.move(...batchEnd,{steps:10});
+  assert.match(await desktop.locator('#detail').textContent(),new RegExp(`${batch.placements.length} bâtiments · Garnison · ${batch.price} cr`));
+  await snap(desktop,'41-deploiement-et-couverture');
   await desktop.mouse.up();
   assert.equal(Number(await desktop.locator('.metric.cash strong').textContent()),metz.money-batch.price);
   assert.match(await desktop.locator('#price-soldier').textContent(),/^Manque \d+ cr$/);
@@ -367,6 +378,8 @@ try {
   await button(desktop,'Vitesse ×4').click();
   await desktop.waitForFunction(()=>Number(document.querySelector('.metric.infect strong')?.textContent)>170);
   await button(desktop,'Mettre en pause').click();
+  await button(desktop,'Vue d’ensemble').click();
+  await desktop.locator('.pin.cluster:visible').first().waitFor();
   await snap(desktop,'26-toulouse-infection');
   for(let key=1;key<=6;key++) {
     await desktop.keyboard.press(String(key));
@@ -429,6 +442,10 @@ try {
     assert.ok(box.x>=0&&box.x+box.width<=768);
     assert.ok(box.y>=narrowDock.y&&box.y+box.height<=730);
   }
+  await button(narrow,'Vitesse ×4').click();
+  await narrow.getByRole('heading',{name:'Opération compromise'}).waitFor({timeout:55000});
+  assert.match(await narrow.locator('#modal').textContent(),/sur les 115 nécessaires/);
+  await snap(narrow,'43-bilan-metz-seuil-de-survie');
   await narrow.close();
 
   const mobile=await browser.newPage({viewport:{width:412,height:883},deviceScaleFactor:2,hasTouch:true,isMobile:true});
@@ -455,7 +472,7 @@ try {
   await button(mobile,'Garnison').tap();
   const mobileRoof=harborScreen(touchRoof.point,touchRoof.height*.69);
   await mobile.touchscreen.tap(...mobileRoof);
-  assert.equal(await mobile.locator('.metric.cash strong').textContent(),'1285');
+  assert.equal(await mobile.locator('.metric.cash strong').textContent(),'1295');
   await mobile.touchscreen.tap(...mobileRoof);
   await button(mobile,'Améliorer · 40 cr').tap();
   assert.equal(await mobile.locator('#unit-equipment').textContent(),'Équipement 2/3');
@@ -464,12 +481,30 @@ try {
   await button(mobile,'Fermer la fiche').tap();
   const box=await mobile.locator(canvas).boundingBox();
   const cdp=await mobile.context().newCDPSession(mobile);
+  await button(mobile,'Tourelle').tap();
+  await button(mobile,'Pose en série').tap();
+  assert.equal(await button(mobile,'Pose en série').getAttribute('aria-pressed'),'true');
+  const ready=await button(mobile,'Prêt · lancer l’épidémie').boundingBox();
+  assert.ok(ready.y+ready.height<=883);
+  const detail=await mobile.locator('#detail').boundingBox(),field=await mobile.locator('#normal-tools').boundingBox();
+  assert.ok(detail.y+detail.height<=field.y);
+  const beforeBatch=Number(await mobile.locator('.metric.cash strong').textContent());
+  const [from,to]=[harborScreen([harbor[0]-7,harbor[1]-6]),harborScreen([harbor[0]+7,harbor[1]+6])];
+  const send=(type,points)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:points});
+  await send('touchStart',[{x:from[0],y:from[1],id:1}]);
+  for(let n=1;n<=6;n++) await send('touchMove',[{x:from[0]+(to[0]-from[0])*n/6,y:from[1]+(to[1]-from[1])*n/6,id:1}]);
+  await send('touchEnd',[]);
+  const afterBatch=Number(await mobile.locator('.metric.cash strong').textContent());
+  assert.ok(beforeBatch-afterBatch>=250);
+  assert.match(await mobile.locator('#toast').textContent(),/bâtiments équipés/);
+  await snap(mobile,'42-tourelles-en-serie-mobile');
   const at=(dx,id)=>({x:box.x+box.width/2+dx,y:box.y+box.height*.46,id});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[at(-38,1),at(38,2)]});
   for(let n=1;n<=6;n++) {
     await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[at(-38-n*10,1),at(38+n*10,2)]});
   }
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  assert.equal(Number(await mobile.locator('.metric.cash strong').textContent()),afterBatch);
   await button(mobile,'Prêt · lancer l’épidémie').tap();
   await button(mobile,'Vitesse ×2').tap();
   await mobile.waitForFunction(()=>Number(document.querySelector('.metric.infect strong')?.textContent)>65);
@@ -491,7 +526,7 @@ try {
   await snap(mobile,'27-dunkerque-mobile');
 
   assert.deepEqual(errors,[],'Erreurs ou avertissements Chromium');
-  console.log('Renforts conservés entre les étapes, murs automatiques, coûts affichés et tactile vérifiés.');
+  console.log('Déploiement en série, portée, repérage des hordes, fin de partie et contrôles tactiles vérifiés.');
   console.log(`Profil tactile Chromium (412 × 883, DPR 2, foule réduite) : médiane de ${frameTime} ms entre images.`);
   console.log('Captures : '+folder);
 } finally {

@@ -175,6 +175,8 @@ h1,h2,h3,p { margin-top:0 }
 .tools-extra { display:flex; flex-wrap:wrap; gap:5px }
 .tools-extra button { padding:.42rem .55rem; min-height:37px; font-size:.72rem; }
 .tools-extra .active { border-color:var(--mint); color:var(--mint) }
+.touch-batch { display:none }
+@media (any-pointer:coarse) { .touch-batch { display:inline-block } }
 .speed { display:grid; grid-template-columns:repeat(5,1fr); gap:4px }
 .speed button { min-width:0; min-height:37px; padding:0; font:700 .73rem var(--mono) }
 .speed button.active { color:#282018; background:var(--amber); border-color:var(--amber) }
@@ -287,6 +289,7 @@ h1,h2,h3,p { margin-top:0 }
 .title .map-credit { background:#17212bea }
 .atlas-mission .map-credit { right:auto; left:14px; bottom:3px; font-size:.65rem }
 .atlas-mission .pin.hot { color:#f0c6ff; border-color:#d69af4; background:#37244bee }
+.atlas-mission .pin.cluster { color:#f7dcff; border-color:#be70e3; background:#302040ee }
 .atlas-mission .metric.infect strong { color:#e3acff }
 .atlas-mission .dot.infection { background:#d179ff }
 .atlas-mission .stage-vignette { box-shadow:inset 0 0 65px #2c23304a }
@@ -294,7 +297,7 @@ h1,h2,h3,p { margin-top:0 }
 .atlas-mission .dock { background:#1d202b; border-color:#555360; box-shadow:none }
 .atlas-mission .tool-detail { background:#222535 }
 .atlas-mission [data-value=waiting].active,.atlas-mission #release-waiting { color:#baeaff; border-color:#659eaf }
-.atlas-mission [data-value=garrisons].active { color:#ffcf9f; border-color:#e0a577 }
+.atlas-mission #touch-batch.active { color:#ffcf9f; border-color:#e0a577 }
 .atlas-mission .kit-group,.atlas-mission .kit-slots { display:contents }
 .atlas-mission .kit-group h3,.atlas-mission .field-label { display:none }
 .atlas-mission .pin.gate-label,.atlas-mission .pin.roof-label { color:#ffe2a7; border-color:#e7b766; background:#23242af2; }
@@ -398,6 +401,22 @@ h1,h2,h3,p { margin-top:0 }
   .unit-inspector .close-unit,.unit-inspector .button { min-height:42px }
   .atlas-mission .camera { bottom:calc(var(--bottom) + 22px + env(safe-area-inset-bottom)) }
   .title .map-credit { font-size:.62rem }
+}
+@media (max-width:690px) and (min-height:461px) {
+  .atlas-mission .dock {
+    display:grid; grid-template:"head" auto "kit" 48px "detail" minmax(0,1fr) "tools" 33px "footer" auto / minmax(0,1fr);
+    gap:4px;
+  }
+  .atlas-mission .dock-head { grid-area:head }
+  .atlas-mission .kit { grid-area:kit }
+  .atlas-mission .tool-detail { grid-area:detail; overflow:auto }
+  .atlas-mission .tools-extra { grid-area:tools; flex-wrap:nowrap; overflow:auto hidden; touch-action:pan-x; scrollbar-width:thin }
+  .atlas-mission .tools-extra > button { flex:none; white-space:nowrap }
+  .atlas-mission .dock footer { grid-area:footer; margin-top:0 }
+}
+@media (max-width:690px) and (min-height:461px) and (max-height:615px) {
+  .atlas-mission { --bottom:192px }
+  .atlas-mission .tool-detail:not([hidden]) { display:block }
 }
 @media (max-width:360px) {
   .atlas-mission .camera { gap:3px }
