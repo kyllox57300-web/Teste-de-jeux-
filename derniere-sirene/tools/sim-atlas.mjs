@@ -107,6 +107,7 @@ if(!explore) {
   assert.ok(missions.every(m=>save.containment[m.id].saved>=m.pop*.6));
   assert.ok(learn(save,'reserve')===false);
   assert.ok(learn(save,'bunks'));
+  save.retries[missions[0].id]=3;
   assert.deepEqual(parseSave(JSON.stringify(save)),save);
 
   const metz=new Game(missions[0]);
@@ -115,6 +116,7 @@ if(!explore) {
   assert.ok(metz.place('soldier',entrance,false,roof));
   assert.equal(metz.units.get(entrance).building,roof);
   assert.equal(metz.roofAccess('sniper',roof),undefined);
+  assert.ok(metz.upgradeUnit(metz.units.get(entrance)));
   assert.notEqual(metz.money,credits);
   assert.ok(metz.sell(entrance));
   assert.equal(metz.money,credits);
@@ -126,6 +128,51 @@ if(!explore) {
   const charge=metz.map.homes.find(i=>metz.legal('explosive',i));
   assert.ok(metz.place('explosive',charge));
   assert.equal(metz.units.get(charge).building,undefined);
+
+  const funding=new Game(missions[0]);
+  const initial=funding.money;
+  funding.step(5);
+  assert.equal(funding.money,initial);
+  funding.prepare();
+  funding.zombies.forEach(z=>z.stunnedUntil=Infinity);
+  while(funding.time<15.1) funding.step(steps);
+  assert.equal(funding.money,initial+200);
+
+  const staging=new Game(missions[0]);
+  staging.money=staging.cost('soldier')*2+30;
+  const batchStart=[44,36],batchEnd=[50,41];
+  const launch=staging.planGarrisons(batchStart,batchEnd);
+  assert.equal(launch.placements.length,2);
+  assert.equal(new Set(launch.placements.map(p=>p.site.id)).size,2);
+  assert.equal(new Set(launch.placements.map(p=>p.i)).size,2);
+  assert.equal(staging.deployGarrisons(batchStart,batchEnd),2);
+  assert.equal(staging.money,30);
+
+  const sniperGame=new Game(missions[0],'normal',['marks']);
+  const perch=sniperGame.map.buildings.sites.find(site=>sniperGame.roofAccess('sniper',site)!==undefined);
+  const position=sniperGame.roofAccess('sniper',perch);
+  assert.ok(sniperGame.place('sniper',position,false,perch));
+  const sniper=sniperGame.units.get(position);
+  const [x,z]=sniperGame.location(position),baseStats=sniperGame.combatStats(sniper);
+  const gap=baseStats.range*1.06;
+  const target={id:'slow',i:position,x:x+(x>sniperGame.grid.w/2?-gap:gap),z,hp:500};
+  sniperGame.zombies=[target];
+  sniperGame.shoot(sniper);
+  assert.equal(target.hp,500);
+  const quote=sniperGame.upgradePlan(sniper);
+  const wallet=sniperGame.money;
+  sniperGame.money=quote.price-1;
+  assert.equal(sniperGame.upgradeUnit(sniper),false);
+  sniperGame.money=wallet;
+  assert.ok(sniperGame.upgradeUnit(sniper));
+  assert.equal(sniperGame.money,wallet-quote.price);
+  sniperGame.shoot(sniper);
+  assert.equal(target.hp,500-quote.hit);
+  sniperGame.prepare();
+  assert.ok(sniperGame.upgradeUnit(sniper));
+  assert.equal(sniperGame.upgradeUnit(sniper),false);
+  sniperGame.collapse(sniper);
+  assert.equal(sniperGame.upgradePlan(sniper),null);
 
   const game=new Game(withMutators(missions[0],new Set(['horde','austerity','night','fragile'])));
   assert.equal(game.remaining,65);
@@ -156,5 +203,5 @@ if(!explore) {
   const walker=waiting.person(start,{wait:0,speed:2});
   waiting.moveCiv(walker,steps);
   assert.equal(walker.target,waiting.guide[1]);
-  console.log('Bâtiments et accès, mutateurs, budget, ponts, couloirs, zones d’attente et sauvegarde vérifiés.');
+  console.log('Portée et améliorations, fonds, relances, déploiement en série et règles des missions vérifiés.');
 }

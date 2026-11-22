@@ -22,6 +22,19 @@
     <section id="hud" class="hud" hidden>
       <div id="metrics" class="metrics"></div>
       <section id="brief" class="brief" aria-live="polite"></section>
+      <aside id="unit-inspector" class="unit-inspector" aria-labelledby="unit-name" hidden>
+        <header>
+          <div><h2 id="unit-name"></h2><div id="unit-equipment"></div></div>
+          <button class="small close-unit" data-action="unit-close" aria-label="Fermer la fiche">×</button>
+        </header>
+        <dl class="unit-stats">
+          <div><dt>Portée max.</dt><dd><strong id="unit-range"></strong><small id="unit-range-next"></small></dd></div>
+          <div><dt>Dégâts / tir</dt><dd><strong id="unit-hit"></strong><small id="unit-hit-next"></small></dd></div>
+          <div><dt>Intégrité</dt><dd><strong id="unit-health"></strong></dd></div>
+        </dl>
+        <button id="unit-upgrade" class="button primary" data-action="upgrade-unit"></button>
+        <small id="unit-note" class="unit-note"></small>
+      </aside>
       <div class="radar">
         <canvas id="radar" width="125" height="95" aria-label="Minicarte. Touchez pour recentrer la caméra."></canvas>
         <div><span class="dot civilian"></span> Civils <span class="dot infection"></span> Infection</div>

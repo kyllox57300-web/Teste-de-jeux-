@@ -116,6 +116,25 @@ h1,h2,h3,p { margin-top:0 }
 .brief strong { font-size:.84rem; color:var(--amber) }
 .brief p { font-size:.78rem; line-height:1.4; margin:3px 0 0; color:#e2e7ee }
 .brief .breach-focus { display:flex; min-height:34px; margin-top:6px; border-color:#f38f77; color:#ffc3ad; font-size:.73rem; padding:.27rem .55rem; }
+.unit-inspector {
+  position:absolute; z-index:2; top:74px; right:calc(var(--dock) + 12px); width:min(288px,calc(100vw - 24px));
+  max-height:62dvh; overflow:auto; padding:12px; background:#1c242df5; color:#f8f3e8;
+  border:1px solid #7998a4; border-radius:6px; box-shadow:0 8px 30px #11182375
+}
+.unit-inspector header { display:flex; justify-content:space-between; align-items:start; gap:9px }
+.unit-inspector h2 { margin:0 0 3px; font-size:1.17rem; line-height:1.1 }
+#unit-equipment { font:.7rem var(--mono); color:var(--amber) }
+.unit-inspector .close-unit { min-height:30px; min-width:30px; padding:0; border-radius:4px; font-size:1.05rem }
+.unit-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin:9px 0; border-top:1px solid #4a5967; border-bottom:1px solid #4a5967 }
+.unit-stats div { min-width:0; padding:7px 4px; border-right:1px solid #4a5967 }
+.unit-stats div:last-child { border-right:0 }
+.unit-stats dt,.unit-note { color:#c5ced6; font-size:.67rem }
+.unit-stats dd { margin:3px 0 0; font:700 .82rem var(--mono); white-space:nowrap }
+.unit-stats dd small { display:block; margin-top:4px; color:#a5e9fb; font:.7rem var(--mono) }
+.unit-stats dd small:empty { display:none }
+.unit-inspector #unit-range { color:#c2f0ff }
+.unit-inspector .button { width:100%; min-height:34px; padding:4px; font-size:.77rem; border-radius:4px }
+.unit-note { display:block; margin-top:6px }
 .radar { position:absolute; left:14px; bottom:15px; padding:7px; border-radius:7px; background:#171f2bdc; border:1px solid #627083; color:#d5dcec; font:.65rem var(--mono); }
 .radar canvas { display:block; cursor:crosshair; width:125px; height:95px; margin-bottom:5px }
 .dot { display:inline-block; border-radius:50%; width:6px; height:6px; margin-right:2px }
@@ -128,6 +147,9 @@ h1,h2,h3,p { margin-top:0 }
 .dock-head { display:flex; gap:8px; align-items:start; justify-content:space-between }
 .dock-head h2 { margin:3px 0 0; font-size:1.15rem; line-height:1.12 }
 .clock { color:var(--amber); font:.78rem var(--mono); white-space:nowrap; padding-top:3px }
+.dock-time { display:grid; align-content:start; justify-items:end; gap:5px }
+.retry-count { display:block; margin-top:3px; color:#bbc8d2; font:.65rem var(--mono) }
+#next-aid { color:var(--mint); font:.67rem var(--mono); white-space:nowrap }
 .dock footer { display:grid; gap:8px; margin-top:auto }
 .dock footer .button { width:100% }
 .kit { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px }
@@ -263,6 +285,7 @@ h1,h2,h3,p { margin-top:0 }
 .atlas-mission .dock { background:#1d202b; border-color:#555360; box-shadow:none }
 .atlas-mission .tool-detail { background:#222535 }
 .atlas-mission [data-value=waiting].active,.atlas-mission #release-waiting { color:#baeaff; border-color:#659eaf }
+.atlas-mission [data-value=garrisons].active { color:#ffcf9f; border-color:#e0a577 }
 .atlas-mission .kit-group,.atlas-mission .kit-slots { display:contents }
 .atlas-mission .kit-group h3,.atlas-mission .field-label { display:none }
 .atlas-mission .pin.gate-label,.atlas-mission .pin.roof-label { color:#ffe2a7; border-color:#e7b766; background:#23242af2; }
@@ -285,6 +308,7 @@ h1,h2,h3,p { margin-top:0 }
   .atlas-mission .metric small { margin:0; font-size:.62rem; letter-spacing:.02em }
   .atlas-mission .metric-locate:hover { background:#533569 }
   .atlas-mission .brief { top:46px; left:12px }
+  .atlas-mission .unit-inspector { top:47px; right:12px }
   .atlas-mission .radar { bottom:calc(var(--atlas-dock) + 28px); left:12px; padding:4px; border-radius:5px }
   .atlas-mission .radar canvas { width:96px; height:73px; margin-bottom:2px }
   .atlas-mission .radar div { font-size:.56rem }
@@ -336,6 +360,7 @@ h1,h2,h3,p { margin-top:0 }
 @media (min-width:691px) and (max-width:1130px) and (min-height:500px) {
   .atlas-mission .metrics { top:45px }
   .atlas-mission .brief { top:83px }
+  .atlas-mission .unit-inspector { top:84px }
   .atlas-mission .dock { grid-template-columns:minmax(0,1fr) 205px 174px; gap:6px 8px; padding-inline:8px }
   .atlas-mission .kit { gap:7px; padding-right:7px; grid-template-columns:minmax(0,1fr) minmax(98px,.4fr) }
   .atlas-mission .dock.combat .kit-slots { grid-template-columns:repeat(4,minmax(0,1fr)) }
@@ -350,6 +375,7 @@ h1,h2,h3,p { margin-top:0 }
   .atlas-mission .tool { min-height:33px }
   .atlas-mission .tool > span:last-child { font-size:.64rem; line-height:1.07 }
   .atlas-mission .clock { font-size:.56rem }
+  .atlas-mission #next-aid { font-size:.56rem }
 }
 @media (max-width:690px) {
   .atlas-mission .radar { bottom:calc(var(--bottom) + 8px + env(safe-area-inset-bottom)) }
@@ -358,6 +384,9 @@ h1,h2,h3,p { margin-top:0 }
   .atlas-mission .top-actions .small { padding-inline:5px; font-size:.68rem }
   .atlas-mission .tool { flex-basis:117px; min-height:45px }
   .atlas-mission .kit { min-height:48px }
+  .atlas-mission .dock-time { gap:2px }
+  .atlas-mission .unit-inspector { top:54px; right:6px; width:min(274px,calc(100vw - 12px)) }
+  .unit-inspector .close-unit,.unit-inspector .button { min-height:42px }
   .atlas-mission .camera { bottom:calc(var(--bottom) + 22px + env(safe-area-inset-bottom)) }
   .title .map-credit { font-size:.62rem }
 }

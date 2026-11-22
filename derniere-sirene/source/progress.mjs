@@ -3,7 +3,7 @@ import { validCustom } from './city.mjs';
 
 const key='derniere-sirene-v1';
 const ids=new Set(badges.map(b=>b[0]));
-export const defaults=()=>({v:1, records:{}, containment:{}, skills:[], badges:[], cities:[], survival:0,
+export const defaults=()=>({v:1, records:{}, containment:{}, retries:{}, skills:[], badges:[], cities:[], survival:0,
   opts:{sound:true,music:true,quality:'medium',crowd:'auto',speed:1,level:'normal'}, seen:false});
 
 export const skillPoints = save => Object.keys(save.records).length + atlas.filter(m=>save.containment[m.id]).length - save.skills.length;
@@ -58,6 +58,10 @@ export function parseSave(raw) {
     if(r&&Number.isInteger(r.stars)&&r.stars>=1&&r.stars<=3&&Number.isInteger(r.saved)&&r.saved<=pop&&r.saved>=0&&Number.isSafeInteger(r.score)&&r.score>=0) {
       data.containment[id]={stars:r.stars,saved:r.saved,score:r.score};
     }
+  }
+  for(const {id} of atlas) {
+    const count=input.retries?.[id];
+    if(Number.isSafeInteger(count)&&count>0) data.retries[id]=count;
   }
   for(const id of input.badges) if(typeof id==='string') award(data,id);
   for(const id of input.skills) if(typeof id==='string') learn(data,id);

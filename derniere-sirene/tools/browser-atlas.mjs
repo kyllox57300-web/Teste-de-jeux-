@@ -121,6 +121,7 @@ try {
   assert.match(await desktop.locator('#toast').textContent(),/Porte posée/);
   assert.ok(metz.gateWall(gate));
   assert.ok(zone.roofs.length>=2);
+  let soldierPoint;
   for(const [id,name,point] of [['soldier','Garnison',[46,39]],['sniper','Sniper',[47,36]],['mortar','Mortier',[49,41]],['safe','Zone sûre',[43,35]]]) {
     const site=roofNear(metz,id,point);
     const access=metz.roofAccess(id,site);
@@ -132,8 +133,17 @@ try {
     assert.ok(metz.place(id,access,false,site));
     assert.match(await desktop.locator('#toast').textContent(),/Bâtiment réquisitionné/);
     if(id==='soldier') {
-      await desktop.mouse.click(x,y);
-      assert.match(await desktop.locator('#toast').textContent(),/déjà occupé/);
+      soldierPoint=[x,y];
+      await desktop.mouse.click(...soldierPoint);
+      assert.equal(await desktop.locator('#unit-name').textContent(),'Garnison');
+      assert.equal(await desktop.locator('#unit-equipment').textContent(),'Équipement 1/3');
+      const range=await desktop.locator('#unit-range').textContent();
+      assert.match(range,/^≈ \d+ m$/);
+      await button(desktop,'Améliorer · 40 cr').click();
+      assert.ok(metz.upgradeUnit(metz.units.get(access)));
+      assert.equal(await desktop.locator('#unit-equipment').textContent(),'Équipement 2/3');
+      assert.notEqual(await desktop.locator('#unit-range').textContent(),range);
+      await button(desktop,'Fermer la fiche').click();
     }
   }
   assert.equal(Number(await desktop.locator('.metric.cash strong').textContent()),metz.money);
@@ -145,6 +155,36 @@ try {
   await snap(desktop,'29-refuges-et-zone-attente');
   await button(desktop,'Libérer l’attente').click();
   assert.equal(await button(desktop,'Libérer l’attente').isVisible(),false);
+  await button(desktop,'Garnison').click();
+  await desktop.mouse.click(...soldierPoint);
+  await desktop.waitForTimeout(100);
+  await snap(desktop,'30-fiche-garnison-metz');
+  await desktop.keyboard.press('Escape');
+  assert.equal(await desktop.locator('#unit-inspector').isVisible(),false);
+
+  const batchStart=[53,34],batchEnd=[59,39];
+  const batch=metz.planGarrisons(batchStart,batchEnd);
+  assert.ok(batch.placements.length>=2);
+  await button(desktop,'Garnisons en série').click();
+  await desktop.mouse.move(...screen(batchStart));
+  await desktop.mouse.down();
+  await desktop.mouse.move(...screen(batchEnd),{steps:10});
+  assert.match(await desktop.locator('#detail').textContent(),new RegExp(`${batch.placements.length} garnison`));
+  await snap(desktop,'31-garnisons-en-serie');
+  await desktop.mouse.up();
+  assert.equal(Number(await desktop.locator('.metric.cash strong').textContent()),metz.money-batch.price);
+  await button(desktop,'Prêt · lancer l’épidémie').click();
+  const initialCash=metz.money-batch.price;
+  await button(desktop,'Vitesse ×4').click();
+  await desktop.waitForFunction(value=>Number(document.querySelector('.metric.cash strong').textContent)===value,initialCash+100);
+  await button(desktop,'Mettre en pause').click();
+  await button(desktop,'Inspecter').click();
+  await desktop.mouse.click(...soldierPoint);
+  await button(desktop,'Améliorer · 60 cr').click();
+  assert.equal(await desktop.locator('#unit-equipment').textContent(),'Équipement 3/3');
+  assert.equal(await desktop.locator('#unit-note').textContent(),'Équipement maximum');
+  assert.equal(await desktop.locator('#unit-upgrade').isVisible(),false);
+  assert.equal(Number(await desktop.locator('.metric.cash strong').textContent()),initialCash+40);
   await button(desktop,'Pause').click();
   await button(desktop,'Quitter la mission').click();
 
@@ -170,18 +210,20 @@ try {
   const outbreak=toulouse.grid.point(toulouse.map.start);
   await center(desktop,toulouse,outbreak,3);
   const aim=await project(desktop,toulouse,outbreak,3);
+  const wallet=Number(await desktop.locator('.metric.cash strong').textContent());
   await desktop.keyboard.press('3');
   await desktop.mouse.click(...aim(toulouse.location(toulouse.map.start),0));
-  assert.equal(await desktop.locator('.metric.cash strong').textContent(),'1520');
+  assert.equal(Number(await desktop.locator('.metric.cash strong').textContent()),wallet-160);
   await button(desktop,'Vitesse ×0,5').click();
   await desktop.waitForTimeout(950);
   await button(desktop,'Mettre en pause').click();
   await snap(desktop,'23-toulouse-missile');
   await button(desktop,'Rejouer').click();
   assert.equal(await desktop.locator('#clock').textContent(),'EN ATTENTE');
+  assert.equal(await desktop.locator('#retry-count').textContent(),'1');
   assert.equal(await desktop.locator('#modal').isVisible(),false);
-  await button(desktop,'Pause').click();
-  await button(desktop,'Quitter la mission').click();
+  await atlasMenu(desktop);
+  assert.match(await desktop.locator('[data-value="atlas-toulouse"]').textContent(),/1 relance/);
   await button(desktop,'Importer une carte OSM').click();
   await desktop.locator('#osm-file').setInputFiles({name:'Quartier test.osm',mimeType:'text/xml',buffer:osmFixture()});
   await button(desktop,'Examiner la carte').click();
@@ -220,8 +262,15 @@ try {
   const touchRoof=roofNear(dunkerque,'soldier',harbor);
   const harborScreen=await project(mobile,dunkerque,harbor,0);
   await button(mobile,'Garnison').tap();
-  await mobile.touchscreen.tap(...harborScreen(touchRoof.point,touchRoof.height*.69));
+  const mobileRoof=harborScreen(touchRoof.point,touchRoof.height*.69);
+  await mobile.touchscreen.tap(...mobileRoof);
   assert.equal(await mobile.locator('.metric.cash strong').textContent(),'1285');
+  await mobile.touchscreen.tap(...mobileRoof);
+  await button(mobile,'Améliorer · 40 cr').tap();
+  assert.equal(await mobile.locator('#unit-equipment').textContent(),'Équipement 2/3');
+  await mobile.waitForTimeout(100);
+  await snap(mobile,'32-fiche-mobile');
+  await button(mobile,'Fermer la fiche').tap();
   const box=await mobile.locator(canvas).boundingBox();
   const cdp=await mobile.context().newCDPSession(mobile);
   const at=(dx,id)=>({x:box.x+box.width/2+dx,y:box.y+box.height*.46,id});
@@ -251,7 +300,7 @@ try {
   await snap(mobile,'27-dunkerque-mobile');
 
   assert.deepEqual(errors,[],'Erreurs ou avertissements Chromium');
-  console.log('Sélection des bâtiments à la souris et au toucher, occupation unique, portes, zones d’attente, renforts et import OSM vérifiés.');
+  console.log('Fiche et portée, améliorations, fonds en combat, déploiement en série, relances, tactile et import OSM vérifiés.');
   console.log(`Profil tactile Chromium (412 × 883, DPR 2, foule réduite) : médiane de ${frameTime} ms entre images.`);
   console.log('Captures : '+folder);
 } finally {

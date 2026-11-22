@@ -132,6 +132,17 @@ export class View {
     this.hover.rotation.x=-Math.PI/2;
     this.hover.visible=false;
     this.scene.add(this.hover);
+    this.unitRange=new T.Mesh(new T.RingGeometry(.981,1,96),
+      basic(0xa5e9fb,{side:T.DoubleSide,transparent:true,opacity:.85,depthTest:false,depthWrite:false,toneMapped:false}));
+    this.unitCoverage=new T.Mesh(new T.CircleGeometry(1,72),
+      basic(0x58bad6,{side:T.DoubleSide,transparent:true,opacity:.13,depthWrite:false}));
+    this.unitRange.renderOrder=5;
+    this.unitCoverage.renderOrder=2;
+    for(const mesh of [this.unitRange,this.unitCoverage]) {
+      mesh.rotation.x=-Math.PI/2;
+      mesh.visible=false;
+      this.dynamic.add(mesh);
+    }
     this.ray=new T.Raycaster();
     this.floor=new T.Plane(yAxis,0);
     this.vec=new T.Vector3();
@@ -295,6 +306,7 @@ export class View {
     this.hoverRoof=null;
     this.showEntrances=false;
     this.inspected=null;
+    this.selectedUnit=null;
     this.hover.visible=false;
     this.city.scale.y=this.tactical?.69:1;
     const night=game.mission.light==='night';
@@ -439,6 +451,22 @@ export class View {
     this.hover.scale.setScalar(radius*2.03);
     this.hover.material.color.set(allowed?0x79f4d1:0xff9981);
   }
+  showUnitRange(game,outline) {
+    const unit=this.selectedUnit;
+    const visible=game.hasBuildingDefense(unit);
+    this.unitRange.visible=this.unitCoverage.visible=visible;
+    if(!visible) return;
+    const {range}=game.combatStats(unit);
+    const [x,z]=game.location(unit.i);
+    for(const mesh of [this.unitRange,this.unitCoverage]) {
+      mesh.position.set(x,.092,z);
+      mesh.scale.setScalar(range);
+    }
+    const site=unit.building, y=this.roofHeight(site)+.027;
+    for(const [i,point] of site.polygon.entries()) {
+      this.segment(outline,site.polygon.at(i-1),point,y,.023,.085,0xffdd9e);
+    }
+  }
   addEffects(events) {
     for(const {type,i,id,from} of events) {
       if(['wave','breach','boss','gas','blast','impact','infected','flame','shot','spit','infect','collapse','rescue','support','siren','level','build','convoy','repair','flash','decoy'].includes(type)) {
@@ -493,12 +521,16 @@ export class View {
     const flatPlan=this.tactical&&!!this.map.art;
     const atlasPlan=flatPlan&&this.atlasPlan;
     const planHeight=this.planHeight();
+    this.showUnitRange(game,outline);
     const roofs=new Map();
     for(const u of game.units.values()) if(u.id==='safe') {
       for(const site of u.roofs||[]) roofs.set(site.id,roofColors.safe);
       if(u.building) roofs.set(u.building.id,roofColors.safe);
     }
     for(const site of this.placementPreview?.roofs||[]) if(!roofs.has(site.id)) roofs.set(site.id,0x78c8bb);
+    if(this.placementPreview?.kind==='garrisons') {
+      for(const {site} of this.placementPreview.placements) roofs.set(site.id,0xf4aa7c);
+    }
     for(const {contour} of game.waitingZones) {
       areas.push({points:contour,c:0x52cef7,y:planHeight});
       for(let i=0;i<contour.length;i++) this.segment(outline,contour.at(i-1),contour[i],planHeight+.04,.024,.075,0x89e3ff);
@@ -570,10 +602,11 @@ export class View {
     }
     if(this.placementPreview) {
       const p=this.placementPreview;
-      const c=p.error?0xf58970:p.kind==='waiting'?0x89e3ff:atlasPlan?0xa0edff:0xa5ffe1;
-      if(p.kind==='safe'||p.kind==='waiting') {
+      const c=p.error?0xf58970:p.kind==='garrisons'?0xffcb9f:p.kind==='waiting'?0x89e3ff:atlasPlan?0xa0edff:0xa5ffe1;
+      if(['safe','waiting','garrisons'].includes(p.kind)) {
         const path=p.contour;
-        if(p.validShape) areas.push({points:path,c,y:planHeight+.025});
+        if(p.kind==='garrisons'&&!p.error) areas.push({points:path,c,y:.05});
+        else if(p.validShape) areas.push({points:path,c,y:planHeight+.025});
         for(let i=1;i<path.length;i++) this.segment(outline,path[i-1],path[i],planHeight+.062,.025,.085,c);
         if(path.length>2) this.segment(outline,path.at(-1),path[0],planHeight+.059,.018,.052,c);
       } else {

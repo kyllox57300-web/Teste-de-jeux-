@@ -8,6 +8,9 @@ const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
 const metric = (a,b) => Math.hypot(a.x-b.x,a.z-b.z);
 const mobile = new Set(['soldier','sniper','flame']);
 const streetFire = new Set(['soldier','sniper','turret','flame','para']);
+export const maxEquipment=3;
+const fundingInterval=10;
+const funding={easy:125,normal:100,hard:75};
 
 export class Game {
   constructor(mission, level='normal', skills=[]) {
@@ -40,6 +43,8 @@ export class Game {
     this.events=[];
     this.cd={};
     this.time=0;
+    this.aid=mission.atlas?funding[level]:0;
+    this.nextAid=mission.atlas?5:Infinity;
     this.wave=0;
     this.nextWave=mission.id==='survival'?19:14;
     this.routeClock=0;
@@ -104,6 +109,65 @@ export class Game {
   availableRoof(site) { return !this.roofOccupant(site); }
   roofFor(i) { return this.map.buildings?.byAccess[i]?.find(site=>this.availableRoof(site)); }
   roofAccess(id,site) { return site.access.find(i=>this.legal(id,i,site)); }
+  hasBuildingDefense(u) {
+    return !!u?.building&&this.units.get(u.i)===u&&!!defenses[u.id]?.range;
+  }
+  combatStats(u,equipment=u.equipment??1) {
+    const spec=defenses[u.id], bonus=equipment-1;
+    const trainedSniper=u.id==='sniper'&&this.training.has('marks');
+    const trainedMortar=u.id==='mortar'&&this.training.has('artillery');
+    return {
+      range:spec.range*(trainedSniper?1.2:1)*(1+bonus*.12),
+      hit:spec.hit*(1+(u.level-1)*.25)*(this.has('burst')?1.25:1)*(1+bonus*.15),
+      delay:spec.delay*(1-(u.level-1)*.1)*(trainedMortar?.77:1)
+    };
+  }
+  upgradePlan(u) {
+    if(!this.hasBuildingDefense(u)||this.phase!=='prep'&&!this.combat) return null;
+    const equipment=(u.equipment??1)+1;
+    if(equipment>maxEquipment) return null;
+    const price=Math.max(25,Math.round(defenses[u.id].price*(equipment===2?.62:.9)/5)*5);
+    return {equipment,price,...this.combatStats(u,equipment)};
+  }
+  upgradeUnit(u) {
+    const plan=this.upgradePlan(u);
+    if(!plan||plan.price>this.money) return false;
+    this.money-=plan.price;
+    u.paid+=plan.price;
+    u.equipment=plan.equipment;
+    this.emit('level',u.i,u.level);
+    return true;
+  }
+  planGarrisons(from,to) {
+    const left=Math.min(from[0],to[0]),right=Math.max(from[0],to[0]);
+    const top=Math.min(from[1],to[1]),bottom=Math.max(from[1],to[1]);
+    const contour=[[left,top],[right,top],[right,bottom],[left,bottom]];
+    const plan={contour,placements:[],price:0};
+    if(this.phase!=='prep'||!this.map.buildings) return {...plan,error:'Déploiement en série indisponible.'};
+    if(right-left<.2||bottom-top<.2) return {...plan,error:'Élargis le secteur.'};
+    const cost=this.cost('soldier'), limit=Math.floor(this.money/cost);
+    if(!limit) return {...plan,error:'Crédits insuffisants.'};
+    const candidates=[...this.map.buildings.near([left,top],[right,bottom])]
+      .filter(site=>within(site.point,contour)&&this.availableRoof(site))
+      .sort((a,b)=>Math.hypot(a.point[0]-from[0],a.point[1]-from[1])-Math.hypot(b.point[0]-from[0],b.point[1]-from[1]));
+    const reserved=new Set();
+    for(const site of candidates) {
+      const i=site.access.find(i=>!reserved.has(i)&&this.legal('soldier',i,site));
+      if(i===undefined) continue;
+      plan.placements.push({site,i});
+      reserved.add(i);
+      if(plan.placements.length===limit) break;
+    }
+    plan.price=plan.placements.length*cost;
+    if(!plan.price) plan.error='Aucun bâtiment libre et accessible dans le secteur.';
+    return plan;
+  }
+  deployGarrisons(from,to) {
+    const plan=this.planGarrisons(from,to);
+    let count=0;
+    for(const {site,i} of plan.placements) if(this.place('soldier',i,false,site)) count++;
+    return count;
+  }
   baseCapacity() { return (this.mission.cap||defenses.safe.cap)+(this.has('bunks')?(this.mission.atlas?40:8):0); }
   canBuild(i) { return open(this.map.cells,i)&&this.grid.dist(this.map.start,i)>(this.mission.containment?2:0); }
   civilPass(i,from=i) {
@@ -659,14 +723,12 @@ export class Game {
   shoot(u) {
     const d=defenses[u.id];
     if(!d.range || u.fireAt>this.time) return;
-    const range=u.id==='sniper'&&this.training.has('marks')?d.range*1.2:d.range;
+    const {range,delay,hit}=this.combatStats(u);
     const target=this.target(u,range);
     if(!target) return;
     const [x,z]=this.location(u.i);
     u.angle=Math.atan2(target.x-x,target.z-z);
-    const reload=u.id==='mortar'&&this.training.has('artillery')?.77:1;
-    u.fireAt=this.time+d.delay*(1-(u.level-1)*.1)*reload;
-    const hit=d.hit*(1+(u.level-1)*.25)*(this.has('burst')?1.25:1);
+    u.fireAt=this.time+delay;
     if(d.blast) {
       this.blast(target.i,hit,d.blast,d.friendly||0,u,u.id==='flame'?'flame':'blast');
     } else {
@@ -802,6 +864,11 @@ export class Game {
   step(dt) {
     if(!this.combat) return;
     this.time+=dt;
+    if(this.time>=this.nextAid) {
+      const payments=1+Math.floor((this.time-this.nextAid)/fundingInterval);
+      this.money+=payments*this.aid;
+      this.nextAid+=payments*fundingInterval;
+    }
     while(this.breaches.length&&this.breaches[0].until<=this.time) this.breaches.shift();
     if(this.repairs.size) this.finishRepairs();
     if(this.wave<=this.mission.waves && this.time>=this.nextWave) {

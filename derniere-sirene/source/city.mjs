@@ -52,7 +52,10 @@ function generateAtlas(art,seed,atlas=false) {
     for(const [i,x,z] of art.anchors) anchors[i]=[x,z];
     const paths=grid.field([art.start],i=>open(cells,i));
     const homes=cells.flatMap((_,i)=>paths[i]>4&&paths[i]<30000?[i]:[]);
-    cityMap={art,grid,anchors,cells,homes,paths,start:art.start,end:art.end};
+    const [west,south,east,north]=art.bounds;
+    const width=(east-west)*Math.cos((south+north)*Math.PI/360);
+    const metersPerCell=111320*(width/art.w+(north-south)/art.h)/2;
+    cityMap={art,grid,anchors,cells,homes,paths,metersPerCell,start:art.start,end:art.end};
     cityMaps.set(art,cityMap);
   }
   if(atlas&&art.buildings.length&&!cityMap.buildings) {
