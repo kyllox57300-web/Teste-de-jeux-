@@ -406,6 +406,7 @@ function showHUD(rebuild=false) {
   const drawHint={
     safe:shelterInfo,
     garrisons:'Glisse pour encadrer plusieurs toits. Relâche pour installer les garnisons affichées.',
+    guide:game.mission.atlas?'Trace un couloir vers l’entrée d’un refuge. Un point orange signale un passage bloqué ou menacé.':null,
     waiting:'Trace une zone bleue à main levée. Les civils proches y attendent si la rue est sûre. Libère la zone pour les laisser repartir.',
     wall:'Glisse pour tracer un mur continu. Utilise deux doigts ou Maj + glisser pour déplacer la carte.',
     gate:`Touche un point vert sur le mur pour poser une porte (${game.wallGatePrice()} cr). Les infectés doivent la briser.`

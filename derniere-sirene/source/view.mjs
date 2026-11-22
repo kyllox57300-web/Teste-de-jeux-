@@ -641,13 +641,23 @@ export class View {
       heat.push([x,.026,z,size,size,1,c,0,-Math.PI/2]);
     }
     if(game.guide.length) {
+      const atlas=game.mission.atlas;
       for(const [n,i] of game.guide.entries()) {
         const [x,z]=this.location(i);
-        const prev=n>0?this.location(game.guide[n-1]):null;
-        placeAt(routes,x,z,.049,.15,.015,.15,0x6bfad6);
-        if(prev&&this.grid.dist(i,game.guide[n-1])===1) {
-          const dx=x-prev[0],dz=z-prev[1];
-          placeAt(routes,x-dx/2,z-dz/2,.042,this.map.art?.12:.047,.012,Math.hypot(dx,dz),0x4cb5ac,Math.atan2(dx,dz));
+        const prev=game.guide[n-1];
+        const endpoint=n===0||n===game.guide.length-1;
+        const size=atlas?(endpoint?.39:.24):.15;
+        const color=atlas&&game.guideBlocked(i,i)?0xffb35d:0x6bfad6;
+        placeAt(routes,x,z,atlas?.075:.049,size,.02,size,color,atlas?Math.PI/4:0);
+        if(prev!==undefined&&this.grid.dist(i,prev)===1) {
+          const [px,pz]=this.location(prev);
+          if(atlas&&game.guideBlocked(prev,i)) {
+            placeAt(routes,(px+x)/2,Math.max(.53,planHeight+.18),(pz+z)/2,.41,.035,.41,0xffb35d,Math.PI/4);
+          } else {
+            const dx=x-px,dz=z-pz;
+            placeAt(routes,(px+x)/2,atlas?.065:.042,(pz+z)/2,atlas?.15:this.map.art?.12:.047,
+              .012,Math.hypot(dx,dz),0x4cb5ac,Math.atan2(dx,dz));
+          }
         }
       }
     }

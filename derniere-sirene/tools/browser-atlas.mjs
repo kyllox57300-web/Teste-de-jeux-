@@ -164,6 +164,11 @@ try {
   }
   assert.equal(Number(await desktop.locator('.metric.cash strong').textContent()),metz.money);
   await snap(desktop,'28-batiments-requisitionnes-metz');
+  await button(desktop,'Tracer un couloir').click();
+  for(const point of [[54,34],[50,38],[49,38]]) await desktop.mouse.click(...screen(point,0));
+  await button(desktop,'Effacer le couloir').waitFor();
+  assert.match(await desktop.locator('#detail').textContent(),/point orange/);
+  await snap(desktop,'35-couloir-vers-le-refuge');
   const wait=[[51.5,37],[54,36.2],[56.5,38],[57,41],[53,42],[51.5,39]];
   await button(desktop,'Zone d’attente').click();
   await draw(desktop,wait.map(p=>screen(p)));
@@ -195,6 +200,17 @@ try {
   assert.ok(initialCash<65);
   assert.equal(await desktop.locator('#clock').textContent(),'00:00');
   assert.equal(await desktop.locator('#support-stock').textContent(),'Appuis · 8');
+  await button(desktop,'Inspecter').click();
+  await desktop.mouse.click(...entrance);
+  await button(desktop,'Fermer la porte').click();
+  assert.match(await desktop.locator('#toast').textContent(),/autre accès/);
+  await button(desktop,'Retour').click();
+  await button(desktop,'Tracer un couloir').click();
+  await snap(desktop,'36-couloir-porte-fermee');
+  await button(desktop,'Inspecter').click();
+  await desktop.mouse.click(...entrance);
+  await button(desktop,'Ouvrir la porte').click();
+  await button(desktop,'Retour').click();
   await button(desktop,'Parachutistes').click();
   await desktop.mouse.click(...screen(metz.location(metz.map.end),0));
   assert.equal(await desktop.locator('#support-stock').textContent(),'Appuis · 7');

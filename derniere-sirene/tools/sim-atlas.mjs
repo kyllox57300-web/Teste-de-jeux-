@@ -247,5 +247,52 @@ if(!explore) {
   const walker=waiting.person(start,{wait:0,speed:2});
   waiting.moveCiv(walker,steps);
   assert.equal(walker.target,waiting.guide[1]);
-  console.log('Appuis immédiats à zéro crédit, réserve limitée, aide au départ, foyers masqués et améliorations vérifiés.');
+
+  const w=25,h=12,cell=(x,z)=>z*w+x;
+  const cells=new Array(w*h).fill(terrain.block);
+  for(const z of [2,8]) for(let x=2;x<=22;x++) cells[cell(x,z)]=terrain.road;
+  for(const x of [2,22]) for(let z=2;z<=8;z++) cells[cell(x,z)]=terrain.road;
+  const origin=cell(12,8), refuge=cell(22,8);
+  const evacuation=new Game({...missions[0],geography:{w,h,cells,anchors:[],buildings:[],bounds:[6,49,6.01,49.01],start:origin,end:refuge}});
+  const entry=cell(3,8), approach=cell(5,8), across=cell(6,8);
+  evacuation.setGuide([entry,refuge]);
+  evacuation.setGuide([approach],true);
+  assert.deepEqual(evacuation.guide,[entry,cell(4,8),approach]);
+  evacuation.setGuide([refuge],true);
+  evacuation.zombies=[evacuation.person(origin,{hp:50})];
+  evacuation.routes();
+  assert.equal(evacuation.guideBlocked(origin,origin+1),false);
+  assert.ok(evacuation.drawWalls([[5.5,7.6],[5.5,8.4]]));
+  assert.equal(evacuation.guideBlocked(approach,across),true);
+  const [door]=evacuation.walls.sections.values();
+  assert.ok(evacuation.gateWall(door));
+  assert.equal(evacuation.guideBlocked(approach,across),false);
+  evacuation.prepare();
+  evacuation.zombies=[];
+  evacuation.routes();
+  assert.equal(evacuation.guideNext.get(approach),across);
+  const crossing=evacuation.person(approach,{target:across,wait:0,speed:2});
+  assert.ok(evacuation.toggleGate(door));
+  evacuation.routes();
+  assert.equal(evacuation.guideBlocked(approach,across),true);
+  assert.equal(evacuation.guideNext.has(approach),false);
+  evacuation.moveCiv(crossing,steps);
+  assert.equal(crossing.target,approach-1);
+  assert.ok(evacuation.toggleGate(door));
+  evacuation.routes();
+  assert.equal(evacuation.guideNext.get(approach),across);
+
+  evacuation.zombies=[evacuation.person(origin,{hp:50})];
+  evacuation.routes();
+  assert.equal(evacuation.guideBlocked(origin,origin+1),true);
+  assert.equal(evacuation.guideNext.has(approach),false);
+  const evacuee=evacuation.person(entry,{wait:0,speed:2});
+  evacuation.moveCiv(evacuee,steps);
+  assert.equal(evacuee.target,entry-1);
+  for(let tick=0;tick<400&&!evacuee.dead;tick++) {
+    evacuation.time+=steps;
+    evacuation.moveCiv(evacuee,steps);
+  }
+  assert.equal(evacuation.sheltered,1);
+  console.log('Appuis immédiats, aide au départ, foyers masqués, améliorations et évacuation par un détour sûr vérifiés.');
 }
