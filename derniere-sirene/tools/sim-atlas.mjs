@@ -109,6 +109,24 @@ if(!explore) {
   assert.ok(learn(save,'bunks'));
   assert.deepEqual(parseSave(JSON.stringify(save)),save);
 
+  const metz=new Game(missions[0]);
+  const roof=metz.map.buildings.sites.find(site=>metz.roofAccess('soldier',site)!==undefined);
+  const entrance=metz.roofAccess('soldier',roof),credits=metz.money;
+  assert.ok(metz.place('soldier',entrance,false,roof));
+  assert.equal(metz.units.get(entrance).building,roof);
+  assert.equal(metz.roofAccess('sniper',roof),undefined);
+  assert.notEqual(metz.money,credits);
+  assert.ok(metz.sell(entrance));
+  assert.equal(metz.money,credits);
+  assert.equal(metz.roofAccess('soldier',roof),entrance);
+  const district=metz.drawZone([[44,37],[46,35.65],[48.75,36.45],[49.55,38.75],[47.75,41.75],[43.7,41.4],[43.15,38.8]]);
+  assert.ok(district.roofs.length>1&&district.entries.size>0);
+  assert.ok(district.roofs.includes(district.building));
+  for(const i of district.entries) assert.equal(metz.shelterAt(i),district);
+  const charge=metz.map.homes.find(i=>metz.legal('explosive',i));
+  assert.ok(metz.place('explosive',charge));
+  assert.equal(metz.units.get(charge).building,undefined);
+
   const game=new Game(withMutators(missions[0],new Set(['horde','austerity','night','fragile'])));
   assert.equal(game.remaining,65);
   assert.equal(game.money,1037);
@@ -138,5 +156,5 @@ if(!explore) {
   const walker=waiting.person(start,{wait:0,speed:2});
   waiting.moveCiv(walker,steps);
   assert.equal(walker.target,waiting.guide[1]);
-  console.log('Mutateurs, budget, ponts, couloirs, zones d’attente, score et sauvegarde vérifiés.');
+  console.log('Bâtiments et accès, mutateurs, budget, ponts, couloirs, zones d’attente et sauvegarde vérifiés.');
 }

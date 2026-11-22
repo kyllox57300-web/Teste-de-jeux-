@@ -6,9 +6,9 @@
 
 ## Prendre le commandement
 
-- Examinez la ville pendant que le temps est arrêté. Placez garnisons, snipers, tourelles, mortiers, mines et C4. Retirer un équipement pendant la préparation rembourse son coût.
+- Examinez la ville pendant que le temps est arrêté. Cliquez sur le toit d’un bâtiment accessible pour y installer une garnison, un sniper, une tourelle ou un mortier. Le toit prend la couleur de son affectation. Posez les mines et le C4 dans les rues. Retirer un équipement pendant la préparation rembourse son coût.
 - Le plan tactique ouvre sur le quartier. **Vue d’ensemble** cadre toute la ville et **Recentrer** rétablit le cadrage initial. Les outils sont regroupés en bas de l’écran sur ordinateur.
-- Tracez les zones sûres à main levée ou en rectangle. Utilisez **Ceinturer** pour suivre le contour et posez des **Portes** aux points verts pour laisser passer les civils. En combat, **Fortifs** permet de vérifier l’intégrité des murs, de fermer les portes et de commander des réparations.
+- Avec **Zone sûre**, cliquez sur un bâtiment ou tracez tout un quartier à main levée ou en rectangle. Les bâtiments accessibles du quartier servent de refuges. Utilisez **Ceinturer** pour suivre le contour et posez des **Portes** aux points verts pour laisser passer les civils. En combat, **Fortifs** permet de vérifier l’intégrité des murs, de fermer les portes et de commander des réparations.
 - Dessinez un **Couloir** le long des rues et délimitez une **Zone d’attente** bleue loin du foyer. Les civils proches y restent si l’endroit est sûr. Utilisez **Libérer l’attente** pour qu’ils repartent vers les refuges.
 - Appuyez sur **Prêt**. Les civils attrapés rejoignent la horde. Chaque rue récemment infectée reste marquée en violet. La partie se termine à l’élimination du dernier infecté. Chaque personne sauvée rapporte 100 points et chaque victime de tirs alliés coûte 175 points supplémentaires.
 - Conservez des crédits pour les renforts. Sur clavier, les touches **1 à 9** sélectionnent les parachutistes, la frappe aérienne, le missile, le gaz, l’hélicoptère, le blindé, le leurre, l’évacuation et l’éblouissement. Appuyez sur **C** pour le C4, **G** pour le couloir, **Z** pour l’attente, **M** pour déplacer les escouades et **I** pour inspecter les fortifications. Espace met la simulation en pause. Le bandeau de vitesse va de ×0,5 à ×4.

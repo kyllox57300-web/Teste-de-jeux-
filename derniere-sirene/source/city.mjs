@@ -1,5 +1,6 @@
 import { terrain as t, W, H } from './data.mjs';
 import { createGrid } from './grid.mjs';
+import { indexBuildings } from './buildings.mjs';
 import metz from '../maps/metz.json' with {type:'json'};
 
 export function random(seed) {
@@ -15,7 +16,7 @@ export const baseGrid=createGrid(W,H);
 export const {cell,point,dist,adjacent,field}=baseGrid;
 
 export function generate(mission) {
-  if(mission.geography||mission.metro) return generateAtlas(mission.geography||metz,mission.seed);
+  if(mission.geography||mission.metro) return generateAtlas(mission.geography||metz,mission.seed,mission.atlas);
   if (mission.layout) return {cells:mission.layout.slice(), start:mission.start, end:mission.end, homes:homesFor(mission.layout, mission.start), seed:mission.seed};
   if(mission.containment) return generateDistrict(mission);
   const rng = random(mission.seed);
@@ -42,7 +43,7 @@ export function generate(mission) {
 }
 
 const cityMaps=new WeakMap();
-function generateAtlas(art,seed) {
+function generateAtlas(art,seed,atlas=false) {
   let cityMap=cityMaps.get(art);
   if(!cityMap) {
     const grid=createGrid(art.w,art.h);
@@ -51,10 +52,13 @@ function generateAtlas(art,seed) {
     for(const [i,x,z] of art.anchors) anchors[i]=[x,z];
     const paths=grid.field([art.start],i=>open(cells,i));
     const homes=cells.flatMap((_,i)=>paths[i]>4&&paths[i]<30000?[i]:[]);
-    cityMap={art,grid,anchors,cells,homes,start:art.start,end:art.end};
+    cityMap={art,grid,anchors,cells,homes,paths,start:art.start,end:art.end};
     cityMaps.set(art,cityMap);
   }
-  return {...cityMap,seed,cells:cityMap.cells.slice()};
+  if(atlas&&art.buildings.length&&!cityMap.buildings) {
+    cityMap.buildings=indexBuildings(art,cityMap.grid,cityMap.cells,cityMap.anchors,cityMap.paths);
+  }
+  return {...cityMap,buildings:atlas?cityMap.buildings:null,seed,cells:cityMap.cells.slice()};
 }
 
 const districts={

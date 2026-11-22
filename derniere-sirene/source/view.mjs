@@ -2,6 +2,7 @@ import * as T from 'three';
 import { W,H,terrain as t,infected,defenses } from './data.mjs';
 import {baseGrid,point,random,open} from './city.mjs';
 import {buildMapArt,diffusionTexture} from './map-art.mjs';
+import {within} from './placement.mjs';
 
 const cx=(W-1)/2, cz=(H-1)/2;
 const palettes={
@@ -21,6 +22,7 @@ const daylight=[atmos.day,atmos.dusk,atmos.night];
 const atlasSunset={...atmos.dusk,fog:0x252931,sky:0xd7dce2,sun:0xffcfaa,y:7,ambient:2.15,energy:2.7};
 const tint={safe:0x50e4bc,soldier:0x86cbd4,watch:0x9ad4ea,sniper:0x9faeff,flame:0xffad61,turret:0x71c8dd,mortar:0xb2a6e8,wall:0x798c9c,barricade:0xcb894d,gate:0x77ae91,mines:0xffbc68,explosive:0xff7454,tank:0x8eb399,para:0x9dd6e8,heli:0x73caae};
 const defenseMarkers={soldier:0x89d6f6,sniper:0xd4b9ff,turret:0x98ddd6,mortar:0xffbc83,mines:0xeece85,explosive:0xf99079,watch:0xa3d6f7,flame:0xf98d67};
+const roofColors={safe:0x36968d,soldier:0xe48163,sniper:0x749bdc,mortar:0x9e76c9,turret:0xe5b35f,watch:0x52a0c6,flame:0xe69d73};
 const atlasAngle=.43, atlasTilt=1.48;
 export function atlasPlanCamera({w,h},aspect) {
   return {angle:atlasAngle,tilt:atlasTilt,zoom:Math.max(9,Math.min(w/(1.19*aspect),h/1.35))};
@@ -225,6 +227,24 @@ export class View {
     const limit=T.MathUtils.clamp(this.zoom/Math.max(240,this.height)*8,.23,1.08);
     return game.walls.nearest(this.worldAt(x,y,plane),limit);
   }
+  roofAt(x,y) {
+    const buildings=this.map.buildings;
+    if(!buildings) return null;
+    const ground=this.worldAt(x,y);
+    if(!ground) return null;
+    this.floor.constant=-2*this.city.scale.y;
+    const top=this.ray.ray.intersectPlane(this.floor,this.vec);
+    if(!top) return null;
+    let nearest=null;
+    for(const site of buildings.near(ground,[top.x,top.z])) {
+      if(nearest&&site.height<nearest.height) continue;
+      this.floor.constant=-this.roofHeight(site);
+      const hit=this.ray.ray.intersectPlane(this.floor,this.vec);
+      if(hit&&within([hit.x,hit.z],site.polygon)) nearest=site;
+    }
+    return nearest;
+  }
+  roofHeight(site) { return site.height*this.city.scale.y; }
   pick(x,y,snap=true) {
     const p=this.worldAt(x,y);
     if(!p) return -1;
@@ -272,6 +292,7 @@ export class View {
     this.activeZone=null;
     this.placementPreview=null;
     this.hoverWall=null;
+    this.hoverRoof=null;
     this.showEntrances=false;
     this.inspected=null;
     this.hover.visible=false;
@@ -284,8 +305,8 @@ export class View {
     this.scene.fog.density=this.map.art?.0027:.016;
     const reuseArt=this.map.art&&this.art===this.map.art&&this.artNight===night&&this.artAtlas===atlas;
     if(!reuseArt) {
-      this.disposeArt?.();
-      this.disposeArt=null;
+      this.mapArt?.dispose();
+      this.mapArt=null;
       remove(this.city);
     }
     this.art=this.map.art;
@@ -295,7 +316,7 @@ export class View {
     this.fx.length=0;
     this.last=-1;
     if(this.map.art) {
-      if(!reuseArt) this.disposeArt=buildMapArt(this.city,this.map.art,night,atlas);
+      if(!reuseArt) this.mapArt=buildMapArt(this.city,this.map.art,night,atlas);
       if(!this.diffusion) {
         this.diffusion=batch(this.dynamic,'flat',112*112,
           basic(0xffffff,{map:diffusionTexture(),transparent:true,opacity:.79,side:T.DoubleSide,depthWrite:false,toneMapped:false}));
@@ -472,6 +493,12 @@ export class View {
     const flatPlan=this.tactical&&!!this.map.art;
     const atlasPlan=flatPlan&&this.atlasPlan;
     const planHeight=this.planHeight();
+    const roofs=new Map();
+    for(const u of game.units.values()) if(u.id==='safe') {
+      for(const site of u.roofs||[]) roofs.set(site.id,roofColors.safe);
+      if(u.building) roofs.set(u.building.id,roofColors.safe);
+    }
+    for(const site of this.placementPreview?.roofs||[]) if(!roofs.has(site.id)) roofs.set(site.id,0x78c8bb);
     for(const {contour} of game.waitingZones) {
       areas.push({points:contour,c:0x52cef7,y:planHeight});
       for(let i=0;i<contour.length;i++) this.segment(outline,contour.at(i-1),contour[i],planHeight+.04,.024,.075,0x89e3ff);
@@ -481,8 +508,14 @@ export class View {
       placeAt(outline,x,z,planHeight+.04,.63,.03,.69,0x26223b,Math.PI/4);
     }
     for(const u of game.units.values()) {
-      this.unit(gear,marks,hot,u,now);
-      if(atlasPlan&&defenseMarkers[u.id]) {
+      if(u.building) {
+        if(u.id!=='safe') roofs.set(u.building.id,roofColors[u.id]);
+      } else if(this.atlasPlan&&u.id==='safe') {
+        const [x,z]=this.location(u.i);
+        placeAt(outline,x,z,.034,.10,.035,.54,0x8debd4);
+        placeAt(outline,x,z,.035,.54,.035,.10,0x8debd4);
+      } else this.unit(gear,marks,hot,u,now);
+      if(atlasPlan&&!u.building&&defenseMarkers[u.id]) {
         const [x,z]=this.location(u.i);
         placeAt(outline,x,z,.034,.94,.025,.94,0x26333b,Math.PI/4);
         placeAt(outline,x,z,.066,.76,.028,.76,defenseMarkers[u.id],Math.PI/4);
@@ -490,7 +523,7 @@ export class View {
       if(u.contour) {
         const chosen=u===this.activeZone||u===this.inspected;
         const c=atlasPlan?(chosen?0x96ebff:0x6dc5e5):(chosen?0x82f7d1:0x44c69a);
-        areas.push({points:u.contour,c:atlasPlan?0x247d9a:c,y:planHeight});
+        areas.push({points:u.contour,c:atlasPlan?0x247d9a:c,y:atlasPlan?.048:planHeight});
         for(const s of u.edge) if(!game.walls.sections.has(s.key)) {
           this.perimeter(outline,s.a,s.b,planHeight+.03,c,atlasPlan?.10:.062,atlasPlan);
         }
@@ -505,6 +538,12 @@ export class View {
         } else placeAt(outline,x,z,planHeight+.08,1,.023,.13,barrierColor(u,u.closed?0xeeab64:0xd5dce3,game.time),a);
       }
     }
+    if(this.hoverRoof) {
+      const {site,allowed,id}=this.hoverRoof;
+      if(allowed) roofs.set(site.id,roofColors[id]);
+      else if(!roofs.has(site.id)) roofs.set(site.id,0xa05050);
+    }
+    this.mapArt?.mark(roofs);
     for(const wall of game.walls.sections.values()) {
       const focused=this.hoverWall===wall||this.inspected===wall;
       const base=wall.id==='gate'?(wall.closed?0xf0aa59:atlasPlan?0xffc979:0x72ffd0):atlasPlan?0x72d7ff:0xd8e3e8;

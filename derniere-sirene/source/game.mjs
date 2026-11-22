@@ -2,6 +2,7 @@ import { defenses, support, atlasSupport, infected, difficulty, canUse, terrain 
 import { random, generate, open, baseGrid } from './city.mjs';
 import { largestArea,polygonError,rectangle,simplify,wallSections,within } from './placement.mjs';
 import { Fortifications } from './fortification.mjs';
+import { roofRoles } from './buildings.mjs';
 
 const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
 const metric = (a,b) => Math.hypot(a.x-b.x,a.z-b.z);
@@ -88,6 +89,21 @@ export class Game {
   get canConfirm() { return this.combat&&this.clearedAt!==null&&this.evacuated>=this.quota; }
   get latestBreach() { return this.breaches.at(-1); }
   zoneAt(i) { return this.zoneCells.get(i); }
+  shelterAt(i) {
+    const zone=this.zoneAt(i);
+    return zone?.entries&&!zone.entries.has(i)?undefined:zone;
+  }
+  usesRoof(id) { return !!this.map.buildings&&roofRoles.has(id); }
+  roofOccupant(site) {
+    for(const u of this.units.values()) if(u.building===site) return u;
+    return this.marches.find(m=>m.building===site&&!m.done)?.u;
+  }
+  roofZone(site) {
+    for(const u of this.units.values()) if(u.id==='safe'&&(u.building===site||u.roofs?.includes(site))) return u;
+  }
+  availableRoof(site) { return !this.roofOccupant(site); }
+  roofFor(i) { return this.map.buildings?.byAccess[i]?.find(site=>this.availableRoof(site)); }
+  roofAccess(id,site) { return site.access.find(i=>this.legal(id,i,site)); }
   baseCapacity() { return (this.mission.cap||defenses.safe.cap)+(this.has('bunks')?(this.mission.atlas?40:8):0); }
   canBuild(i) { return open(this.map.cells,i)&&this.grid.dist(this.map.start,i)>(this.mission.containment?2:0); }
   civilPass(i,from=i) {
@@ -137,7 +153,7 @@ export class Game {
     const before=this.units.get(i);
     return this.cost('gate')-(before?.id==='wall'||before?.id==='barricade'?before.paid:0);
   }
-  legal(id,i) {
+  legal(id,i,building=null) {
     if(id==='safe'&&this.zoneAt(i)) return false;
     if(id==='safe'&&this.combat&&this.quota) return open(this.map.cells,i)&&!this.units.has(i)&&!this.marches.some(m=>m.to===i)&&this.money>=this.cost(id);
     if(id==='gate'&&this.phase==='prep'&&this.canBuild(i)) {
@@ -145,15 +161,16 @@ export class Game {
       return (!before||before.id==='wall'||before.id==='barricade')&&this.money>=this.gateCost(i);
     }
     if (!this.combat || !this.support[id]) return this.phase==='prep' && defenses[id] && this.canBuild(i)
-      && !this.units.has(i) && canUse(id,this.skills) && this.money>=this.cost(id);
+      && !this.units.has(i) && canUse(id,this.skills) && this.money>=this.cost(id)
+      && (!this.usesRoof(id)||(building?building.access.includes(i)&&this.availableRoof(building):!!this.roofFor(i)));
     return open(this.map.cells,i) && !(this.mission.noair && this.support[id].air) && canUse(id,this.skills) && this.money>=this.cost(id) && !(this.cd[id]>this.time);
   }
   cost(id) {
     const info=defenses[id]||this.support[id];
     return Math.round(info.price*(this.support[id]?.air && this.has('wing') ? .7 : 1));
   }
-  place(id,i,free=false) {
-    if (!free && !this.legal(id,i)) return false;
+  place(id,i,free=false,building=null) {
+    if (!free && !this.legal(id,i,building)) return false;
     const d=defenses[id];
     const hp=(d.hp || 115)*(this.has('concrete')&&d.hp ? 1.4 : 1);
     const cap=d.cap?this.baseCapacity():0;
@@ -162,10 +179,11 @@ export class Game {
     const debit=old?this.gateCost(i):paid;
     const charges=id==='mines'&&this.training.has('mining')?d.charges+1:d.charges;
     const u={id,i,hp,maxHp:hp,level:this.has('veteran')?2:1,xp:0,fireAt:0,sheltered:0,cap,rescueAt:this.time+12,charges,fixed:free,angle:old?.angle||0,paid};
+    if(this.usesRoof(id)) u.building=building||this.roofFor(i);
     this.units.set(i,u);
     if(id==='safe') {
       u.tiles=[i];
-      u.edge=wallSections(rectangle(this.grid,i,i),true);
+      u.edge=u.building?[]:wallSections(rectangle(this.grid,i,i),true);
       this.zoneCells.set(i,u);
     }
     if(!free) {
@@ -192,9 +210,24 @@ export class Game {
     if(plan.tiles.length<2) return {...plan,error:'Trace une zone avec au moins deux cases de rue ou de parc reliées.'};
     const position=this.grid.cell(Math.floor((left+right)/2),Math.floor((top+bottom)/2));
     const choices=plan.tiles.filter(i=>!this.units.has(i)&&!this.marches.some(m=>m.to===i));
-    plan.anchor=choices.sort((a,b)=>this.grid.dist(a,position)-this.grid.dist(b,position))[0];
+    choices.sort((a,b)=>this.grid.dist(a,position)-this.grid.dist(b,position));
+    plan.anchor=choices[0];
     plan.price+=(plan.tiles.length-1)*10;
     plan.cap+=(plan.tiles.length-1)*(this.mission.metro?6:4);
+    if(this.usesRoof('safe')) {
+      const tiles=new Set(plan.tiles);
+      const roofs=new Set(plan.tiles.flatMap(i=>this.map.buildings.byAccess[i]||[]));
+      plan.roofs=[...roofs].filter(site=>within(site.point,contour));
+      const allowed=new Set(plan.roofs);
+      const anchor=choices.find(i=>{
+        plan.building=this.map.buildings.byAccess[i]?.find(site=>allowed.has(site)&&this.availableRoof(site));
+        return !!plan.building;
+      });
+      if(anchor===undefined) return {...plan,error:'Inclus un bâtiment libre et son accès dans le contour.'};
+      plan.anchor=anchor;
+      plan.entries=new Set(plan.roofs.map(site=>site.access.find(i=>tiles.has(i))));
+      plan.entries.add(anchor);
+    }
     if(plan.anchor===undefined) plan.error='Laisse une case libre pour le refuge.';
     else if(this.zombies.some(z=>within(this.location(z.i),contour))) plan.error='Écarte le tracé des infectés.';
     else if(plan.price>this.money) plan.error=`Budget insuffisant · ${plan.price} cr nécessaires.`;
@@ -237,13 +270,15 @@ export class Game {
   }
   drawZone(from,to) {
     const plan=this.planZone(from,to);
-    if(plan.error||!this.place('safe',plan.anchor)) return null;
+    if(plan.error||!this.place('safe',plan.anchor,false,plan.building)) return null;
     const zone=this.units.get(plan.anchor);
     this.money-=plan.price-zone.paid;
     zone.paid=plan.price;
     zone.cap=plan.cap;
     zone.tiles=plan.tiles;
     zone.contour=plan.contour;
+    zone.roofs=plan.roofs;
+    zone.entries=plan.entries;
     zone.edge=wallSections(zone.contour,true);
     for(const i of zone.tiles) this.zoneCells.set(i,zone);
     return zone;
@@ -297,14 +332,16 @@ export class Game {
     return true;
   }
   canMove(i) { return this.combat&&mobile.has(this.units.get(i)?.id); }
-  order(from,to) {
+  order(from,to,building=null) {
     if(!this.canMove(from)||!open(this.map.cells,to)||this.units.has(to)||this.marches.some(m=>m.to===to)) return false;
     const route=this.walkRoute(from,to);
     if(!route) return false;
     const u=this.units.get(from);
     const [x,z]=this.location(from);
+    if(building&&(!this.availableRoof(building)||!building.access.includes(to))) return false;
     this.units.delete(from);
-    this.marches.push({u,to,route,next:1,x,z,i:from,target:route[1],ox:0,oz:0,angle:u.angle,retryAt:0});
+    u.building=undefined;
+    this.marches.push({u,to,building,route,next:1,x,z,i:from,target:route[1],ox:0,oz:0,angle:u.angle,retryAt:0});
     this.routeClock=0;
     return true;
   }
@@ -349,6 +386,7 @@ export class Game {
       if(m.i===m.to) {
         m.u.i=m.to;
         m.u.angle=m.angle;
+        m.u.building=m.building;
         this.units.set(m.to,m.u);
         this.emit('build',m.to,m.u.id);
         m.done=true;
@@ -642,7 +680,7 @@ export class Game {
     const pass=i=>open(this.map.cells,i);
     const civilPass=(i,j)=>this.civilPass(i,j);
     const intake=[];
-    for(const [i,u] of this.zoneCells) if(u.sheltered<u.cap&&civilPass(i)) intake.push(i);
+    for(const [i,u] of this.zoneCells) if((!u.entries||u.entries.has(i))&&u.sheltered<u.cap&&civilPass(i)) intake.push(i);
     this.safeField=this.grid.field(intake,civilPass);
     this.guideRoute=new Set(this.guide);
     this.guideField=this.grid.field(this.guide.filter(i=>this.safeField[i]<30000),civilPass);
@@ -660,7 +698,8 @@ export class Game {
     this.waitingField=this.waitingZones.length?this.grid.field(
       this.waitingZones.flatMap(z=>z.tiles.filter(i=>this.threat[i]>=9)),civilPass):null;
     const occupied=this.civs.filter(c=>!c.dead).map(c=>c.i);
-    const targets=[...occupied,...this.units.keys(),...this.zoneCells.keys()];
+    const targets=[...occupied,...this.units.keys()];
+    for(const [i,zone] of this.zoneCells) if(!zone.entries||zone.entries.has(i)) targets.push(i);
     this.hunt=this.grid.field(targets.length?targets:[this.map.end],pass);
     if(this.mission.containment) this.crowd=this.grid.field(occupied,pass);
     this.noises=this.noises.filter(n=>n.until>this.time).slice(-12);
@@ -684,7 +723,7 @@ export class Game {
   }
   moveCiv(c,dt) {
     if(c.dead || c.wait>this.time || this.travel(c,dt,c.speed)) return;
-    const shelter=this.zoneAt(c.i);
+    const shelter=this.shelterAt(c.i);
     if(shelter&&shelter.sheltered<shelter.cap&&this.civilPass(c.i)) {
       shelter.sheltered++;
       if(!this.mission.atlas) this.money+=3;
@@ -747,7 +786,7 @@ export class Game {
       const score=nav[i]+this.rng()*.38;
       if(score<high) { best=i; high=score; }
     }
-    const here=this.units.get(z.i)||this.zoneAt(z.i);
+    const here=this.units.get(z.i)||this.shelterAt(z.i);
     const obstruction=this.units.get(best);
     const target=here||this.walls.obstruction(z.i,best)||(obstruction&&defenses[obstruction.id].barrier?obstruction:null);
     if(target) {

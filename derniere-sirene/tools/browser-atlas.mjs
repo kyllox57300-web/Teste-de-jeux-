@@ -67,6 +67,10 @@ async function draw(page,points) {
   for(const p of points.slice(1)) await page.mouse.move(...p,{steps:4});
   await page.mouse.up();
 }
+function roofNear(game,id,[x,z]) {
+  const sites=game.map.buildings.sites.filter(site=>game.roofAccess(id,site)!==undefined);
+  return sites.sort((a,b)=>Math.hypot(a.point[0]-x,a.point[1]-z)-Math.hypot(b.point[0]-x,b.point[1]-z))[0];
+}
 function osmFixture() {
   const nodes=[],ways=[];
   for(let i=0;i<121;i++) nodes.push(`<node id="${i+1}" lon="${6+(i%11)*.001}" lat="${49+Math.floor(i/11)*.001}"/>`);
@@ -116,25 +120,29 @@ try {
   await desktop.mouse.click(...entrance);
   assert.match(await desktop.locator('#toast').textContent(),/Porte posée/);
   assert.ok(metz.gateWall(gate));
-  const stations=[];
-  for(const [id,name,point] of [['soldier','Garnison',[46,39]],['sniper','Sniper',[47,36]],['mortar','Mortier',[49,41]],['explosive','C4',[42,37]]]) {
-    const candidates=metz.map.homes.filter(i=>metz.legal(id,i)&&stations.every(j=>metz.grid.dist(i,j)>2));
-    const site=candidates.sort((a,b)=>{
-      const [x,z]=metz.location(a),[u,v]=metz.location(b);
-      return Math.hypot(x-point[0],z-point[1])-Math.hypot(u-point[0],v-point[1]);
-    })[0];
-    assert.ok(metz.place(id,site));
-    stations.push(site);
+  assert.ok(zone.roofs.length>=2);
+  for(const [id,name,point] of [['soldier','Garnison',[46,39]],['sniper','Sniper',[47,36]],['mortar','Mortier',[49,41]],['safe','Zone sûre',[43,35]]]) {
+    const site=roofNear(metz,id,point);
+    const access=metz.roofAccess(id,site);
+    const [x,y]=screen(site.point,site.height*.69);
     await button(desktop,name).click();
-    await desktop.mouse.click(...screen(metz.location(site),0));
+    await desktop.mouse.move(x,y);
+    await desktop.locator('.pin.roof-label').waitFor();
+    await desktop.mouse.click(x,y);
+    assert.ok(metz.place(id,access,false,site));
+    assert.match(await desktop.locator('#toast').textContent(),/Bâtiment réquisitionné/);
+    if(id==='soldier') {
+      await desktop.mouse.click(x,y);
+      assert.match(await desktop.locator('#toast').textContent(),/déjà occupé/);
+    }
   }
   assert.equal(Number(await desktop.locator('.metric.cash strong').textContent()),metz.money);
-  await snap(desktop,'24-plan-tactique-metz');
+  await snap(desktop,'28-batiments-requisitionnes-metz');
   const wait=[[51.5,37],[54,36.2],[56.5,38],[57,41],[53,42],[51.5,39]];
   await button(desktop,'Zone d’attente').click();
   await draw(desktop,wait.map(p=>screen(p)));
   await button(desktop,'Libérer l’attente').waitFor();
-  await snap(desktop,'25-zone-attente-metz');
+  await snap(desktop,'29-refuges-et-zone-attente');
   await button(desktop,'Libérer l’attente').click();
   assert.equal(await button(desktop,'Libérer l’attente').isVisible(),false);
   await button(desktop,'Pause').click();
@@ -206,6 +214,14 @@ try {
   assert.equal(await density.inputValue(),'auto');
   await density.selectOption('low');
   await button(mobile,'Fermer').tap();
+  const dunkerque=await contents('dunkerque');
+  const harbor=dunkerque.grid.point(dunkerque.map.end);
+  await center(mobile,dunkerque,harbor,0);
+  const touchRoof=roofNear(dunkerque,'soldier',harbor);
+  const harborScreen=await project(mobile,dunkerque,harbor,0);
+  await button(mobile,'Garnison').tap();
+  await mobile.touchscreen.tap(...harborScreen(touchRoof.point,touchRoof.height*.69));
+  assert.equal(await mobile.locator('.metric.cash strong').textContent(),'1285');
   const box=await mobile.locator(canvas).boundingBox();
   const cdp=await mobile.context().newCDPSession(mobile);
   const at=(dx,id)=>({x:box.x+box.width/2+dx,y:box.y+box.height*.46,id});
@@ -235,7 +251,7 @@ try {
   await snap(mobile,'27-dunkerque-mobile');
 
   assert.deepEqual(errors,[],'Erreurs ou avertissements Chromium');
-  console.log('Six villes dans le menu, mutateurs cumulés, portes, zones d’attente, touches 1–9, import OSM, reprise et tactile vérifiés.');
+  console.log('Sélection des bâtiments à la souris et au toucher, occupation unique, portes, zones d’attente, renforts et import OSM vérifiés.');
   console.log(`Profil tactile Chromium (412 × 883, DPR 2, foule réduite) : médiane de ${frameTime} ms entre images.`);
   console.log('Captures : '+folder);
 } finally {

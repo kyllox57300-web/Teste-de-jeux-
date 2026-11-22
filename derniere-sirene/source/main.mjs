@@ -22,7 +22,7 @@ const sectors=[metz,...containment];
 const advancedShelter={...defenses.safe,name:'Refuge avancé',info:'Ouvre un refuge desservi par les navettes.'};
 const atlasDefenses={
   soldier:{...defenses.soldier,name:'Garnison'},sniper:defenses.sniper,turret:defenses.turret,mortar:defenses.mortar,mines:defenses.mines,
-  explosive:{...defenses.explosive,name:'C4'},safe:{...defenses.safe,info:'Trace un refuge et ceinture-le. Ajoute des portes pour laisser entrer les civils.'},
+  explosive:{...defenses.explosive,name:'C4'},safe:{...defenses.safe,info:'Affecte un bâtiment au refuge ou trace un quartier à protéger.'},
   wall:defenses.wall,gate:defenses.gate
 };
 const modifiers=new Set();
@@ -384,10 +384,10 @@ function showHUD(rebuild=false) {
   shape.classList.toggle('active',freehand);
   view.showEntrances=selected==='gate';
   const preview=view.placementPreview;
-  const perimeterInfo=!perimeter?'':perimeter.segments.length?` Ceinturer coûte ${perimeter.price} cr.`
+  const perimeterInfo=!perimeter||!zone.edge.length?'':perimeter.segments.length?` Ceinturer coûte ${perimeter.price} cr.`
     :perimeter.gates?'':' Pose une porte pour laisser entrer les civils.';
   const shelterInfo=zone?`Zone sûre · ${zone.sheltered}/${zone.cap} à l’abri.${perimeterInfo}`
-    :freehand?'Trace le contour avec le doigt ou la souris. Il se ferme quand tu relâches.'
+    :freehand?(game.usesRoof('safe')?'Touche un bâtiment pour en faire un refuge, ou trace le contour d’un quartier.':'Trace le contour avec le doigt ou la souris. Il se ferme quand tu relâches.')
       :'Glisse d’un coin à l’autre pour tracer un rectangle. Active Main levée pour dessiner le contour.';
   const drawHint={
     safe:shelterInfo,
@@ -397,7 +397,8 @@ function showHUD(rebuild=false) {
   };
   $('detail').textContent=(preview?preview.error||(
     preview.kind==='waiting'?`${preview.tiles.length} cases d’attente`:preview.kind==='safe'?`${preview.tiles.length} cases · ${preview.cap} places · ${preview.price} cr`
-      :`${preview.segments.length} section(s) de mur · ${preview.price} cr`):null)||drawHint[selected]||items[selected]?.info||({
+      :`${preview.segments.length} section(s) de mur · ${preview.price} cr`):null)||drawHint[selected]
+    ||(!live&&game.usesRoof(selected)&&items[selected]?'Sélectionne un bâtiment accessible. '+items[selected].info:items[selected]?.info)||({
     guide:'Glissez sur les rues pour tracer un itinéraire vers la croix verte. Sur mobile, utilisez deux doigts pour déplacer la carte.',
     sell:'Touchez une défense pour la retirer et récupérer son coût.',
     boom:'Touchez une charge posée pour la déclencher.',
@@ -480,12 +481,52 @@ function choose(id) {
     :defenses[id]&&canUse(id,game.skills)&&(id==='gate'?minimumGateCost():game.cost(id))<=game.money) selected=id;
   if(selected!=='command') view.commandOrigin=-1;
   view.hoverWall=null;
+  view.hoverRoof=null;
   showHUD();
+}
+function tapRoof(site) {
+  const unit=game.roofOccupant(site);
+  if(selected==='sell') {
+    const target=unit||game.roofZone(site);
+    if(!target) return false;
+    if(game.sell(target.i)) showHUD();
+    return true;
+  }
+  if(game.combat&&selected==='command') {
+    if(unit&&game.canMove(unit.i)) mapAction(unit.i);
+    else if(view.commandOrigin<0) notify('Choisis d’abord une escouade.');
+    else if(site.access.some(i=>game.order(view.commandOrigin,i,site))) {
+      view.commandOrigin=-1;
+      notify('Escouade en mouvement vers le bâtiment.');
+      showHUD();
+    } else notify('Ce bâtiment est occupé ou inaccessible.');
+    return true;
+  }
+  if(!game.combat&&game.usesRoof(selected)) {
+    const shelter=selected==='safe'&&game.roofZone(site);
+    if(shelter) view.activeZone=shelter;
+    else {
+      const access=game.roofAccess(selected,site);
+      if(access===undefined) {
+        notify(unit?'Ce bâtiment est déjà occupé.':'Choisis un bâtiment libre avec un accès à la rue.');
+        return true;
+      }
+      game.place(selected,access,false,site);
+      if(selected==='safe') view.activeZone=game.zoneAt(access);
+      notify('Bâtiment réquisitionné.');
+    }
+    view.hoverRoof=null;
+    showHUD();
+    return true;
+  }
+  return false;
 }
 function tapMap(x,y) {
   const i=view.pick(x,y);
+  const canPickRoof=game.usesRoof(selected)||['command','inspect','sell',''].includes(selected);
+  const site=canPickRoof?view.roofAt(x,y):null;
   if(game.combat&&(selected==='inspect'||!selected)) {
-    const structure=view.wallAt(game,x,y)||game.structureAt(i);
+    const structure=view.wallAt(game,x,y)||(site&&game.roofZone(site))||game.structureAt(i);
     if(structure) {
       selected='inspect';
       view.inspected=structure;
@@ -512,6 +553,7 @@ function tapMap(x,y) {
       return;
     }
   }
+  if(site&&tapRoof(site)) return;
   mapAction(i,true);
 }
 function mapAction(i,append=false) {
@@ -548,7 +590,7 @@ function mapAction(i,append=false) {
     if(!ok) {
       const u=game.units.get(i);
       if(u?.id==='safe') return notify(`Zone sûre · ${u.sheltered}/${u.cap} personnes · intégrité ${Math.round(u.hp/u.maxHp*100)} %`);
-      return notify('Choisissez une rue libre et vérifiez votre budget.');
+      return notify(game.usesRoof(selected)?'Choisis un bâtiment libre avec un accès à la rue.':'Choisissez une rue libre et vérifiez votre budget.');
     }
   }
   showHUD();
@@ -813,7 +855,9 @@ canvas.addEventListener('pointermove',e=>{
   const i=view.pick(at.x,at.y);
   if(e.pointerType==='mouse') {
     view.hoverWall=selected==='gate'||selected==='sell'||selected==='inspect'?view.wallAt(game,at.x,at.y):null;
-    view.highlight(view.hoverWall?-1:i,selected,game.legal(selected,i)||selected==='guide'||selected==='sell'||selected==='boom'
+    const site=!before&&!game.combat&&game.usesRoof(selected)?view.roofAt(at.x,at.y):null;
+    view.hoverRoof=site?{site,id:selected,occupant:game.roofOccupant(site),allowed:game.roofAccess(selected,site)!==undefined}:null;
+    view.highlight(view.hoverWall||site?-1:i,selected,game.legal(selected,i)||selected==='guide'||selected==='sell'||selected==='boom'
       ||selected==='command'&&(game.canMove(i)||view.commandOrigin>=0&&open(game.map.cells,i)&&!game.units.has(i)));
   }
   if(!before||!gesture) return;
@@ -863,7 +907,7 @@ function release(e) {
 canvas.addEventListener('pointerup',release);
 canvas.addEventListener('pointercancel',release);
 canvas.addEventListener('lostpointercapture',release);
-canvas.addEventListener('pointerleave',()=>{if(view){view.hoverWall=null;view.highlight(-1,'',false);}});
+canvas.addEventListener('pointerleave',()=>{if(view){view.hoverWall=null;view.hoverRoof=null;view.highlight(-1,'',false);}});
 dom.radar.addEventListener('pointerdown',e=>{
   const r=dom.radar.getBoundingClientRect();
   const {w,h,cell}=game.grid;
@@ -897,7 +941,7 @@ function mapOverlay() {
 }
 function pins() {
   const safe=[...game.units.values()].filter(u=>u.id==='safe');
-  const pinData=safe.map(u=>[game.location(u.i),`✚ ${u.sheltered}/${u.cap}`,view.activeZone===u?'chosen':'']);
+  const pinData=safe.map(u=>[u.building?.point||game.location(u.i),`✚ ${u.sheltered}/${u.cap}`,view.activeZone===u?'chosen':'',u.building?view.roofHeight(u.building)+.1:.82]);
   if(game.clearedAt===null) pinData.push([game.location(game.map.start),game.phase==='prep'||game.mission.containment?'◬ FOYER':'◬ V'+game.wave,'hot']);
   if(game.map.breach!=null) pinData.push([game.location(game.map.breach),'◬ BRÈCHE','hot']);
   for(const breach of game.breaches) pinData.push([breach.point,'! RUPTURE','rupture']);
@@ -909,11 +953,17 @@ function pins() {
   if(game.mission.atlas&&selected==='gate'&&wall?.id==='wall'&&game.walls.openings(wall).length) {
     pinData.push([game.structurePosition(wall),`Porte · ${game.wallGatePrice()} cr`,'gate-label']);
   }
+  if(view.hoverRoof?.allowed||view.hoverRoof?.occupant) {
+    const {site,id,occupant}=view.hoverRoof;
+    const role=occupant?.id||id;
+    const name=atlasDefenses[role]?.name||defenses[role].name;
+    pinData.push([site.point,`${name} · ${occupant?'En place':game.cost(id)+' cr'}`,'roof-label',view.roofHeight(site)+.16]);
+  }
   if(game.map.art) for(const [label,x,z] of game.map.art.labels) pinData.push([[x,z],label,'geo']);
   while(dom.pins.children.length<pinData.length) dom.pins.append(document.createElement('div'));
   while(dom.pins.children.length>pinData.length) dom.pins.lastChild.remove();
-  pinData.forEach(([[x,z],text,cls],index)=>{
-    const [sx,sy,on]=view.project(x,z,cls==='gate-label'?view.planHeight()+.12:.82);
+  pinData.forEach(([[x,z],text,cls,height],index)=>{
+    const [sx,sy,on]=view.project(x,z,height??(cls==='gate-label'?view.planHeight()+.12:.82));
     const pin=dom.pins.children[index];
     pin.className='pin '+cls;
     if(pin.textContent!==text) pin.textContent=text;

@@ -99,7 +99,7 @@ function mapTexture(art,night,tactical) {
 }
 
 function buildings(art,tactical) {
-  const positions=[],colors=[];
+  const positions=[],colors=[],ranges=[];
   const roof=new T.Color(), facade=new T.Color();
   const roofs=tactical?
     ['#a09981','#ada489','#9b9787','#b2a68e','#a4a08a','#b7ae96','#969485']
@@ -113,9 +113,11 @@ function buildings(art,tactical) {
     for(let i=0;i<coords.length;i+=2) points.push(new T.Vector2(coords[i],coords[i+1]));
     roof.set(roofs[n%roofs.length]);
     facade.copy(roof).multiplyScalar(tactical?.55:.65);
+    const start=positions.length/3;
     for(const [i,j,k] of T.ShapeUtils.triangulateShape(points,[])) {
       vertex(points[k],height,roof);vertex(points[j],height,roof);vertex(points[i],height,roof);
     }
+    ranges.push({start,end:positions.length/3,base:roof.clone()});
     if(height<.22) continue;
     for(let i=0;i<points.length;i++) {
       const a=points[i],b=points[(i+1)%points.length];
@@ -127,7 +129,7 @@ function buildings(art,tactical) {
   geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));
   geometry.setAttribute('color',new T.Float32BufferAttribute(colors,3));
   geometry.computeVertexNormals();
-  return geometry;
+  return {geometry,ranges};
 }
 
 export function buildMapArt(group,art,night,tactical) {
@@ -135,14 +137,36 @@ export function buildMapArt(group,art,night,tactical) {
   const surface=new T.Mesh(new T.PlaneGeometry(art.w,art.h),new T.MeshBasicMaterial({map:texture,toneMapped:false}));
   surface.rotation.x=-Math.PI/2;
   surface.position.set((art.w-1)/2,-.022,(art.h-1)/2);
-  const blocks=new T.Mesh(buildings(art,tactical),new T.MeshLambertMaterial({vertexColors:true,side:T.DoubleSide}));
+  const {geometry,ranges}=buildings(art,tactical);
+  const blocks=new T.Mesh(geometry,new T.MeshLambertMaterial({vertexColors:true,side:T.DoubleSide}));
   group.add(surface,blocks);
-  return ()=>{
-    for(const mesh of [surface,blocks]) {
-      mesh.geometry.dispose();
-      mesh.material.dispose();
+  const colors=geometry.getAttribute('color');
+  const marked=new Map(),tint=new T.Color();
+  function paint(id,value) {
+    const {start,end,base}=ranges[id];
+    const color=value===undefined?base:tint.set(value);
+    for(let i=start;i<end;i++) colors.setXYZ(i,color.r,color.g,color.b);
+    colors.addUpdateRange(start*3,(end-start)*3);
+    colors.needsUpdate=true;
+  }
+  return {
+    mark(next) {
+      for(const id of marked.keys()) if(!next.has(id)) {
+        paint(id);
+        marked.delete(id);
+      }
+      for(const [id,color] of next) if(marked.get(id)!==color) {
+        paint(id,color);
+        marked.set(id,color);
+      }
+    },
+    dispose() {
+      for(const mesh of [surface,blocks]) {
+        mesh.geometry.dispose();
+        mesh.material.dispose();
+      }
+      texture.dispose();
     }
-    texture.dispose();
   };
 }
 
