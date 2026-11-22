@@ -3,11 +3,13 @@ import { validCustom } from './city.mjs';
 
 const key='derniere-sirene-v1';
 const ids=new Set(badges.map(b=>b[0]));
-export const defaults=()=>({v:1, records:{}, containment:{}, retries:{}, skills:[], badges:[], cities:[], survival:0,
+export const defaults=()=>({v:1, records:{}, containment:{}, retries:{}, defeats:{}, skills:[], badges:[], cities:[], survival:0,
   opts:{sound:true,music:true,quality:'medium',crowd:'auto',speed:1,level:'normal'}, seen:false});
 
 export const skillPoints = save => Object.keys(save.records).length + atlas.filter(m=>save.containment[m.id]).length - save.skills.length;
 export const available = (save,id) => id===0 || !!save.records[id-1];
+export const recoveryCredits = defeats => Math.max(0,Math.min(4,defeats-1))*150;
+export const nextDefeats = (current,phase) => phase==='won'?0:phase==='lost'?Math.min(Number.MAX_SAFE_INTEGER,current+1):current;
 export function learn(save, id) {
   if(skillPoints(save)<=0 || save.skills.includes(id) || !tree.some(branch=>{
     const step=branch.nodes.findIndex(n=>n[0]===id);
@@ -25,6 +27,11 @@ export function finish(save, game) {
   const id=game.mission.id;
   for(const flag of game.flags) award(save,flag);
   if(id==='survival') save.survival=Math.max(save.survival,result.wave);
+  if(game.mission.atlas&&id!=='atlas-local') {
+    const defeats=nextDefeats(save.defeats[id]||0,game.phase);
+    if(defeats) save.defeats[id]=defeats;
+    else delete save.defeats[id];
+  }
   if(game.phase!=='won') return result;
   for(const [badge,condition] of [
     ['first',true],['rescue',result.saved>=20],['three',result.stars===3],['perfect',result.saved===game.mission.pop],
@@ -62,6 +69,8 @@ export function parseSave(raw) {
   for(const {id} of atlas) {
     const count=input.retries?.[id];
     if(Number.isSafeInteger(count)&&count>0) data.retries[id]=count;
+    const defeats=input.defeats?.[id];
+    if(Number.isSafeInteger(defeats)&&defeats>0) data.defeats[id]=defeats;
   }
   for(const id of input.badges) if(typeof id==='string') award(data,id);
   for(const id of input.skills) if(typeof id==='string') learn(data,id);

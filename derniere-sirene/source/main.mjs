@@ -1,7 +1,7 @@
 import { W,H,terrain as t,defenses,missions,specials,endless,metz,containment,atlas,mutators,withMutators,difficulty,tree,badges,canUse } from './data.mjs';
 import { Game,maxEquipment } from './game.mjs';
 import { generate,open,point,cell,validCustom } from './city.mjs';
-import { available,award,finish,learn,load,parseSave,skillPoints,store } from './progress.mjs';
+import { available,award,finish,learn,load,nextDefeats,parseSave,recoveryCredits,skillPoints,store } from './progress.mjs';
 import { View } from './view.mjs';
 import { Audio } from './sound.mjs';
 import { convertOSM,parseOSM } from './osm.mjs';
@@ -28,7 +28,7 @@ const atlasDefenses={
 };
 const modifiers=new Set();
 const atlasMaps=new Map();
-let loading=null, localRetries=0;
+let loading=null, localRetries=0, localDefeats=0;
 const pointers=new Map();
 const audio=new Audio();
 const radarCtx=dom.radar.getContext('2d');
@@ -57,6 +57,7 @@ function notify(text) {
   toastTimer=setTimeout(()=>dom.toast.hidden=true,2600);
 }
 const retryCount=m=>m.id==='atlas-local'?localRetries:save.retries[m.id]||0;
+const defeatCount=m=>m.id==='atlas-local'?localDefeats:save.defeats[m.id]||0;
 function header() {
   dom.topbar.innerHTML=`<button class="brand" data-action="${page==='mission'?'pause':'home'}"><span class="logo" aria-hidden="true">◬</span> Dernière Sirène</button><div class="top-actions">${page==='mission'
     ?(game.mission.atlas?button('Rejouer','retry','small'):'')+button('Pause','pause','small')+button('Paramètres','settings','small')
@@ -277,6 +278,7 @@ async function importOSM(file) {
     const name=file.name.replace(/\.(osm|xml|json)$/i,'').trim().slice(0,38)||'Quartier importé';
     const pop=Math.min(2650,Math.max(420,Math.round(geography.anchors.length*.5)));
     localRetries=0;
+    localDefeats=0;
     start(withMutators({...atlas[0],id:'atlas-local',name,zone:'CARTE OPENSTREETMAP IMPORTÉE',geography,pop,
       count:Math.round(12+pop*.017),briefing:['Générale Varga','Reconnais les rues et trace un repli vers le refuge.']},modifiers));
   } catch(error) {
@@ -286,7 +288,8 @@ async function importOSM(file) {
 }
 function start(m,brief=true) {
   if(!m) return;
-  game=new Game(m,save.opts.level,save.skills.slice());
+  const bonus=m.atlas?recoveryCredits(defeatCount(m)):0;
+  game=new Game(m,save.opts.level,save.skills.slice(),{attempt:retryCount(m),bonus});
   selected='soldier';speed=save.opts.speed;acc=0;status='';result=null;
   if(m.atlas) freehand=true;
   tut=m.id===0&&!save.seen?1:0;
@@ -294,7 +297,7 @@ function start(m,brief=true) {
   go('mission');
   if(tut) opening();
   else if(brief) showModal('briefing',m.name,`<p class="eyebrow">${escape(m.briefing[0])}</p><p>« ${escape(m.briefing[1])} »</p>${m.atlas?
-    `<p>Place tes défenses à l’arrêt, puis élimine la horde. En combat, le commandement te verse ${game.aid} cr toutes les 10 secondes.</p>${m.modifiers?.length?`<p>${m.modifiers.map(id=>mutators[id]).join(' · ')}</p>`:''}`
+    `<p>Prépare tes défenses. Les infectés se révèlent au déclenchement de l’épidémie. En combat, le commandement te verse ${game.aid} cr toutes les 10 secondes.</p>${m.modifiers?.length?`<p>${m.modifiers.map(id=>mutators[id]).join(' · ')}</p>`:''}`
     :game.quota?`<p><strong>Objectif</strong> · Élimine la horde et évacue au moins ${game.quota} personnes. Les navettes partent des refuges toutes les 12 secondes. Zoome pour bien viser les rues.</p>`
     :m.containment?'<p>Les escouades peuvent changer de rue après le départ. Sélectionne « Ordres », une escouade, puis sa destination.</p>':m.rule?`<p>${escape(m.rule)}</p>`:''}<div class="dialog-actions">${button('Examiner la carte','close','button primary')}</div>`);
 }
@@ -358,12 +361,13 @@ function showHUD(rebuild=false) {
       </div>
       <footer><div class="speed" aria-label="Vitesse">${speeds.map(v=>button(speedName(v),'speed','',v)).join('')}</div>${live?(game.quota?'<button id="confirm-rescue" class="button mint" data-action="confirm-rescue" hidden>Valider le bilan</button>':''):button('Prêt · lancer l’épidémie','ready','button primary')}</footer>`;
   }
-  const metrics=[['cash','Crédits',game.money],['rescue','À l’abri',game.sheltered+'/'+game.mission.pop],['infect','Infectés',game.remaining],['','Victimes',game.lost]];
+  const infection=game.outbreakHidden?['infect','Foyer','Masqué']:['infect','Infectés',game.remaining];
+  const metrics=[['cash','Crédits',game.money],['rescue','À l’abri',game.sheltered+'/'+game.mission.pop],infection,['','Victimes',game.lost]];
   if(game.quota) metrics[1]=['rescue','Évacués',game.evacuated+'/'+game.quota];
   if(game.mission.containment) metrics.splice(2,0,['street','En rue',game.civs.length]);
   if(rebuild) dom.metrics.innerHTML=metrics.map(([cls,name])=>{
     const value=`<strong></strong><small>${name}</small>`;
-    return cls==='infect'&&game.mission.metro
+    return cls==='infect'&&game.mission.metro&&!game.outbreakHidden
       ?`<button class="metric infect metric-locate" data-action="locate" title="Centrer sur les infectés" aria-label="Centrer sur les infectés">${value}</button>`
       :`<div class="metric ${cls}">${value}</div>`;
   }).join('');
@@ -372,7 +376,8 @@ function showHUD(rebuild=false) {
     const label=String(value);
     if(element.textContent!==label) element.textContent=label;
   }
-  if(game.mission.metro) dom.metrics.querySelector('.metric-locate').disabled=!game.remaining;
+  const locate=dom.metrics.querySelector('.metric-locate');
+  if(locate) locate.disabled=!game.remaining;
   $('clock').textContent=live?clock(game.time)+(game.mission.containment?'':' · V'+game.wave):'EN ATTENTE';
   if($('next-aid')) $('next-aid').textContent=`+${game.aid} cr dans ${Math.ceil(game.nextAid-game.time)} s`;
   dom.dock.classList.toggle('combat',live);
@@ -447,6 +452,7 @@ function showHUD(rebuild=false) {
   if(live&&game.latestBreach) brief=`<strong>Brèche · ${structureNames[game.latestBreach.id]} détruit${['safe','gate','barricade'].includes(game.latestBreach.id)?'e':''}</strong>
     ${button('Voir la brèche','locate-breach','small breach-focus')}`;
   else if(live&&game.clearedAt!==null) brief=`<strong>Ville assainie</strong><p>${game.canConfirm?'Objectif atteint. Continue les évacuations ou valide le bilan.':'Ouvre des refuges et laisse les navettes atteindre le quota.'}</p>`;
+  else if(game.phase==='prep'&&game.recoveryAid) brief=`<strong>Aide au départ · +${game.recoveryAid} cr</strong><p>${defeatCount(game.mission)} défaites d’affilée dans cette ville.</p>`;
   else brief=hint?`<strong>${hint[0]}</strong><p>${hint[1]}</p>`:status?`<strong>${escape(status)}</strong>`:!live&&!game.mission.atlas?`<strong>${escape(game.mission.zone)}</strong><p>${escape(game.mission.rule||(game.mission.metro?'Prévois plusieurs refuges et protège les accès.':game.mission.containment?'Interdiction de placer des défenses dans le périmètre orange.':'Protégez les accès aux refuges. Le temps est arrêté.'))}</p>`:'';
   if(dom.brief.innerHTML!==brief) dom.brief.innerHTML=brief;
 }
@@ -686,6 +692,7 @@ function endMission() {
   view.selectedUnit=null;
   showUnitInspector();
   result=finish(save,game);
+  if(game.mission.id==='atlas-local') localDefeats=nextDefeats(localDefeats,game.phase);
   writeSave();
   const won=game.phase==='won', finale=won&&game.mission.id===11, survival=game.mission.id==='survival';
   if(finale) audio.tick([{type:'rescue'}],save.opts,false,true);
@@ -694,7 +701,11 @@ function endMission() {
   const stats=[[game.quota?'Évacués':'Sauvés',result.saved+'/'+game.mission.pop],['Victimes',result.lost],['Infectés éliminés',result.kills],['Tirs alliés',result.friendly],['Score',result.score.toLocaleString('fr-FR')],[survival?'Vague':'Durée',survival?result.wave:clock(result.time)]];
   const epilogue=finale?`<p>« Les bateaux ont quitté l’estuaire. Imani a fermé l’installation. Pour la première fois depuis les Verriers, la radio ne demande plus de secours. » — Capitaine Sol</p><p>Bilan de campagne · ${Object.keys(save.records).length} villes sécurisées · ${total}/36 étoiles · ${Object.values(save.records).reduce((a,b)=>a+b.saved,0)} civils sauvés sur vos meilleurs résultats.</p>`:'';
   const next=won&&typeof game.mission.id==='number'&&game.mission.id<missions.length-1?button('Mission suivante','next','button primary'):'';
-  showModal('result',title,`${won?`<p class="stars" aria-label="${result.stars} étoiles">${stars(result.stars)}</p>`:''}${epilogue}
+  const defeats=defeatCount(game.mission);
+  const bonus=recoveryCredits(defeats);
+  const assistance=game.mission.atlas&&!won
+    ?`<p>${bonus?`${defeats} défaites d’affilée. <strong>+${bonus} cr</strong> au budget du prochain essai.`:'Une aide au budget se débloque après deux défaites d’affilée.'}</p>`:'';
+  showModal('result',title,`${won?`<p class="stars" aria-label="${result.stars} étoiles">${stars(result.stars)}</p>`:''}${epilogue}${assistance}
     <div class="stats">${stats.map(([label,n])=>`<div><strong>${n}</strong>${label}</div>`).join('')}</div>
     <div class="dialog-actions">${next}${button('Rejouer','retry',game.mission.atlas?'button primary':'button')}${won&&game.mission.atlas?button('Compétences','nav','button','tree'):''}${button('Retour au commandement','quit')}</div>`);
 }
@@ -749,11 +760,11 @@ function dispatch(action,value) {
     view.focus.set(x,0,z);
     view.zoomBy(view.zoom>26?26/view.zoom:1);
   }
-  if(action==='locate'&&game.remaining) {
+  if(action==='locate'&&game.visibleZombies.length) {
     const {cell,dist}=game.grid;
     const origin=cell(Math.round(view.focus.x),Math.round(view.focus.z));
-    let target=game.zombies[0].i, range=-1;
-    for(const z of game.zombies) {
+    let target=game.visibleZombies[0].i, range=-1;
+    for(const z of game.visibleZombies) {
       const d=dist(origin,z.i);
       if(d>range) {range=d;target=z.i;}
     }
@@ -998,16 +1009,17 @@ dom.radar.addEventListener('pointerdown',e=>{
 function mapOverlay() {
   const ctx=radarCtx, {w,h,point}=game.grid;
   const sx=ctx.canvas.width/w, sz=ctx.canvas.height/h;
+  const fog=game.visibleFog;
   ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
   for(const [i,type] of game.map.cells.entries()) {
     const [x,z]=point(i);
-    ctx.fillStyle=game.fog[i]>.42?(game.mission.atlas?'#a944e4':'#a7544c'):colors[type];
+    ctx.fillStyle=fog?.[i]>.42?(game.mission.atlas?'#a944e4':'#a7544c'):colors[type];
     ctx.fillRect(x*sx,z*sz,sx+.4,sz+.4);
   }
   for(const c of game.civs) {
     ctx.fillStyle='#8bd7ee';ctx.fillRect((c.x+.4)*sx,(c.z+.4)*sz,game.mission.metro?1:2,game.mission.metro?1:2);
   }
-  for(const z of game.zombies) {
+  for(const z of game.visibleZombies) {
     ctx.fillStyle=game.mission.atlas?'#f0a5ff':'#ff9c72';ctx.fillRect((z.x+.4)*sx,(z.z+.4)*sz,2,2);
   }
   for(const u of game.units.values()) {
@@ -1023,7 +1035,7 @@ function mapOverlay() {
 function pins() {
   const safe=[...game.units.values()].filter(u=>u.id==='safe');
   const pinData=safe.map(u=>[u.building?.point||game.location(u.i),`✚ ${u.sheltered}/${u.cap}`,view.activeZone===u?'chosen':'',u.building?view.roofHeight(u.building)+.1:.82]);
-  if(game.clearedAt===null) pinData.push([game.location(game.map.start),game.phase==='prep'||game.mission.containment?'◬ FOYER':'◬ V'+game.wave,'hot']);
+  if(!game.mission.atlas&&game.clearedAt===null) pinData.push([game.location(game.map.start),game.phase==='prep'||game.mission.containment?'◬ FOYER':'◬ V'+game.wave,'hot']);
   if(game.map.breach!=null) pinData.push([game.location(game.map.breach),'◬ BRÈCHE','hot']);
   for(const breach of game.breaches) pinData.push([breach.point,'! RUPTURE','rupture']);
   const inspected=view.inspected;

@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {atlas,defenses,terrain,withMutators} from '../source/data.mjs';
 import {open} from '../source/city.mjs';
 import {Game} from '../source/game.mjs';
-import {defaults,finish,learn,parseSave,skillPoints} from '../source/progress.mjs';
+import {defaults,finish,learn,parseSave,recoveryCredits,skillPoints} from '../source/progress.mjs';
 
 const requested=process.argv.find(arg=>arg.startsWith('--city='))?.slice(7);
 const missions=await Promise.all(atlas.filter(m=>!requested||m.mapId===requested).map(async mission=>({...mission,geography:JSON.parse(
@@ -66,8 +66,8 @@ function react(game) {
   const destination=game.map.homes.find(i=>route[i]===2&&!game.units.has(i)&&dist(unit.i,i)>1);
   if(destination!==undefined) game.order(unit.i,destination);
 }
-function run(mission,offset) {
-  const game=new Game(mission);
+function run(mission,offset,options) {
+  const game=new Game(mission,'normal',[],options);
   if(offset!==null) prepare(game,offset);
   game.prepare();
   let peak=game.remaining;
@@ -81,12 +81,36 @@ function run(mission,offset) {
 }
 const explore=process.argv.includes('--explore');
 const save=defaults();
+const recovery=defaults();
 const report=[];
 for(const mission of missions) {
   const base=new Game(mission);
+  const replay=new Game(mission,'normal',[],{attempt:1});
+  assert.notEqual(replay.outbreak,base.outbreak);
+  assert.deepEqual(replay.civs,base.civs);
+  assert.ok(base.grid.field([replay.outbreak],i=>open(base.map.cells,i))[base.map.end]<30000);
+  assert.equal(base.visibleZombies.length,0);
+  assert.equal(base.visibleFog,null);
+  assert.ok(base.canBuild(base.outbreak));
+  assert.ok(replay.canBuild(replay.outbreak));
+  replay.prepare();
+  assert.equal(replay.visibleZombies.length,mission.count);
+  assert.ok(replay.visibleFog[replay.outbreak]>0);
   assert.ok(base.grid.field([base.map.start],i=>open(base.map.cells,i))[base.map.end]<30000);
   assert.ok(base.map.cells.includes(terrain.bridge));
   const failure=run(mission,null);
+  if(mission===missions[0]&&!explore) {
+    finish(recovery,failure.game);
+    assert.equal(recovery.defeats[mission.id],1);
+    assert.equal(recoveryCredits(recovery.defeats[mission.id]),0);
+    finish(recovery,run(mission,null,{attempt:1}).game);
+    assert.equal(recovery.defeats[mission.id],2);
+    assert.deepEqual(parseSave(JSON.stringify(recovery)),recovery);
+    const budget=recoveryCredits(recovery.defeats[mission.id]);
+    const rematch=new Game(mission,'normal',[],{attempt:2,bonus:budget});
+    assert.equal(rematch.money,base.money+150);
+    assert.equal(mission.budget,base.money);
+  }
   const attempts=[0,5,12].map(offset=>run(mission,offset));
   const winner=attempts.filter(r=>r.game.phase==='won').sort((a,b)=>b.saved-a.saved)[0];
   report.push({ville:mission.name,population:mission.pop,
@@ -98,10 +122,16 @@ for(const mission of missions) {
     assert.equal(winner.saved+winner.lost,mission.pop);
     assert.equal(winner.score,Math.max(0,winner.saved*100-winner.friendly*175));
     finish(save,winner.game);
+    if(mission===missions[0]&&!explore) {
+      finish(recovery,winner.game);
+      assert.equal(recovery.defeats[mission.id],undefined);
+    }
   }
 }
 console.table(report);
 if(!explore) {
+  assert.deepEqual([0,1,2,3,4,5,6].map(recoveryCredits),[0,0,150,300,450,600,600]);
+  assert.deepEqual(recovery.defeats,{});
   assert.ok(report.every(r=>r['sans défense']==='lost'&&r['pic sans défense']>1000));
   assert.equal(skillPoints(save),missions.length);
   assert.ok(missions.every(m=>save.containment[m.id].saved>=m.pop*.6));
@@ -203,5 +233,5 @@ if(!explore) {
   const walker=waiting.person(start,{wait:0,speed:2});
   waiting.moveCiv(walker,steps);
   assert.equal(walker.target,waiting.guide[1]);
-  console.log('Portée et améliorations, fonds, relances, déploiement en série et règles des missions vérifiés.');
+  console.log('Aide après deux défaites, remise à zéro, foyers masqués et déplacés, améliorations et déploiement en série vérifiés.');
 }

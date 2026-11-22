@@ -22,6 +22,19 @@ const canvas='#world';
 const button=(page,name)=>page.getByRole('button',{name,exact:true});
 const action=(page,value)=>page.locator(`[data-action="${value}"]`);
 const snap=(page,name)=>page.screenshot({path:join(folder,name+'.jpg'),quality:92,timeout:30000});
+const radarShowsInfection=(expected=true)=> {
+  const canvas=document.querySelector('#radar');
+  const copy=document.createElement('canvas');
+  copy.width=canvas.width;
+  copy.height=canvas.height;
+  const ctx=copy.getContext('2d',{willReadFrequently:true});
+  ctx.drawImage(canvas,0,0);
+  const pixels=ctx.getImageData(0,0,copy.width,copy.height).data;
+  for(let i=0;i<pixels.length;i+=4) {
+    if(pixels[i]===240&&pixels[i+1]===165&&pixels[i+2]===255) return expected;
+  }
+  return !expected;
+};
 
 function monitor(page) {
   page.on('pageerror',e=>errors.push(e.message));
@@ -89,7 +102,10 @@ try {
   for(const id of ['horde','fragile','austerity','night']) await desktop.locator(`[data-value="${id}"]`).click();
   await city(desktop,'lyon');
   assert.equal(await desktop.locator('.metric.cash strong').textContent(),'1152');
-  assert.equal(await desktop.locator('.metric.infect strong').textContent(),'85');
+  assert.equal(await desktop.locator('.metric.infect strong').textContent(),'Masqué');
+  assert.equal(await button(desktop,'Centrer sur les infectés').count(),0);
+  assert.equal(await desktop.locator('.pin.hot').count(),0);
+  assert.equal(await desktop.evaluate(radarShowsInfection),false);
   await snap(desktop,'18-lyon-de-nuit');
   await button(desktop,'Pause').click();
   await button(desktop,'Quitter la mission').click();
@@ -196,6 +212,8 @@ try {
   await city(desktop,'toulouse');
   await snap(desktop,'20-toulouse-preparation');
   await button(desktop,'Prêt · lancer l’épidémie').click();
+  await button(desktop,'Centrer sur les infectés').waitFor();
+  await desktop.waitForFunction(radarShowsInfection);
   assert.equal(await desktop.locator('.kit .tool').count(),9);
   await button(desktop,'Vitesse ×4').click();
   await desktop.waitForFunction(()=>Number(document.querySelector('.metric.infect strong')?.textContent)>170);
@@ -221,6 +239,8 @@ try {
   await button(desktop,'Rejouer').click();
   assert.equal(await desktop.locator('#clock').textContent(),'EN ATTENTE');
   assert.equal(await desktop.locator('#retry-count').textContent(),'1');
+  assert.equal(await button(desktop,'Centrer sur les infectés').count(),0);
+  await desktop.waitForFunction(radarShowsInfection,false);
   assert.equal(await desktop.locator('#modal').isVisible(),false);
   await atlasMenu(desktop);
   assert.match(await desktop.locator('[data-value="atlas-toulouse"]').textContent(),/1 relance/);
@@ -232,8 +252,21 @@ try {
 
   const narrow=await browser.newPage({viewport:{width:768,height:730}});
   monitor(narrow);
+  await narrow.addInitScript(()=>{
+    const key='derniere-sirene-v1';
+    if(!localStorage.getItem(key)) localStorage.setItem(key,JSON.stringify({
+      v:1,records:{},skills:[],badges:[],cities:[],defeats:{'atlas-metz':2}
+    }));
+  });
   await atlasMenu(narrow);
   await city(narrow,'metz');
+  assert.equal(await narrow.locator('.metric.cash strong').textContent(),'1590');
+  assert.match(await narrow.locator('#brief').textContent(),/\+150 cr.*2 défaites d’affilée/);
+  await button(narrow,'Rejouer').click();
+  assert.equal(await narrow.locator('.metric.cash strong').textContent(),'1590');
+  assert.equal(await narrow.locator('#retry-count').textContent(),'1');
+  await narrow.waitForTimeout(100);
+  await snap(narrow,'33-aide-et-foyer-masque');
   const narrowMap=await narrow.locator(canvas).boundingBox();
   const narrowDock=await narrow.locator('#dock').boundingBox();
   assert.equal(narrowMap.width,768);
@@ -300,7 +333,7 @@ try {
   await snap(mobile,'27-dunkerque-mobile');
 
   assert.deepEqual(errors,[],'Erreurs ou avertissements Chromium');
-  console.log('Fiche et portée, améliorations, fonds en combat, déploiement en série, relances, tactile et import OSM vérifiés.');
+  console.log('Foyer masqué, minicarte, aide au départ, relances, améliorations, déploiement en série et tactile vérifiés.');
   console.log(`Profil tactile Chromium (412 × 883, DPR 2, foule réduite) : médiane de ${frameTime} ms entre images.`);
   console.log('Captures : '+folder);
 } finally {

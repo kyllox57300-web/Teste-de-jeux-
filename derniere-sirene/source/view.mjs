@@ -195,9 +195,9 @@ export class View {
       this.angle=opening.angle;
       this.tilt=this.tactical?opening.tilt:.99;
       this.zoom=opening.zoom;
-      const [x,z]=this.grid.point(this.map.start),[u,v]=this.grid.point(this.map.end);
-      this.focus.x=T.MathUtils.lerp(this.focus.x,(x+u)/2,.36);
-      this.focus.z=T.MathUtils.lerp(this.focus.z,(z+v)/2,.36);
+      const [x,z]=this.grid.point(this.map.end);
+      this.focus.x=T.MathUtils.lerp(this.focus.x,x,.18);
+      this.focus.z=T.MathUtils.lerp(this.focus.z,z,.18);
     }
     this.cameraAt();
   }
@@ -469,6 +469,7 @@ export class View {
   }
   addEffects(events) {
     for(const {type,i,id,from} of events) {
+      if(this.atlasPlan&&type==='siren') continue;
       if(['wave','breach','boss','gas','blast','impact','infected','flame','shot','spit','infect','collapse','rescue','support','siren','level','build','convoy','repair','flash','decoy'].includes(type)) {
         this.fx.push({type,i,id,from,age:0,seed:Math.random()*1000});
       }
@@ -498,7 +499,7 @@ export class View {
     const bodies=[],heads=[],contacts=[],gear=[],marks=[],trace=[],particles=[],hot=[],routes=[],heat=[],areas=[],outline=[];
     const detail=this.setting!=='low'||this.zoom<18;
     const reduced=this.crowd==='low'||(this.crowd==='auto'&&(this.width<700||this.setting==='low'));
-    for(const list of [game.civs,game.zombies]) for(const p of list) {
+    for(const list of [game.civs,game.visibleZombies]) for(const p of list) {
       if(bodies.length+contacts.length>=4096) break;
       const spec=infected[p.id];
       if(reduced&&list.length>160&&p.visualID%3!==0) continue;
@@ -629,8 +630,9 @@ export class View {
         placeAt(particles,g.x+Math.cos(a)*(1+n%3*.37),g.z+Math.sin(a)*(1+n%3*.37),.18+Math.sin(a*2)*.08,.52,.21,.52,0x92a75b);
       }
     }
-    for(let i=0;i<game.fog.length;i++) {
-      const v=game.fog[i];
+    const fog=game.visibleFog;
+    for(let i=0;fog&&i<fog.length;i++) {
+      const v=fog[i];
       if(v<.16 || !open(game.map.cells,i)) continue;
       const [x,z]=this.location(i);
       const c=game.mission.atlas?(v>.69?0xbe39ff:v>.35?0x944adc:0x7248b3)
@@ -649,11 +651,11 @@ export class View {
         }
       }
     }
-    if(!title&&game.clearedAt===null&&(game.combat||game.phase==='prep')) {
+    if(!title&&!game.mission.atlas&&game.clearedAt===null&&(game.combat||game.phase==='prep')) {
       const [x,z]=this.location(game.map.start);
       const signal=(now*1.45)%1;
       const width=.74+signal*1.65;
-      const c=game.mission.atlas?0xd88bff:signal<.55?0xffa571:0x964c49;
+      const c=signal<.55?0xffa571:0x964c49;
       marks.push([x,.042,z,width,width,1,c,0,-Math.PI/2]);
       if(game.mission.containment&&game.phase==='prep') marks.push([x,.043,z,4.5,4.5,1,c,0,-Math.PI/2]);
     }
