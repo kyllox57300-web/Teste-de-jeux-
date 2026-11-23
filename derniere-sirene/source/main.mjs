@@ -1,5 +1,5 @@
 import { W,H,terrain as t,defenses,missions,specials,endless,metz,containment,atlas,mutators,withMutators,difficulty,tree,badges,canUse } from './data.mjs';
-import { Game,freeSupportSlots,maxEquipment } from './game.mjs';
+import { Game,freeSupportSlots,maxEquipment,maxZoneLevel } from './game.mjs';
 import { generate,open,point,cell,validCustom } from './city.mjs';
 import { available,award,finish,learn,load,nextDefeats,parseSave,recordAtlasProgress,recoveryCredits,skillPoints,store } from './progress.mjs';
 import { View } from './view.mjs';
@@ -364,9 +364,10 @@ function showHUD(rebuild=false) {
       ${game.mission.atlas?button('Zone d’attente','tool','small','waiting')+'<button id="release-waiting" class="small" data-action="release-waiting" hidden>Libérer l’attente</button>':''}
       ${!live&&game.mission.atlas?'<button id="coverage" class="small" data-action="coverage" aria-pressed="false">Couverture</button>'+button('Renforts','prepare-support','small')+button('Compétences','training','small'):''}
       <button id="shape" class="small" data-action="shape" aria-pressed="false" hidden>Main levée</button>
-      ${live?button('Ordres','tool','small','command')+button(game.mission.atlas?'Inspecter':'Fortifs','tool','small','inspect')+button('Détoner','tool','small','boom'):button('Retirer','tool','small','sell')+'<button id="fortify" class="small" data-action="fortify" hidden>Ceinturer</button>'}</div>
+      ${live?button('Ordres','tool','small','command')+button(game.mission.atlas?'Inspecter':'Fortifs','tool','small','inspect')+button('Détoner','tool','small','boom'):(game.mission.atlas?button('Inspecter','tool','small','inspect'):'')+button('Retirer','tool','small','sell')+'<button id="fortify" class="small" data-action="fortify" hidden>Ceinturer</button>'}</div>
       <div class="tools-extra" id="fort-controls" hidden>
         <button id="gate-control" class="small" data-action="toggle-gate" hidden></button>
+        <button id="zone-upgrade" class="small" data-action="upgrade-zone" hidden></button>
         <button id="repair" class="small" data-action="repair">Réparer</button>
         <button class="small" data-action="inspect-back">Retour</button>
       </div>
@@ -534,6 +535,18 @@ function inspectUnit(unit) {
   dom.toast.hidden=true;
   showHUD();
 }
+function inspectStructure(structure) {
+  selected='inspect';
+  view.inspected=structure;
+  view.selectedUnit=null;
+  view.commandOrigin=-1;
+  view.hoverWall=null;
+  view.hoverRoof=null;
+  view.highlight(-1,'',false);
+  if(structure.id==='safe') view.activeZone=structure;
+  showHUD();
+}
+const healthPercent=u=>Math.floor(100*u.hp/u.maxHp);
 function showFortification() {
   if(!game.hasStructure(view.inspected)||selected!=='inspect') view.inspected=null;
   const u=view.inspected;
@@ -542,17 +555,36 @@ function showFortification() {
   $('normal-tools').hidden=!!u;
   $('fort-controls').hidden=!u;
   if(!u) return;
-  const hp=Math.floor(u.hp/u.maxHp*100);
-  $('fort-name').textContent=structureNames[u.id];
-  $('fort-percent').textContent=hp+' %';
+  const hp=healthPercent(u);
+  const zone=game.mission.atlas&&u.id==='safe';
+  const level=u.fortLevel??1;
+  const upgrade=game.zoneUpgradePlan(u);
+  const upgradeButton=$('zone-upgrade');
+  upgradeButton.hidden=!upgrade;
+  if(upgrade) {
+    upgradeButton.disabled=upgrade.price>game.money;
+    upgradeButton.textContent=`Améliorer · ${upgrade.price} cr`;
+    upgradeButton.title=upgradeButton.disabled?creditShortage(upgrade.price)
+      :`${Math.round(upgrade.maxHp)} PV au refuge${u.edge.length?' et un contour renforcé':''}.`;
+  }
+  $('fort-name').textContent=structureNames[u.id]+(zone?` · Niv. ${level}/${maxZoneLevel}`:'');
+  $('fort-percent').textContent=zone?`${Math.ceil(u.hp)}/${Math.round(u.maxHp)} PV`:hp+' %';
   $('fort-health').value=hp;
   $('fort-health').className=hp<35?'critical':hp<68?'warning':'';
+  let perimeter='';
+  if(zone&&u.edge.length) {
+    const walls=u.edge.map(s=>game.walls.sections.get(s.key));
+    const missing=walls.filter(wall=>!wall).length;
+    perimeter=missing?` · ${missing} section${missing===1?' manquante':'s manquantes'}`
+      :` · Mur le plus faible ${Math.min(...walls.map(healthPercent))} %`;
+  }
   $('fort-state').textContent=u.id==='gate'?(u.closed?'Porte fermée':'Passage ouvert aux civils')
-    :u.id==='safe'?`${u.sheltered}/${u.cap} personnes à l’abri`:hp<100?'Section endommagée':'Section intacte';
+    :u.id==='safe'?`${u.sheltered}/${u.cap} personnes à l’abri${perimeter}`:hp<100?'Section endommagée':'Section intacte';
   const gate=$('gate-control');
-  gate.hidden=u.id!=='gate';
+  gate.hidden=u.id!=='gate'||!game.combat;
   gate.textContent=u.closed?'Ouvrir la porte':'Fermer la porte';
   const repair=$('repair'), pending=game.repairs.get(u), quote=game.repairPlan(u);
+  repair.hidden=!game.combat;
   repair.disabled=!quote||quote.price>game.money;
   repair.textContent=pending?`Réparation · ${Math.ceil(pending.until-game.time)} s`:quote?`Réparer · ${quote.price} cr`:'Réparer';
   repair.title=quote?`Restaure ${Math.ceil(quote.gain)} points d’intégrité en 3 secondes.`:'Réparation';
@@ -602,6 +634,7 @@ function tapRoof(site) {
   }
   if(!game.combat&&game.usesRoof(selected)) {
     const shelter=selected==='safe'&&game.roofZone(site);
+    if(shelter&&game.mission.atlas) {inspectStructure(shelter);return true;}
     if(shelter) view.activeZone=shelter;
     else {
       const access=game.roofAccess(selected,site);
@@ -630,16 +663,18 @@ function tapMap(x,y) {
     inspectUnit(occupant);
     return;
   }
+  if(selecting&&game.mission.atlas&&occupant?.id==='safe'&&game.hasStructure(occupant)) {
+    inspectStructure(occupant);
+    return;
+  }
   if(view.selectedUnit) {
     view.selectedUnit=null;
     showUnitInspector();
   }
-  if(game.combat&&(selected==='inspect'||!selected)) {
+  if((game.combat||game.mission.atlas)&&(selected==='inspect'||!selected)) {
     const structure=view.wallAt(game,x,y)||(site&&game.roofZone(site))||game.structureAt(i);
     if(structure) {
-      selected='inspect';
-      view.inspected=structure;
-      showHUD();
+      inspectStructure(structure);
       return;
     }
     if(selected==='inspect') return;
@@ -829,6 +864,14 @@ function dispatch(action,value) {
     showHUD();
   }
   if(action==='repair'&&game.startRepair(view.inspected)) showHUD();
+  if(action==='inspect-zone'&&page==='mission'&&!modal&&(game.phase==='prep'||game.combat)) {
+    const zone=game.zoneAt(Number(value));
+    if(zone) inspectStructure(zone);
+  }
+  if(action==='upgrade-zone'&&game.upgradeZone(view.inspected)) {
+    notify('Zone sûre renforcée.');
+    showHUD();
+  }
   if(action==='inspect-back') {view.inspected=null;showHUD();}
   if(action==='unit-close') {view.selectedUnit=null;showUnitInspector();}
   if(action==='upgrade-unit'&&game.upgradeUnit(view.selectedUnit)) showHUD();
@@ -953,6 +996,7 @@ window.addEventListener('keydown',e=>{
   if(e.key==='Escape') {
     if(modal&&modal!=='result') closeModal();
     else if(view?.selectedUnit) {view.selectedUnit=null;showUnitInspector();}
+    else if(page==='mission'&&view.inspected) {view.inspected=null;showHUD();}
     else if(page==='mission') pause();
     return;
   }
@@ -971,7 +1015,7 @@ window.addEventListener('keydown',e=>{
   if(e.code==='KeyZ'&&game.mission.atlas) choose('waiting');
   if(!game.mission.atlas&&e.key==='9') {speed=speed?0:save.opts.speed;showHUD();}
   if(e.code==='KeyM'&&game.combat) choose('command');
-  if(e.code==='KeyI'&&game.combat) choose('inspect');
+  if(e.code==='KeyI'&&(game.combat||game.mission.atlas)) choose('inspect');
   const dirs={ArrowLeft:[45,0],ArrowRight:[-45,0],ArrowUp:[0,45],ArrowDown:[0,-45]};
   if(dirs[e.key]) {e.preventDefault();view.pan(...dirs[e.key]);}
 });
@@ -1156,7 +1200,10 @@ function mapOverlay() {
 }
 function pins() {
   const safe=[...game.units.values()].filter(u=>u.id==='safe');
-  const pinData=safe.map(u=>[u.building?.point||game.location(u.i),`✚ ${u.sheltered}/${u.cap}`,view.activeZone===u?'chosen':'',u.building?view.roofHeight(u.building)+.1:.82]);
+  const canInspect=game.mission.atlas&&(game.phase==='prep'||game.combat);
+  const pinData=safe.map(u=>[u.building?.point||game.location(u.i),
+    `✚ ${u.sheltered}/${u.cap}${canInspect&&u.hp<u.maxHp?` · ${healthPercent(u)} %`:''}`,
+    view.activeZone===u?'chosen':'',u.building?view.roofHeight(u.building)+.1:.82,canInspect?u:null]);
   if(!game.mission.atlas&&game.clearedAt===null) pinData.push([game.location(game.map.start),game.phase==='prep'||game.mission.containment?'◬ FOYER':'◬ V'+game.wave,'hot']);
   if(game.map.breach!=null) pinData.push([game.location(game.map.breach),'◬ BRÈCHE','hot']);
   for(const breach of game.breaches) pinData.push([breach.point,'! RUPTURE','rupture']);
@@ -1181,10 +1228,26 @@ function pins() {
   if(game.map.art) for(const [label,x,z] of game.map.art.labels) pinData.push([[x,z],label,'geo']);
   while(dom.pins.children.length<pinData.length) dom.pins.append(document.createElement('div'));
   while(dom.pins.children.length>pinData.length) dom.pins.lastChild.remove();
-  pinData.forEach(([[x,z],text,cls,height],index)=>{
+  pinData.forEach(([[x,z],text,cls,height,zone],index)=>{
     const [sx,sy,on]=view.project(x,z,height??(cls==='gate-label'?view.planHeight()+.12:.82));
-    const pin=dom.pins.children[index];
-    pin.className='pin '+cls;
+    let pin=dom.pins.children[index];
+    if((pin.tagName==='BUTTON')!==Boolean(zone)) {
+      const node=document.createElement(zone?'button':'div');
+      pin.replaceWith(node);
+      pin=node;
+    }
+    if(zone) {
+      const hp=healthPercent(zone);
+      pin.className=`pin ${cls} zone-pin${hp<35?' critical':hp<68?' warning':''}`;
+      pin.dataset.action='inspect-zone';
+      pin.dataset.value=zone.i;
+      pin.style.setProperty('--zone-health',`${hp}%`);
+      const label=`Inspecter la zone sûre · ${Math.ceil(zone.hp)}/${Math.round(zone.maxHp)} PV`;
+      if(pin.getAttribute('aria-label')!==label) pin.setAttribute('aria-label',label);
+    } else {
+      pin.className='pin '+cls;
+      pin.setAttribute('aria-hidden','true');
+    }
     if(pin.textContent!==text) pin.textContent=text;
     pin.style.left=sx+'px';pin.style.top=sy+'px';
     pin.hidden=!on||sx<4||sx>view.width-4||sy<5||sy>view.height||(cls==='geo'&&view.zoom<31);

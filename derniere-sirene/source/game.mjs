@@ -10,6 +10,7 @@ const mobile = new Set(['soldier','sniper','flame']);
 const streetFire = new Set(['soldier','sniper','turret','flame','para']);
 export const maxEquipment=3;
 export const freeSupportSlots=6;
+export const maxZoneLevel=3;
 const reserves={easy:10,normal:8,hard:6};
 const hiddenZombies=[];
 const unreachable=30000;
@@ -19,6 +20,7 @@ const refuelTime=10;
 const departureTime=2;
 const returnTime=2.2;
 const atlasPrices={soldier:55,safe:75};
+const zoneArmor=level=>1+(level-1)*.5;
 
 export class Game {
   constructor(mission, level='normal', skills=[], {attempt=0,bonus=0}={}) {
@@ -270,6 +272,34 @@ export class Game {
   structurePosition(u) {
     return u.edges?[(u.a[0]+u.b[0])/2,(u.a[1]+u.b[1])/2]:this.location(u.i);
   }
+  zoneUpgradePlan(zone) {
+    if(!this.mission.atlas||this.phase!=='prep'||zone?.id!=='safe'||!this.hasStructure(zone)) return null;
+    const current=zone.fortLevel??1, level=current+1;
+    if(level>maxZoneLevel) return null;
+    const corePrice=level===2?45:65, sectionPrice=level===2?3:4;
+    const sections=zone.edge.map(s=>this.walls.sections.get(s.key)).filter(wall=>(wall?.fortLevel??1)<level);
+    return {level,corePrice,sectionPrice,sections,price:corePrice+sectionPrice*sections.length,
+      maxHp:zone.maxHp*zoneArmor(level)/zoneArmor(current)};
+  }
+  reinforce(structure,level) {
+    const ratio=zoneArmor(level)/zoneArmor(structure.fortLevel??1);
+    structure.hp*=ratio;
+    structure.maxHp*=ratio;
+    structure.fortLevel=level;
+  }
+  upgradeZone(zone) {
+    const plan=this.zoneUpgradePlan(zone);
+    if(!plan||plan.price>this.money) return false;
+    this.money-=plan.price;
+    zone.paid+=plan.corePrice;
+    this.reinforce(zone,plan.level);
+    for(const wall of plan.sections) if(wall) {
+      this.reinforce(wall,plan.level);
+      wall.paid+=plan.sectionPrice;
+    }
+    this.emit('repair',zone.i);
+    return true;
+  }
   toggleGate(gate) {
     if(!this.combat||!this.hasStructure(gate)||gate.id!=='gate') return false;
     gate.closed=!gate.closed;
@@ -492,7 +522,15 @@ export class Game {
   buildWalls({segments,price}) {
     if(this.phase!=='prep'||!segments.length||price>this.money) return false;
     const hp=defenses.wall.hp*(this.has('concrete')?1.4:1);
-    for(const section of segments) this.walls.add(section,hp);
+    const levels=new Map();
+    for(const zone of this.units.values()) if(zone.id==='safe'&&zone.fortLevel>1) {
+      for(const edge of zone.edge) levels.set(edge.key,Math.max(levels.get(edge.key)??1,zone.fortLevel));
+    }
+    for(const section of segments) {
+      this.walls.add(section,hp);
+      const level=levels.get(section.key);
+      if(level) this.reinforce(this.walls.sections.get(section.key),level);
+    }
     this.money-=price;
     this.routeClock=0;
     if(this.units.size+this.walls.sections.size>=9) this.flags.add('fort');
@@ -506,7 +544,7 @@ export class Game {
     if(this.phase!=='prep'||this.walls.sections.get(wall.key)!==wall||wall.id!=='wall'||!this.walls.openings(wall).length||price>this.money) return false;
     wall.id='gate';
     wall.paid+=price;
-    wall.hp=wall.maxHp=defenses.gate.hp*(this.has('concrete')?1.4:1);
+    wall.hp=wall.maxHp=defenses.gate.hp*(this.has('concrete')?1.4:1)*zoneArmor(wall.fortLevel??1);
     this.money-=price;
     this.routeClock=0;
     this.emit('build',wall.i,'gate');

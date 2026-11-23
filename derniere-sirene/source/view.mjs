@@ -581,7 +581,7 @@ export class View {
         const c=atlasPlan?(chosen?0x96ebff:0x6dc5e5):(chosen?0x82f7d1:0x44c69a);
         areas.push({points:u.contour,c:atlasPlan?0x247d9a:c,y:atlasPlan?.048:planHeight});
         for(const s of u.edge) if(!game.walls.sections.has(s.key)) {
-          this.perimeter(outline,s.a,s.b,planHeight+.03,c,atlasPlan?.10:.062,atlasPlan);
+          this.perimeter(outline,s.a,s.b,planHeight+.03,game.mission.atlas?0xf4936b:c,atlasPlan?.10:.062,atlasPlan);
         }
       }
       if(flatPlan&&defenses[u.id]?.barrier) {

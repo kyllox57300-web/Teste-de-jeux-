@@ -281,6 +281,19 @@ try {
   assert.match(await desktop.locator('#toast').textContent(),/Porte posée/);
   assert.ok(metz.gateWall(gate));
   assert.ok(zone.roofs.length>=2);
+  const refugePin=desktop.locator(`.zone-pin[data-value="${zone.i}"]`);
+  await refugePin.click();
+  assert.equal(await desktop.locator('#fort-name').textContent(),'Zone sûre · Niv. 1/3');
+  assert.equal(await desktop.locator('#fort-percent').textContent(),'210/210 PV');
+  assert.match(await desktop.locator('#fort-state').textContent(),/Mur le plus faible 100 %/);
+  const reinforcement=metz.zoneUpgradePlan(zone);
+  await button(desktop,`Améliorer · ${reinforcement.price} cr`).click();
+  assert.ok(metz.upgradeZone(zone));
+  assert.equal(await desktop.locator('#fort-percent').textContent(),'315/315 PV');
+  assert.equal(await desktop.locator('#fort-name').textContent(),'Zone sûre · Niv. 2/3');
+  await desktop.locator(`.zone-pin[data-value="${zone.i}"][aria-label$="315/315 PV"]`).waitFor();
+  await snap(desktop,'46-zone-renforcee');
+  await button(desktop,'Retour').click();
   let soldierPoint;
   for(const [id,name,point] of [['soldier','Garnison',[46,39]],['sniper','Sniper',[47,36]],['mortar','Mortier',[49,41]],['safe','Zone sûre',[43,35]]]) {
     const site=roofNear(metz,id,point);
@@ -347,6 +360,10 @@ try {
   assert.ok(initialCash<65);
   assert.equal(await desktop.locator('#clock').textContent(),'00:00');
   assert.equal(await desktop.locator('#support-stock').textContent(),'Appuis · 8');
+  await refugePin.click();
+  assert.equal(await desktop.locator('#fort-percent').textContent(),'315/315 PV');
+  assert.equal(await desktop.locator('#zone-upgrade').isVisible(),false);
+  await button(desktop,'Retour').click();
   await button(desktop,'Inspecter').click();
   await desktop.mouse.click(...entrance);
   await button(desktop,'Fermer la porte').click();
@@ -486,6 +503,16 @@ try {
   await mobile.waitForTimeout(100);
   await snap(mobile,'32-fiche-mobile');
   await button(mobile,'Fermer la fiche').tap();
+  assert.ok(dunkerque.place('soldier',dunkerque.roofAccess('soldier',touchRoof),false,touchRoof));
+  const shelterRoof=roofNear(dunkerque,'safe',[harbor[0]-5,harbor[1]+3]);
+  await button(mobile,'Zone sûre').tap();
+  await mobile.touchscreen.tap(...harborScreen(shelterRoof.point,shelterRoof.height*.69));
+  await mobile.locator('.zone-pin').tap();
+  assert.equal(await mobile.locator('#fort-percent').textContent(),'210/210 PV');
+  await button(mobile,'Améliorer · 45 cr').tap();
+  assert.equal(await mobile.locator('#fort-percent').textContent(),'315/315 PV');
+  await snap(mobile,'47-vie-du-refuge-mobile');
+  await button(mobile,'Retour').tap();
   const box=await mobile.locator(canvas).boundingBox();
   const cdp=await mobile.context().newCDPSession(mobile);
   await button(mobile,'Tourelle').tap();

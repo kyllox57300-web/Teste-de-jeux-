@@ -1,4 +1,4 @@
-const name='derniere-sirene-v18';
+const name='derniere-sirene-v19';
 const files=['./','./index.html','./game.js','./style.css','./signal.png'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(name).then(cache=>cache.addAll(files)).then(()=>self.skipWaiting()));
