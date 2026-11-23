@@ -459,8 +459,9 @@ function showHUD(rebuild=false) {
       const charge=game.mission.atlas?`${cost} charge${cost===1?'':'s'}`:`${cost} cr`;
       const missing=game.mission.atlas?cost-game.supportReserve:0;
       const empty=game.mission.atlas?(game.supportReserve===0?'Épuisé':`Manque ${missing} ch.`):charge;
-      const label={locked:'Compétence',unavailable:'Indisponible',ready:charge,empty,cooldown:`⏱ ${Math.ceil(game.cd[id]-game.time)} s`};
-      btn.disabled=state!=='ready';
+      const label={locked:'Compétence',unavailable:'Indisponible',ready:charge,empty,cooldown:`⏱ ${Math.ceil(game.cd[id]-game.time)} s`,
+        patrol:'En patrouille',incoming:'En approche',refueling:id==='heli'&&state==='refueling'?`Ravit. ${Math.ceil(game.helicopter.t-game.time)} s`:''};
+      btn.disabled=!game.canDirectSupport(id);
       $('price-'+id).textContent=`${tools.indexOf(id)+1} · ${label[state]}`;
       continue;
     }
@@ -572,7 +573,7 @@ function choose(id) {
   if(['guide','waiting','boom','sell','command','inspect'].includes(id)) selected=selected===id?'':id;
   else if(game.combat&&id==='safe'&&game.quota&&game.money>=game.cost(id)) selected=id;
   else if(game.combat
-    ?game.supportStatus(id)==='ready'
+    ?game.canDirectSupport(id)
     :defenses[id]&&canUse(id,game.skills)&&(id==='gate'?minimumGateCost():game.cost(id))<=game.money) selected=id;
   if(!game.canBatchRoof(selected)) touchBatch=false;
   if(selected!=='command') view.commandOrigin=-1;
@@ -691,8 +692,10 @@ function mapAction(i,append=false) {
   } else if(game.combat&&!selected) {
     if(!game.detonate(i)) return;
   } else if(game.combat&&game.support[selected]) {
-    if(!game.call(selected,i)) return notify(game.supportStatus(selected)==='ready'
+    const redirect=game.mission.atlas&&selected==='heli'&&game.helicopter;
+    if(!game.call(selected,i)) return notify(game.canDirectSupport(selected)
       ?'Choisis une rue pour ce renfort.':'Ce renfort est indisponible.');
+    if(redirect) notify('Nouvelle zone de patrouille.');
     if(game.mission.atlas) selected='';
   } else if(selected) {
     const ok=game.place(selected,i);
@@ -1222,6 +1225,7 @@ function loop(nowMs) {
       view.addEffects(game.events);
       audio.tick(game.events,save.opts,game.combat,!modal);
       const alert=game.events.find(e=>e.type==='boss'||e.type==='collapse'||e.type==='breach');
+      if(game.events.some(e=>e.type==='squad-lost')) notify('Une escouade de parachutistes a été débordée.');
       if(alert) {
         status={boss:'Contact lourd · L’Amiral entre en ville.',collapse:'Position perdue · Défense submergée.',breach:'Brèche · Une seconde horde entre en ville.'}[alert.type];
         setTimeout(()=>{if(page==='mission') status='';},4500);

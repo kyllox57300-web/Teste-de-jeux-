@@ -646,7 +646,9 @@ export class View {
       const [x,z]=this.location(this.commandOrigin);
       marks.push([x,.055,z,1.22,1.22,1,0x94efdd,0,-Math.PI/2]);
     }
-    for(const r of game.reinf) if(['heli','tank','para'].includes(r.id)&&game.time>=r.t) this.unit(gear,marks,hot,r,now);
+    for(const r of game.reinf) if(['heli','tank','para'].includes(r.id)&&(r.base?r.airborne:game.time>=r.t)) {
+      this.unit(gear,marks,hot,r,now,r.x===undefined?undefined:[r.x,r.z]);
+    }
     for(const g of game.clouds) {
       for(let n=0;n<10;n++){
         const a=n*.87+now*.45;
@@ -757,11 +759,23 @@ export class View {
       marker(1.06,0x72ecc5);
     } else if(id==='heli') {
       const y=1.21+.09*Math.sin(now*2.5);
-      box(y,.37,.21,.68);
-      box(y,.093,.072,.76,c,0,0,-.46);
+      const a=facing||0;
+      box(y,.37,.21,.68,c,a);
+      box(y,.093,.072,.76,c,a,-Math.sin(a)*.46,-Math.cos(a)*.46);
       box(y+.13,1.6,.028,.067,0x97b5ce, now*16);
       box(y+.04,.84,.026,.075,0x93bed1,now*13);
       marker(1,0x72ecc5);
+    } else if(id==='para'&&u.hp!==undefined) {
+      const a=facing||0;
+      for(const side of [-1,0,1]) {
+        const dx=side*.19*Math.cos(a)-Math.sin(a)*Math.abs(side)*.13;
+        const dz=-side*.19*Math.sin(a)-Math.cos(a)*Math.abs(side)*.13;
+        const bob=Math.sin(now*14+side)*.024;
+        box(.12+bob,.13,.20,.13,0x4f95ba,a,dx,dz);
+        box(.267+bob,.12,.11,.12,0xb6e9f4,a,dx,dz);
+        box(.20+bob,.06,.065,.21,0x2c3953,a,dx+Math.sin(a)*.10,dz+Math.cos(a)*.10);
+      }
+      marker(.78,0x95d7f0);
     } else if(id==='wall'||id==='barricade'||id==='gate') {
       const a=facing||0;
       box(.05,.98,.07,.3,0x314457,a);

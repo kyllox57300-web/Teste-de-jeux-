@@ -157,6 +157,9 @@ if(!explore) {
   const contour=[[44,37],[46,35.65],[48.75,36.45],[49.55,38.75],[47.75,41.75],[43.7,41.4],[43.15,38.8]];
   const fortified=metz.planZone(contour);
   assert.ok(fortified.walls.segments.length>0);
+  const smallSquare=metz.planZone(metz.grid.cell(44,37),metz.grid.cell(48,41));
+  assert.equal(smallSquare.price,355);
+  assert.ok(credits-smallSquare.price>=1000);
   metz.money=fortified.price-1;
   assert.match(metz.planZone(contour).error,/Il manque 1 cr/);
   assert.equal(metz.drawZone(contour),null);
@@ -384,6 +387,60 @@ if(!explore) {
   }
   assert.equal(evacuation.sheltered,1);
 
+  const infantry=new Game(block);
+  assert.ok(infantry.drawWalls([[6.5,7.55],[6.5,8.45]]));
+  let foe=infantry.person(cell(20,8),{id:'slow',hp:10000,speed:0,stunnedUntil:Infinity});
+  infantry.zombies=[foe];
+  assert.ok(infantry.prepare());
+  const landing=cell(3,8);
+  assert.ok(infantry.call('para',landing));
+  const squad=infantry.reinf[0];
+  let detoured=false;
+  for(let tick=0;tick<520;tick++) {
+    infantry.step(steps);
+    if(squad.z<3) detoured=true;
+  }
+  assert.ok(infantry.time>40);
+  assert.ok(infantry.reinf.includes(squad));
+  assert.equal(detoured,true);
+  assert.ok(squad.x>infantry.location(landing)[0]+8);
+  assert.ok(foe.hp<10000);
+
+  const airbase=new Game(block);
+  const patrol=cell(20,8);
+  foe=airbase.person(patrol,{id:'slow',hp:10000,speed:0,stunnedUntil:Infinity});
+  airbase.zombies=[foe];
+  assert.ok(airbase.prepare());
+  assert.ok(airbase.call('heli',patrol));
+  const pilot=airbase.helicopter;
+  assert.equal(airbase.supportStatus('heli'),'incoming');
+  const until=time=>{
+    while(airbase.combat&&airbase.time<time) airbase.step(steps);
+    assert.ok(airbase.time>=time);
+  };
+  until(pilot.t+3);
+  assert.equal(airbase.supportStatus('heli'),'patrol');
+  assert.ok(foe.hp<10000);
+  until(pilot.until+4);
+  assert.equal(airbase.supportStatus('heli'),'refueling');
+  assert.equal(pilot.airborne,false);
+  const groundedHp=foe.hp;
+  until(pilot.t-2.5);
+  assert.equal(foe.hp,groundedHp);
+  const stock=airbase.supportReserve;
+  const redirect=cell(19,8);
+  assert.ok(airbase.call('heli',redirect));
+  assert.equal(airbase.helicopter,pilot);
+  assert.equal(pilot.i,redirect);
+  assert.equal(airbase.supportReserve,stock);
+  until(pilot.t+3);
+  assert.equal(airbase.supportStatus('heli'),'patrol');
+  assert.ok(foe.hp<groundedHp);
+  until(pilot.until+4);
+  assert.equal(airbase.supportStatus('heli'),'refueling');
+  assert.equal(airbase.helicopter,pilot);
+  assert.equal(airbase.supportReserve,stock);
+
   const staged=new Game(missions[0]);
   assert.equal(staged.toggleSupport('medevac',0),false);
   assert.ok(staged.toggleSupport('medevac',1));
@@ -430,8 +487,8 @@ if(!explore) {
     assert.ok(shelter.sheltered>=1);
     if(stage<staged.stages) {
       assert.equal(staged.money,money+staged.stageGrant);
-      assert.equal(staged.supportReserve,stage===1?6:4);
-      assert.equal(staged.reinf.length,0);
+      assert.equal(staged.supportReserve,6);
+      assert.deepEqual(staged.reinf.map(r=>r.id),['heli']);
       assert.equal(staged.result().saved,staged.mission.pop);
       assert.ok(recordAtlasProgress(accounts,staged));
       assert.equal(recordAtlasProgress(accounts,staged),false);
@@ -457,5 +514,5 @@ if(!explore) {
   oldSave.containment[staged.mission.id]=accounts.containment[staged.mission.id];
   oldSave.skills=['bunks'];
   assert.equal(skillPoints(parseSave(JSON.stringify(oldSave))),2);
-  console.log('Appuis immédiats, évacuation et progression jusqu’à la dernière étape vérifiés.');
+  console.log('Patrouilles persistantes, ravitaillement, coût des refuges et progression vérifiés.');
 }

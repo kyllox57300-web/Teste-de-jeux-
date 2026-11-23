@@ -26,11 +26,11 @@ export const support = {
   tank: { name:'Blindé', icon:'▰', price:240, cd:45, info:'Ancre la ligne pour 28 secondes.' },
 };
 export const atlasSupport = {
-  para:{...support.para,chargeCost:1},
+  para:{...support.para,chargeCost:1,info:'Escouade permanente. Elle poursuit les infectés par les rues et peut être débordée.'},
   air:{...support.air,chargeCost:2},
   missile:{...support.missile,chargeCost:2},
   gas:{...support.gas,chargeCost:1},
-  heli:{...support.heli,chargeCost:2},
+  heli:{...support.heli,chargeCost:2,info:'Patrouille, se ravitaille puis revient. Resélectionne-le pour changer gratuitement de secteur.'},
   tank:{...support.tank,chargeCost:2},
   decoy:{name:'Leurre sonore',icon:'◌',chargeCost:1,cd:19,info:'Attire les infectés proches pendant 12 secondes.'},
   medevac:{name:'Évacuation',icon:'✚',chargeCost:1,cd:32,info:'Extrait jusqu’à 80 civils proches sans tirer.',air:true},

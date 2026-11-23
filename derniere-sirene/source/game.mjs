@@ -15,6 +15,10 @@ const hiddenZombies=[];
 const unreachable=30000;
 const evacuationClearance=5;
 const waitingClearance=9;
+const refuelTime=10;
+const departureTime=2;
+const returnTime=2.2;
+const atlasPrices={soldier:55,safe:75};
 
 export class Game {
   constructor(mission, level='normal', skills=[], {attempt=0,bonus=0}={}) {
@@ -126,6 +130,7 @@ export class Game {
     return total;
   }
   get remaining() { return this.zombies.length; }
+  get helicopter() { return this.reinf.find(r=>r.id==='heli'&&!r.done); }
   get survivors() { return this.mission.pop-this.lost; }
   get stalled() { return this.mission.atlas&&this.combat&&this.remaining>0&&this.time-this.lastProgressAt>=24; }
   get stages() { return this.mission.atlas?atlasStageCount:1; }
@@ -309,11 +314,11 @@ export class Game {
     if (!this.combat || !this.support[id]) return this.phase==='prep' && defenses[id] && this.canBuild(i)
       && !this.units.has(i) && canUse(id,this.skills) && this.money>=this.cost(id)
       && (!this.usesRoof(id)||(building?building.access.includes(i)&&this.availableRoof(building):!!this.roofFor(i)));
-    return open(this.map.cells,i)&&this.supportStatus(id)==='ready';
+    return open(this.map.cells,i)&&this.canDirectSupport(id);
   }
   cost(id) {
     const info=defenses[id]||this.support[id];
-    const price=this.mission.atlas&&id==='soldier'?55:info.price;
+    const price=this.mission.atlas?(atlasPrices[id]??info.price):info.price;
     return Math.round(price*(this.support[id]?.air && this.has('wing') ? .7 : 1));
   }
   supportCost(id) {
@@ -342,9 +347,16 @@ export class Game {
     if(!this.combat||!Object.hasOwn(this.support,id)||this.mission.noair&&this.support[id].air
       ||this.preparedSupport&&!this.preparedSupport.has(id)) return 'unavailable';
     if(!canUse(id,this.skills)) return 'locked';
+    const flight=this.mission.atlas&&id==='heli'?this.helicopter:null;
+    if(flight) {
+      return this.time>=flight.t?'patrol':flight.departedAt!==undefined?'refueling':'incoming';
+    }
     const balance=this.mission.atlas?this.supportReserve:this.money;
     if(balance<this.supportCost(id)) return 'empty';
     return this.cd[id]>this.time?'cooldown':'ready';
+  }
+  canDirectSupport(id) {
+    return ['ready','patrol','refueling','incoming'].includes(this.supportStatus(id));
   }
   place(id,i,free=false,building=null) {
     if (!free && !this.legal(id,i,building)) return false;
@@ -389,7 +401,7 @@ export class Game {
     const choices=plan.tiles.filter(i=>!this.units.has(i)&&!this.marches.some(m=>m.to===i));
     choices.sort((a,b)=>this.grid.dist(a,position)-this.grid.dist(b,position));
     plan.anchor=choices[0];
-    plan.price+=(plan.tiles.length-1)*10;
+    plan.price+=(plan.tiles.length-1)*(this.mission.atlas?4:10);
     plan.cap+=(plan.tiles.length-1)*(this.mission.metro?6:4);
     if(this.usesRoof('safe')) {
       const tiles=new Set(plan.tiles);
@@ -405,7 +417,7 @@ export class Game {
       plan.entries=new Set(plan.roofs.map(site=>site.access.find(i=>tiles.has(i))));
       plan.entries.add(anchor);
     }
-    plan.edge=wallSections(contour,true,this.mission.atlas?18:undefined);
+    plan.edge=wallSections(contour,true,this.mission.atlas?10:undefined);
     if(this.mission.atlas&&this.phase==='prep') {
       plan.walls=this.walls.plan(plan.edge);
       plan.price+=plan.walls.price;
@@ -640,7 +652,7 @@ export class Game {
     this.stageGrant=Math.round(this.mission.budget*this.difficulty.budget*(this.stage===2?.40:.48));
     this.money+=this.stageGrant;
     this.supportReserve=Math.min(this.supportCapacity,this.supportReserve+Math.ceil(this.supportCapacity/2));
-    this.reinf=[];
+    this.reinf=this.reinf.filter(r=>!r.done&&(r.id==='para'||r.id==='heli'));
     this.clouds=[];
     this.noises=[];
     this.breaches=[];
@@ -794,7 +806,11 @@ export class Game {
     return true;
   }
   call(id,i) {
-    if(!open(this.map.cells,i)||this.supportStatus(id)!=='ready') return false;
+    if(!open(this.map.cells,i)||!this.canDirectSupport(id)) return false;
+    if(this.mission.atlas&&id==='heli'&&this.helicopter) {
+      this.helicopter.i=i;
+      return true;
+    }
     const cost=this.supportCost(id);
     if(this.mission.atlas) this.supportReserve-=cost;
     else this.money-=cost;
@@ -803,12 +819,99 @@ export class Game {
     if(id==='air') this.flags.add('air');
     const delay={para:1.4,air:1.05,missile:1.55,gas:.65,heli:1.45,tank:.85,decoy:.45,medevac:1.45,flash:.7};
     const duration=id==='heli'?(this.training.has('rotor')?18:12):id==='tank'&&this.training.has('tank')?36:28;
-    this.reinf.push({id,i,t:this.time+delay[id],until:this.time+duration,saved:0,angle:0,level:1,xp:0,fireAt:0});
+    const r={id,i,t:this.time+delay[id],until:this.time+duration,saved:0,angle:0,level:1,xp:0,fireAt:0};
+    if(this.mission.atlas&&id==='para') {
+      [r.x,r.z]=this.location(i);
+      Object.assign(r,{target:i,ox:0,oz:0,hp:120,until:Infinity});
+      this.routeClock=0;
+    }
+    if(this.mission.atlas&&id==='heli') {
+      const [x,z]=this.location(i);
+      r.until=r.t+this.helicopterEndurance();
+      r.enterAt=this.time;
+      r.base=[x<this.grid.w/2?-5:this.grid.w+4,z];
+      [r.x,r.z]=r.base;
+    }
+    this.reinf.push(r);
     return true;
   }
-  operateSupport() {
+  moveParatroopers(r,dt) {
+    if(!open(this.map.cells,r.i)) {r.done=true;return;}
+    const near=[r.i,...this.grid.adjacent[r.i]];
+    let pressure=0;
+    for(const i of near) for(const z of this.foesByCell?.get(i)||[]) {
+      if(z.hp>0&&!(z.stunnedUntil>this.time)&&metric(z,r)<.64&&!this.walls.crosses(r.i,[r.x,r.z],[z.x,z.z])) pressure++;
+    }
+    r.hp-=Math.min(4,pressure)*22*dt;
+    if(r.hp<=0) {
+      r.done=true;
+      this.emit('squad-lost',r.i);
+      this.routeClock=0;
+      return;
+    }
+    const target=r.fireAt<=this.time||r.target===r.i?this.target(r,3.8):null;
+    this.fireSupport(r,target,.56,21);
+    if(r.target!==r.i&&!this.civilPass(r.target,r.i)) r.target=r.i;
+    if(this.travel(r,dt,2.15)||target&&metric(r,target)<2.7) return;
+    const paths=this.pursuit;
+    if(!paths) return;
+    const next=this.grid.adjacent[r.i].find(i=>paths[i]<paths[r.i]&&this.civilPass(i,r.i));
+    if(next!==undefined) r.target=next;
+  }
+  helicopterEndurance() { return this.training.has('rotor')?26:20; }
+  flyHelicopter(r,dt) {
+    if(this.time>=r.until) {
+      r.departedAt=r.until;
+      r.departure=[r.x,r.z];
+      r.t=r.until+refuelTime;
+      r.until=r.t+this.helicopterEndurance();
+      r.enterAt=r.t-returnTime;
+      r.saved=0;
+    }
+    const [x,z]=this.location(r.i);
+    if(this.time<r.t) {
+      const entering=this.time>=r.enterAt;
+      const leaving=r.departedAt!==undefined&&this.time<r.departedAt+departureTime;
+      r.airborne=entering||leaving;
+      if(leaving) this.positionFlight(r,r.departure,r.base,(this.time-r.departedAt)/departureTime);
+      else if(entering) this.positionFlight(r,r.base,[x,z],(this.time-r.enterAt)/(r.t-r.enterAt));
+      return;
+    }
+    r.airborne=true;
+    const heading=this.time*.85;
+    const to=[x+Math.cos(heading),z+Math.sin(heading)];
+    const distance=Math.hypot(to[0]-r.x,to[1]-r.z);
+    this.positionFlight(r,[r.x,r.z],to, distance?Math.min(1,dt*8/distance):1);
+    const tile=this.grid.cell(clamp(Math.round(r.x),0,this.grid.w-1),clamp(Math.round(r.z),0,this.grid.h-1));
+    if(r.fireAt<=this.time) this.fireSupport(r,this.target(r,5.5),.57,34,tile);
+    this.helicopterRescue(r);
+  }
+  positionFlight(r,from,to,progress) {
+    const dx=to[0]-from[0],dz=to[1]-from[1];
+    r.x=from[0]+progress*dx;
+    r.z=from[1]+progress*dz;
+    if(dx||dz) r.angle=Math.atan2(dx,dz);
+  }
+  fireSupport(r,target,delay,hit,origin=r.i) {
+    if(!target||r.fireAt>this.time) return;
+    r.angle=Math.atan2(target.x-r.x,target.z-r.z);
+    r.fireAt=this.time+delay;
+    this.damage(target,hit,r);
+    this.emit('shot',target.i,r.id,origin);
+  }
+  helicopterRescue(r,position=r) {
+    if(r.saved>=8||r.nextRescue>this.time) return;
+    const c=this.civs.find(c=>!c.dead&&metric(position,c)<3.8);
+    if(!c) return;
+    c.dead=true; r.saved++; this.evacuated++; this.extractions++;
+    r.nextRescue=this.time+.7;
+    if(r.saved>=4) this.flags.add('heli');
+  }
+  operateSupport(dt) {
     for(const r of this.reinf) {
+      if(!r.done&&this.mission.atlas&&r.id==='heli') {this.flyHelicopter(r,dt);continue;}
       if(r.done || r.t>this.time) continue;
+      if(this.mission.atlas&&r.id==='para') {this.moveParatroopers(r,dt);continue;}
       const [x,z]=this.location(r.i);
       if(r.id==='heli'||r.id==='tank'||r.id==='para') {
         if(this.time>=r.until) { r.done=true; continue; }
@@ -819,14 +922,7 @@ export class Game {
           else this.damage(target,r.id==='heli'?37:26,r);
           this.emit('shot',target.i,r.id,r.i);
         }
-        if(r.id==='heli' && r.saved<8 && (!r.nextRescue || r.nextRescue<=this.time)) {
-          const c=this.civs.find(c=>!c.dead && metric({x,z},c)<3.8);
-          if(c) {
-            c.dead=true; r.saved++; this.evacuated++; this.extractions++;
-            r.nextRescue=this.time+.7;
-            if(r.saved>=4) this.flags.add('heli');
-          }
-        }
+        if(r.id==='heli') this.helicopterRescue(r,{x,z});
         continue;
       }
       if(r.id==='missile') this.blast(r.i,315,2.25,this.training.has('guided')?.39:.62,null,'impact');
@@ -867,7 +963,7 @@ export class Game {
     }
   }
   target(u,range) {
-    const [x,z]=this.location(u.i);
+    const [x,z]=u.x===undefined?this.location(u.i):[u.x,u.z];
     let best, value=-Infinity;
     for(const foe of this.zombies) {
       if(foe.hp<=0 || Math.abs(x-foe.x)>range || Math.abs(z-foe.z)>range) continue;
@@ -917,6 +1013,17 @@ export class Game {
     for(const [i,u] of this.zoneCells) if((!u.entries||u.entries.has(i))&&u.sheltered<u.cap&&civilPass(i)) intake.push(i);
     this.safeField=this.grid.field(intake,civilPass);
     const live=this.zombies.filter(z=>z.hp>0);
+    const squads=this.mission.atlas?this.reinf.filter(r=>r.id==='para'&&!r.done&&r.t<=this.time):[];
+    this.foesByCell=null;
+    this.pursuit=null;
+    if(squads.length) {
+      this.foesByCell=new Map();
+      for(const z of live) {
+        if(!this.foesByCell.has(z.i)) this.foesByCell.set(z.i,[]);
+        this.foesByCell.get(z.i).push(z);
+      }
+      this.pursuit=this.grid.field([...this.foesByCell.keys()].filter(i=>civilPass(i)),civilPass);
+    }
     if(atlas) {
       const counts=new Map(),groups=new Map();
       for(const z of live) counts.set(z.i,(counts.get(z.i)||0)+1);
@@ -961,7 +1068,7 @@ export class Game {
       this.waitingZones.flatMap(z=>z.tiles.filter(i=>this.threat[i]>=waitingClearance)),
       (i,j)=>this.threat[i]>=waitingClearance&&civilPass(i,j)):null;
     const occupied=this.civs.filter(c=>!c.dead).map(c=>c.i);
-    const targets=[...occupied,...this.units.keys()];
+    const targets=[...occupied,...this.units.keys(),...squads.map(r=>r.i)];
     for(const [i,zone] of this.zoneCells) if(!zone.entries||zone.entries.has(i)) targets.push(i);
     this.hunt=this.grid.field(targets.length?targets:[this.map.end],pass);
     if(this.mission.containment) this.crowd=this.grid.field(occupied,pass);
@@ -1084,7 +1191,7 @@ export class Game {
     }
     this.routeClock-=dt;
     if(this.routeClock<=0) { this.routes(); this.routeClock=.27; }
-    this.operateSupport();
+    this.operateSupport(dt);
     if(this.marches.length) this.march(dt);
     if(this.quota) this.operateConvoys();
     for(const u of this.units.values()) this.shoot(u);

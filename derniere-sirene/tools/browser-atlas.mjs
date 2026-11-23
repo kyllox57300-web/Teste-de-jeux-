@@ -212,7 +212,13 @@ async function playFirstStage() {
   }
   assert.equal(await page.locator('#support-stock').textContent(),'Appuis · 1');
   assert.equal(await page.locator('.metric.cash strong').textContent(),budget);
-  assert.match(await page.locator('#price-heli').textContent(),/Manque 1 ch\./);
+  assert.match(await page.locator('#price-air').textContent(),/Manque 1 ch\./);
+  assert.match(await page.locator('#price-heli').textContent(),/En approche|En patrouille|Ravit\./);
+  await button(page,'Hélicoptère').click();
+  await page.mouse.click(...aim(focus,0));
+  assert.match(await page.locator('#toast').textContent(),/Nouvelle zone de patrouille/);
+  assert.equal(await page.locator('#support-stock').textContent(),'Appuis · 1');
+  await snap(page,'44-helicoptere-conserve');
   await button(page,'Rejouer').click();
   assert.equal(await page.locator('#stage-count').textContent(),'1/3');
   await atlasMenu(page);
@@ -260,6 +266,7 @@ try {
   await desktop.mouse.down();
   for(const p of outline.slice(1)) await desktop.mouse.move(...p,{steps:4});
   assert.match(await desktop.locator('#detail').textContent(),/cr avec murs/);
+  await snap(desktop,'45-prix-du-refuge');
   await desktop.mouse.up();
   const zone=metz.drawZone(refuge);
   assert.ok(zone&&metz.walls.sections.size>0);
@@ -320,7 +327,7 @@ try {
   await desktop.keyboard.press('Escape');
   assert.equal(await desktop.locator('#unit-inspector').isVisible(),false);
 
-  const batchStart=screen([53,34]),batchEnd=screen([59,39]);
+  const batchStart=screen([50,32]),batchEnd=screen([62,46]);
   const batch=metz.planRoofBatch('soldier',screen.frame(batchStart,batchEnd));
   assert.ok(batch.placements.length>=2);
   await button(desktop,'Couverture').click();
