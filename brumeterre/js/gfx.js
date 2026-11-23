@@ -518,6 +518,19 @@
     return { eyes: eyes };
   };
 
+  // Lueur des yeux d'un monstre (une image par type)
+  G.eyeGlow = function (d) {
+    const key = 'eyes_' + d.id; if (cache.has(key)) return cache.get(key);
+    const sp = G.mon(d, 0);
+    if (!sp.eyes) { cache.set(key, null); return null; }
+    const w = sp.w, h = sp.h, k = 2;
+    const c = G.canvas(w * k, h * k), x = c.getContext('2d');
+    const g = G.glow(d.L.eye, 32), z = Math.max(6, d.r * 0.55);
+    x.scale(k, k); x.translate(w / 2, h / 2);
+    for (const ey of sp.eyes) x.drawImage(g.c, ey[0] - z, ey[1] - z, z * 2, z * 2);
+    const s = { c: c, w: w, h: h }; cache.set(key, s); return s;
+  };
+
   // ───── DÉCORS ─────
   const DECO = {};
   G.deco = function (type, v, pal) {

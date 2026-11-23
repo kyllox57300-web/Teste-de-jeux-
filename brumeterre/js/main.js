@@ -188,7 +188,7 @@
     o.onChest = (c, v) => Gm.chest(c, v);
     o.onEnd = (c) => setTimeout(() => Gm.combatEnd(c), c.over === 'win' ? 300 : 900);
     const c = Gm.c = new B.Combat(o);
-    Gm.R.setCombat(c); Gm.R.heroDef = null; Gm.R.lanternCol = B.P.lanternCol || null;
+    Gm.R.setCombat(c); Gm.R.heroDef = null; Gm.R.lanternCol = B.P.lanternCol || null; Gm.R.lanternGlow = B.P.lanternGlow || '#ff9a40';
     Gm.mode = 'combat'; Gm.paused = false; Gm.acc = 0;
     Gm.cv.classList.add('on'); Gm.bg.stop();
     U.show('combat', '', null); U.closeAll();

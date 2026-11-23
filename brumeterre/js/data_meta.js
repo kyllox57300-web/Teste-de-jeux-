@@ -340,6 +340,17 @@
     { id: 'tiny', n: 'Fourmilière', i: '🐜', d: 'Ennemis −40 % de vie mais bien plus nombreux', m: { hpMul: 0.6, spawnMul: 1.9 } }
   ];
 
+  // ───────────── LANTERNES (cosmétiques, Éclats d'Aube) ─────────────
+  B.LANTERNS = [
+    { id: 'ember', n: 'Braise', c: '#ffd36a', g: '#ff9a40', cost: 0 },
+    { id: 'moon', n: 'Lune bleue', c: '#a8d8ff', g: '#5ab0ff', cost: 3 },
+    { id: 'jade', n: 'Émeraude', c: '#a8ffc8', g: '#40e08a', cost: 3 },
+    { id: 'amethyst', n: 'Améthyste', c: '#e0b0ff', g: '#b060ff', cost: 4 },
+    { id: 'ruby', n: 'Rubis', c: '#ff9aa8', g: '#ff3a5a', cost: 5 },
+    { id: 'dawn', n: 'Aube dorée', c: '#fff6c0', g: '#ffd040', cost: 8 },
+    { id: 'ghost', n: 'Flamme spectrale', c: '#d0fff8', g: '#60ffe0', cost: 10 }
+  ];
+
   // ───────────── HISTOIRE ─────────────
   B.LORE = [
     { id: 'l_start', n: 'La nuit de la Brume', t: 'Personne ne sait d\'où elle est venue. Un soir d\'automne, une brume grise est descendue des montagnes et n\'est jamais repartie. Ceux qu\'elle touchait oubliaient leur nom, puis leur visage, puis devenaient autre chose.' },

@@ -35,8 +35,15 @@
   // Grand Fanal
   BODY.fanal = () => {
     const P = B.P;
-    return '<div class="panel col small" style="gap:6px"><h3>Le village</h3><div>🏠 Survivants : <b>' + Object.keys(P.survivors).length + '/' + B.SURVIVORS.length + '</b></div><div>🗼 Ressources gagnées : <b class="gold">+' + P.bld.fanal * 3 + ' %</b></div><div>🏗️ Niveau max des bâtiments : <b>' + Math.min(5, Math.ceil(P.bld.fanal / 2) + 1) + '</b></div><div class="mut">Chaque niveau du Fanal fait reculer la brume autour du village.</div></div>';
+    P.lanterns = P.lanterns || { ember: 1 };
+    const lan = '<div class="panel col" style="gap:8px"><h3>✨ Lanternes</h3><div class="small mut">Changez la couleur de votre flamme avec des Éclats d\'Aube (purement esthétique).</div><div class="grid2">' + B.LANTERNS.map(l => { const own = P.lanterns[l.id], on = (P.lanternId || 'ember') === l.id; return '<button class="card' + (on ? ' sel' : '') + '" data-a="lan" data-id="' + l.id + '" style="text-align:left"><div class="row"><span style="width:26px;height:26px;border-radius:50%;background:radial-gradient(' + l.c + ',' + l.g + ');box-shadow:0 0 14px ' + l.g + ';flex:none"></span><b class="small">' + l.n + '</b></div><div class="tiny" style="margin-top:4px">' + (on ? '✔ Équipée' : own ? 'Choisir' : U.cost({ aube: l.cost })) + '</div></button>'; }).join('') + '</div></div>';
+    return lan + '<div class="panel col small" style="gap:6px"><h3>Le village</h3><div>🏠 Survivants : <b>' + Object.keys(P.survivors).length + '/' + B.SURVIVORS.length + '</b></div><div>🗼 Ressources gagnées : <b class="gold">+' + P.bld.fanal * 3 + ' %</b></div><div>🏗️ Niveau max des bâtiments : <b>' + Math.min(5, Math.ceil(P.bld.fanal / 2) + 1) + '</b></div><div class="mut">Chaque niveau du Fanal fait reculer la brume autour du village.</div></div>';
   };
+  ACT.fanal = (re) => ({ lan: (t) => {
+    const P = B.P, l = B.LANTERNS.find(x => x.id === t.dataset.id); P.lanterns = P.lanterns || { ember: 1 };
+    if (!P.lanterns[l.id]) { if (!Me().pay({ aube: l.cost })) { B.Audio.sfx('error'); U.toast('Il faut ' + l.cost + ' ✨ Éclats d\'Aube'); return; } P.lanterns[l.id] = 1; B.Audio.sfx('legendary'); }
+    P.lanternId = l.id; P.lanternCol = l.c; P.lanternGlow = l.g; Me().save(); re();
+  } });
   // Forge
   BODY.forge = () => {
     const P = B.P;

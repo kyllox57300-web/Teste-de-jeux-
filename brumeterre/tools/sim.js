@@ -155,7 +155,8 @@ for (let pl = 0; pl < NP; pl++) {
     const biome = P.biome;
     const ct0 = stat.combatTime + stat.other;
     const res = playRun(P, { mode: 'normal', hero: P.hero, biome: biome, deep: 0 }, stat);
-    const dt = stat.combatTime + stat.other - ct0 + 60; // +1 min de village / menus
+    const lu0 = stat.lu0 || 0; stat.lu0 = stat.levelups;
+    const dt = stat.combatTime + stat.other - ct0 + 60 + (stat.levelups - lu0) * 6 + (res.row + 1) * 8; // + village, choix des cartes, carte
     t += dt;
     if (res.won && firstClear[biome] === undefined) firstClear[biome] = { run: r + 1, h: +(t / 3600).toFixed(1), tal: P.st.talentRanks, fan: P.bld.fanal, ess: Math.round(P.st.braiseTotal / 1000) + 'k' };
     log.push((res.won ? 'W' : 'L') + biome + (res.won ? '' : 'r' + (res.row !== undefined ? res.row : '?')) + '·' + res.lvl + '·' + Math.round(dt / 60) + 'm');
@@ -166,4 +167,5 @@ for (let pl = 0; pl < NP; pl++) {
   console.log('Joueur ' + (pl + 1) + ' :', JSON.stringify(firstClear), 'expéditions', log.length, 'heures', (t / 3600).toFixed(1), 'talents', P.st.talentRanks, 'fanal', P.bld.fanal, 'survivants', Object.keys(P.survivors).length, 'succès', Object.keys(P.ach).length);
   console.log('   ', log.join(' '));
   console.log('    boss:', (stat.bt || []).join(' '));
+  console.log('    fin : res', JSON.stringify(P.res), 'bât', JSON.stringify(P.bld), 'héros', Object.keys(P.heroes).length, 'objets', P.items.length);
 }

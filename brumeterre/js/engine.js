@@ -6,16 +6,16 @@
 
   // Réglages d'équilibrage (ajustés avec tools/sim.js)
   B.CFG = {
-    biomeHp: [1, 1.15, 1.3, 1.45, 1.6],
-    biomeDmg: [1, 1.1, 1.2, 1.3, 1.4],
-    rowHp: 0.28, rowHpB: 0.08, rowHp2: 0.028, rowHp2B: 0.008, rowDmg: 0.07, rowDmgB: 0.35,
-    bossHpMul: 2.2, guardMul: 0.8, bossBiome: [1, 1.15, 1.3, 1.5, 1.7],
+    biomeHp: [1, 1.35, 1.8, 2.4, 3.1],
+    biomeDmg: [1, 1.18, 1.36, 1.58, 1.8],
+    rowHp: 0.28, rowHpB: 0.1, rowHp2: 0.028, rowHp2B: 0.01, rowDmg: 0.07, rowDmgB: 0.35,
+    bossHpMul: 2.2, guardMul: 0.8, bossBiome: [1, 1.4, 1.9, 2.5, 3.2],
     spawnBase: 0.95, spawnRow: 0.16, spawnTime: 0.016,
     maxEnemies: 140,
     xpBase: 1, xpRow: 0.12,
     fightTime: 36, fightRow: 2.4,
     arenaW: 1000, arenaH: 1500,
-    braisePerXp: 0.55,
+    braisePerXp: 0.7,
     eliteHp: 6, eliteDmg: 1.4
   };
 
@@ -278,6 +278,7 @@
       const d = B.MONSTERS[this.bossId];
       const P = this.P;
       const e = this.spawnMob(this.bossId, this.W / 2, Math.max(160, P.y - 300));
+      e.r *= 1.15;
       e.st = 'idle'; e.cd = 1.4; e.phase = 1; e.act = null;
       this.boss = e;
       if (this.F) { this.F.bossIntro(e); this.F.shake(10); this.F.sfx('roar'); }
@@ -516,14 +517,14 @@
       if (e.elite) {
         this.eliteKills++; this.elitesAlive = Math.max(0, (this.elitesAlive || 1) - 1);
         this.drop('chest', e.x, e.y, 1);
-        this.loot.essence += 1 + Math.floor(this.biome * 0.5 + Math.random() * 2);
+        this.loot.essence += 2 + Math.floor(this.biome * 0.6 + Math.random() * 2);
         this.loot.bois += 1 + Math.floor(Math.random() * 2 + this.biome * 0.5);
         if (e.elite === 'explosive') this.enemyBoom(e.x, e.y, 70, e.dmg * 1.2);
         if (e.elite === 'splitter' && !e.split2) for (let i = 0; i < 2; i++) { const c = this.spawnMob(e.id, e.x + (i ? 15 : -15), e.y); c.max = c.hp = e.max * 0.3; c.r = e.r * 0.75; c.split2 = 1; c.xp = e.xp * 0.1; }
       }
       if (e.boss) {
         this.bossKilled = e.id;
-        this.loot.essence += e.d.guard ? 3 + this.biome * 3 : 8 + this.biome * 6;
+        this.loot.essence += e.d.guard ? 5 + this.biome * 4 : 12 + this.biome * 8;
         this.loot.bois += 4 + this.biome * 2;
         this.drop('chest', e.x, e.y, 2);
         for (let i = 0; i < 14; i++) this.drop('gold', e.x + (Math.random() - 0.5) * 80, e.y + (Math.random() - 0.5) * 80, 2 + this.biome);

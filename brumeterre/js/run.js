@@ -143,7 +143,7 @@
       for (const k in c.seen) d.st.seen[k] = 1;
       if (c.bossKilled) { d.bossKills = d.bossKills || {}; d.bossKills[c.bossKilled] = (d.bossKills[c.bossKilled] || 0) + 1; }
       if (c.over !== 'win') return { lost: true };
-      d.loot.bois += 1 + Math.floor(Math.max(0, d.pos.r) / 4) + (c.kind === 'elite' ? 2 : 0) + (c.kind === 'boss' ? 4 + d.biome * 2 : c.kind === 'guard' ? 2 + d.biome : 0);
+      d.loot.bois += 2 + Math.floor(Math.max(0, d.pos.r) / 3) + (c.kind === 'elite' ? 3 : 0) + (c.kind === 'boss' ? 4 + d.biome * 2 : c.kind === 'guard' ? 2 + d.biome : 0);
       if (c.dmgTaken === 0 && c.t > 15) d.st.noHit++;
       if (fl.postHeal) { const S = B.computeStats(RH); RH.hp = Math.min(S.hp, RH.hp + S.hp * 0.04 * fl.postHeal); }
       const n = this.node();

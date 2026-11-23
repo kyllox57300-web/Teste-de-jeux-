@@ -236,7 +236,9 @@
       ctx.globalAlpha = 1;
       // ombres
       ctx.fillStyle = 'rgba(0,0,0,0.28)';
-      for (const o of L) { if (o.spr || o.st === 'under') continue; const r = o === c.P ? 11 : (o.r || 8) * (o.d && o.d.L && o.d.L.a === 'wisp' ? 0.6 : 0.9); ctx.beginPath(); ctx.ellipse(o.x, o.y + r * 0.75, r * (1 - Math.min(0.5, (o.z || 0) / 200)), r * 0.38, 0, 0, TAU); ctx.fill(); }
+      ctx.beginPath();
+      for (const o of L) { if (o.spr || o.st === 'under') continue; const r = (o === c.P ? 11 : (o.r || 8) * (o.d && o.d.L && o.d.L.a === 'wisp' ? 0.6 : 0.9)) * (o.boss ? 1.3 : 1); const rx = r * (1 - Math.min(0.5, (o.z || 0) / 200)), y = o.y + r * 0.75; ctx.moveTo(o.x + rx, y); ctx.ellipse(o.x, y, rx, r * 0.38, 0, 0, TAU); }
+      ctx.fill();
       for (const o of L) {
         if (o.spr) { ctx.drawImage(o.spr.c, o.x - o.spr.w / 2, o.y - o.spr.h * 0.62, o.spr.w, o.spr.h); continue; }
         if (o === c.P) this.drawPlayer(ctx, c);
@@ -275,7 +277,7 @@
       const P = c.P, LR = c.lightR();
       ctx.globalCompositeOperation = 'lighter';
       const fl = 1 + Math.sin(this.t * 9) * 0.02 + Math.sin(this.t * 23) * 0.015;
-      const gw = G.glow('#ff9a40', 128);
+      const gw = G.glow(this.lanternGlow || '#ff9a40', 128);
       ctx.globalAlpha = 0.16; ctx.drawImage(gw.c, P.x - LR * fl, P.y - LR * fl, LR * 2 * fl, LR * 2 * fl);
       ctx.globalAlpha = 0.5; const lp = this.lanternPos(c); ctx.drawImage(gw.c, lp[0] - 26, lp[1] - 26, 52, 52);
       // yeux dans la brume
@@ -284,10 +286,11 @@
         if (e.st === 'under' || e.alpha < 0.3 || !inView(e.x, e.y, 20)) continue;
         const d2 = B.dist2(e.x, e.y, P.x, P.y);
         if (d2 < LR * LR * 0.5) continue;
-        const f = this.efr(e), sp = G.mon(e.d, f);
-        if (!sp.eyes) continue;
-        const g = G.glow(e.d.L.eye, 32); const k = e.elite ? 1.45 : 1;
-        for (const ey of sp.eyes) { const ex = e.x + ey[0] * (e.face < 0 ? -1 : 1) * k, eyy = e.y + ey[1] * k - (e.z || 0); const z = Math.max(6, e.r * 0.55); ctx.drawImage(g.c, ex - z, eyy - z, z * 2, z * 2); }
+        const eg = G.eyeGlow(e.d);
+        if (!eg) continue;
+        const k = (e.elite ? 1.45 : 1) * (e.boss ? 1.4 : 1);
+        ctx.save(); ctx.translate(e.x, e.y - (e.z || 0)); if (e.face < 0) ctx.scale(-1, 1);
+        ctx.drawImage(eg.c, -eg.w * k / 2, -eg.h * k / 2, eg.w * k, eg.h * k); ctx.restore();
       }
       // projectiles ennemis (toujours visibles)
       ctx.globalCompositeOperation = 'source-over';
@@ -330,12 +333,13 @@
       if (e.st === 'under') { ctx.fillStyle = '#4a3a24'; ctx.beginPath(); ctx.ellipse(e.x, e.y + 6, 12, 5, 0, 0, TAU); ctx.fill(); ctx.fillStyle = '#6a5434'; ctx.beginPath(); ctx.ellipse(e.x, e.y + 4, 8, 3.5, 0, 0, TAU); ctx.fill(); return; }
       const f = this.efr(e);
       const sp = G.mon(e.d, f);
-      const el = e.elite ? 1.45 : 1;
+      const el = e.elite ? 1.45 : e.boss ? 1.4 : 1;
       const sq = 1 + Math.sin(e.ph * 9) * 0.05;
       const w = sp.w * el, h = sp.h * el;
       ctx.save();
       ctx.translate(e.x, e.y - (e.z || 0));
       if (e.alpha < 1) ctx.globalAlpha = Math.max(0, e.alpha);
+      if (e.boss) { const g = G.glow(this.pal.eb || '#ff5a3c', 64); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35 + Math.sin(this.t * 3) * 0.1; ctx.drawImage(g.c, -e.r * 2.6, -e.r * 2.2, e.r * 5.2, e.r * 4.4); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = e.alpha < 1 ? Math.max(0, e.alpha) : 1; }
       if (e.elite) { const g = G.glow(e.elite === 'swift' ? '#7affd0' : e.elite === 'armored' ? '#c0c8d8' : e.elite === 'vampire' ? '#ff3a5a' : e.elite === 'explosive' ? '#ff8a2a' : e.elite === 'frozen' ? '#7fd8ff' : e.elite === 'shielded' ? '#ffe08a' : e.elite === 'berserk' ? '#ff4a2a' : '#c9a0ff', 64); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.45 + Math.sin(this.t * 5) * 0.15; ctx.drawImage(g.c, -e.r * 2, -e.r * 2, e.r * 4, e.r * 4); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = e.alpha < 1 ? e.alpha : 1; }
       if (e.st === 'aim' || e.st === 'fuse' || e.st === 'crouch') { ctx.translate((Math.random() - 0.5) * 3, 0); }
       if (e.face < 0) ctx.scale(-1, 1);

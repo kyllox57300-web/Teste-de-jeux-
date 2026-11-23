@@ -14,6 +14,18 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
 
 ## Jeux
 
+- `brumeterre/` : **Brumeterre**, roguelite d'action en portrait à un pouce (créé le 23/11/2026). PWA : installable, plein écran,
+  marche hors ligne (`sw.js`, `manifest.webmanifest`, `icons/`). Tout est dessiné et composé en code (Canvas 2D + Web Audio).
+  - Code dans `brumeterre/js/` : `data_*.js` (contenu), `engine.js` + `weapons.js` (combat, sans DOM), `run.js` (expédition),
+    `meta.js` (sauvegarde, village, économie), `gfx.js` / `render.js` / `village.js` (dessin), `audio.js`, `ui.js`, `screens*.js`, `main.js`.
+  - Plan : `brumeterre/CONCEPTION.md`. Simulation d'équilibrage : `node brumeterre/tools/sim.js 1 200 1` (joueurs, expéditions max, habileté).
+  - Fait : 5 biomes, 43 monstres + 10 boss, 8 héros, 84 pouvoirs (28 armes, 38 passifs, 18 évolutions) + synergies d'éléments,
+    équipement 5 raretés + 16 uniques, 8 compagnons, 18 événements, 16 survivants avec quêtes, 8 bâtiments, 65 talents,
+    Brume Profonde 1-20, mode Infini, défis du jour/semaine, 66 succès, encyclopédie, tutoriel, réglages complets, lanternes cosmétiques.
+  - Réglages de difficulté : `B.CFG` en haut de `engine.js`.
+  - Reste / idées : traduction anglaise partielle (menus seulement), tester sur un vrai téléphone (fluidité, taille des boutons),
+    affiner l'équilibrage avec les retours réels.
+
 - `dernier-rempart/` : FPS zombies en 3D (Three.js), un seul fichier `index.html` (~6,5 Mo).
   Code source, modèles et outils dans `dernier-rempart/source/` (`npm install` puis `node tools/build.mjs`,
   copier `dist/DernierRempart-local.html` vers `../index.html`).
@@ -87,4 +99,4 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
 
 ## À faire
 
-- Rien en attente pour l'instant.
+- Brumeterre : retours de l'utilisateur après test sur téléphone.
