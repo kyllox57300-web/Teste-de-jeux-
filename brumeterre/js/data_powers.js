@@ -1,0 +1,261 @@
+// Brumeterre — héros, pouvoirs (armes, passifs, évolutions), synergies, compagnons
+(function (B) {
+  'use strict';
+
+  // ───────────── HÉROS ─────────────
+  // st : modifications de base ; sp : capacité spéciale (charge en secondes)
+  B.HEROES = [
+    { id: 'aldric', n: 'Aldric', t: 'Le Porteur de Lanterne', w: 'w_lantern',
+      d: 'Équilibré et robuste. Sa lanterne tire des éclats de lumière.',
+      st: { hp: 110 }, col: ['#3b5f8a', '#e9c27a', '#7a4a2a'], hair: '#6b4426',
+      sp: { id: 'flare', n: 'Flamboiement', d: 'Explosion de lumière qui repousse et brûle tout autour de vous.', ch: 18 },
+      unlock: null, en: { t: 'The Lantern Bearer', d: 'Balanced and sturdy. His lantern fires shards of light.', spn: 'Flare', spd: 'A blast of light that burns and pushes back everything around you.' } },
+    { id: 'maelle', n: 'Maëlle', t: 'La Chasseresse', w: 'w_arrow',
+      d: 'Rapide et précise. Ses flèches traversent les ennemis.',
+      st: { hp: 85, spd: 0.12, crit: 0.05 }, col: ['#2f6b45', '#d9b38c', '#a8662f'], hair: '#b5552d',
+      sp: { id: 'rain', n: 'Pluie de flèches', d: 'Une volée de flèches s\'abat autour de vous pendant 2,5 s.', ch: 16 },
+      unlock: { tav: 1, cost: { braise: 250 } }, en: { t: 'The Huntress', d: 'Fast and precise. Her arrows pierce through enemies.', spn: 'Arrow Rain', spd: 'A volley of arrows rains around you for 2.5 s.' } },
+    { id: 'borin', n: 'Borin', t: 'Le Forgeron', w: 'w_hammer',
+      d: 'Lent mais très solide. Son marteau frappe en arc et repousse.',
+      st: { hp: 150, armor: 3, spd: -0.1 }, col: ['#7a3b2a', '#e0a77a', '#444'], hair: '#3a2a1a', beard: 1,
+      sp: { id: 'quake', n: 'Séisme', d: 'Onde de choc qui assomme les ennemis proches 2 s et vous protège.', ch: 17 },
+      unlock: { tav: 1, cost: { braise: 500 } }, en: { t: 'The Blacksmith', d: 'Slow but very tough. His hammer swings in an arc and knocks back.', spn: 'Quake', spd: 'A shockwave that stuns nearby enemies for 2 s and shields you.' } },
+    { id: 'isolde', n: 'Isolde', t: 'L\'Alchimiste', w: 'w_flask',
+      d: 'Lance des fioles qui laissent des flaques de poison. Ses effets durent plus longtemps.',
+      st: { hp: 90, dur: 0.2 }, col: ['#5a3a7a', '#f0c9a0', '#3a7a5a'], hair: '#2a1f3a',
+      sp: { id: 'cauldron', n: 'Grand Chaudron', d: 'Un immense nuage toxique autour de vous pendant 6 s.', ch: 19 },
+      unlock: { tav: 2, cost: { braise: 900, essence: 15 }, req: { biome: 1 } }, en: { t: 'The Alchemist', d: 'Throws flasks that leave poison pools. Her effects last longer.', spn: 'Great Cauldron', spd: 'A huge toxic cloud around you for 6 s.' } },
+    { id: 'kael', n: 'Kael', t: 'L\'Ombre', w: 'w_dagger',
+      d: 'Fragile mais mortel : dagues rapides et coups critiques.',
+      st: { hp: 75, spd: 0.15, crit: 0.12, critd: 0.3, dodge: 0.06 }, col: ['#2a2a3a', '#d9b8a0', '#7a2a4a'], hair: '#111', hood: 1,
+      sp: { id: 'shadowstep', n: 'Pas de l\'Ombre', d: 'Bond dans la direction du joystick, invulnérable, puis 3 s de critiques assurés.', ch: 11 },
+      unlock: { tav: 2, cost: { braise: 1500, essence: 35 }, req: { boss: 1 } }, en: { t: 'The Shadow', d: 'Fragile but deadly: fast daggers and critical hits.', spn: 'Shadow Step', spd: 'Dash toward the joystick direction, invulnerable, then 3 s of guaranteed crits.' } },
+    { id: 'seraphine', n: 'Séraphine', t: 'La Prêtresse', w: 'w_orb',
+      d: 'Des orbes sacrés tournent autour d\'elle. Elle se soigne avec le temps.',
+      st: { hp: 100, regen: 0.6, light: 0.15 }, col: ['#e8e0c8', '#f2d0b0', '#c9a43a'], hair: '#e6c36a',
+      sp: { id: 'sanctuary', n: 'Sanctuaire', d: 'Cercle sacré pendant 6 s : il vous soigne et blesse les ennemis.', ch: 20 },
+      unlock: { tav: 3, cost: { braise: 2200, essence: 60 }, req: { biome: 2 } }, en: { t: 'The Priestess', d: 'Holy orbs circle around her. She heals over time.', spn: 'Sanctuary', spd: 'A holy circle for 6 s: heals you and hurts enemies.' } },
+    { id: 'ossian', n: 'Ossian', t: 'Le Lieur d\'Âmes', w: 'w_soul',
+      d: 'Des feux follets combattent pour lui. Les âmes des vaincus le renforcent.',
+      st: { hp: 90, n: 0, xp: 0.1 }, col: ['#2a3a4a', '#c8d0d8', '#5ad0c0'], hair: '#d8e0e8', hood: 1,
+      sp: { id: 'army', n: 'Armée des Âmes', d: 'Invoque 8 âmes furieuses pendant 8 s.', ch: 20 },
+      unlock: { tav: 3, cost: { braise: 3200, essence: 90 }, req: { boss: 3 } }, en: { t: 'The Soulbinder', d: 'Wisps fight for him. The souls of the fallen make him stronger.', spn: 'Army of Souls', spd: 'Summons 8 furious souls for 8 s.' } },
+    { id: 'rune', n: 'Rune', t: 'La Tempêtière', w: 'w_spark',
+      d: 'Maîtresse de la foudre : ses éclairs sautent d\'ennemi en ennemi.',
+      st: { hp: 85, cd: 0.08, spd: 0.05 }, col: ['#2a4a7a', '#e8c8a8', '#ffe14d'], hair: '#9ad0ff',
+      sp: { id: 'storm', n: 'Orage', d: '14 éclairs frappent les ennemis autour de vous en 3 s.', ch: 17 },
+      unlock: { tav: 4, cost: { braise: 4500, essence: 130 }, req: { boss: 4 } }, en: { t: 'The Stormcaller', d: 'Mistress of lightning: her bolts jump from enemy to enemy.', spn: 'Storm', spd: '14 lightning bolts strike enemies around you in 3 s.' } }
+  ];
+
+  // ───────────── ARMES ─────────────
+  // type : proj, nova, orbit, aura, strike, chain, arc, pool, boomerang, beam, summon, mine
+  // p : paramètres de base ; lv : bonus des niveaux 2 à 5 (cdm = multiplie la recharge)
+  const W = [
+    { id: 'w_lantern', n: 'Éclat de lanterne', i: '🏮', e: ['light'], type: 'proj', d: 'Tire des éclats de lumière vers l\'ennemi le plus proche.',
+      p: { dmg: 11, cd: 0.85, n: 1, spd: 430, pierce: 1, r: 7, aim: 'near', spread: 0.18, look: 'shard' },
+      lv: [{ n: 1 }, { dmg: 5 }, { cdm: 0.85 }, { n: 1, pierce: 1, dmg: 4 }] },
+    { id: 'w_arrow', n: 'Arc de frêne', i: '🏹', e: ['nature'], type: 'proj', d: 'Flèches rapides qui traversent plusieurs ennemis.',
+      p: { dmg: 13, cd: 0.8, n: 1, spd: 640, pierce: 3, r: 6, aim: 'near', spread: 0.12, look: 'arrow' },
+      lv: [{ dmg: 5 }, { n: 1 }, { pierce: 2, cdm: 0.88 }, { n: 1, dmg: 6 }] },
+    { id: 'w_hammer', n: 'Marteau de forge', i: '🔨', e: ['fire'], type: 'arc', d: 'Grand coup de marteau en arc devant vous, qui repousse.',
+      p: { dmg: 24, cd: 1.15, area: 78, arc: 2.4, knock: 220, look: 'hammer' },
+      lv: [{ dmg: 9 }, { area: 14 }, { cdm: 0.85 }, { dmg: 12, arc: 0.6 }] },
+    { id: 'w_flask', n: 'Fioles toxiques', i: '🧪', e: ['poison'], type: 'pool', d: 'Lance des fioles qui laissent une flaque de poison.',
+      p: { dmg: 9, cd: 1.6, n: 1, area: 46, dur: 3, tick: 0.4, look: 'poison', fx: { poison: 1 } },
+      lv: [{ n: 1 }, { dmg: 4, area: 8 }, { cdm: 0.85, dur: 0.8 }, { n: 1, dmg: 5 }] },
+    { id: 'w_dagger', n: 'Dagues jumelles', i: '🗡️', e: ['shadow'], type: 'proj', d: 'Dagues lancées en rafale. Critiques plus fréquents.',
+      p: { dmg: 7, cd: 0.42, n: 2, spd: 680, pierce: 1, r: 6, aim: 'near', spread: 0.22, crit: 0.1, look: 'dagger' },
+      lv: [{ dmg: 3 }, { n: 1 }, { cdm: 0.85, pierce: 1 }, { n: 1, dmg: 3 }] },
+    { id: 'w_orb', n: 'Orbes sacrés', i: '🔆', e: ['light'], type: 'orbit', d: 'Des orbes de lumière tournent autour de vous.',
+      p: { dmg: 10, n: 2, area: 72, spd: 3.1, r: 12, tick: 0.5, look: 'orb' },
+      lv: [{ n: 1 }, { dmg: 5, area: 10 }, { n: 1, spd: 0.6 }, { dmg: 7, r: 4 }] },
+    { id: 'w_soul', n: 'Feux follets', i: '👻', e: ['shadow', 'arcane'], type: 'summon', d: 'Des feux follets chassent les ennemis pour vous.',
+      p: { dmg: 9, n: 2, cd: 0.75, spd: 260, r: 9, look: 'wisp' },
+      lv: [{ n: 1 }, { dmg: 4 }, { n: 1, cdm: 0.85 }, { dmg: 6, spd: 60 }] },
+    { id: 'w_spark', n: 'Arc électrique', i: '⚡', e: ['bolt'], type: 'chain', d: 'Un éclair qui saute d\'ennemi en ennemi.',
+      p: { dmg: 10, cd: 1.05, n: 3, range: 170, look: 'bolt', fx: { stun: [0.08, 0.4] } },
+      lv: [{ n: 1 }, { dmg: 5 }, { cdm: 0.85, n: 1 }, { dmg: 6, n: 1 }] },
+    { id: 'w_fireball', n: 'Boule de feu', i: '☄️', e: ['fire'], type: 'proj', d: 'Boule de feu qui explose et enflamme.',
+      p: { dmg: 15, cd: 1.5, n: 1, spd: 340, pierce: 1, r: 10, aim: 'near', explode: 46, look: 'fireball', fx: { burn: 0.5 } },
+      lv: [{ dmg: 6 }, { explode: 14 }, { n: 1 }, { cdm: 0.8, dmg: 6 }] },
+    { id: 'w_frost', n: 'Éclats de givre', i: '❄️', e: ['ice'], type: 'proj', d: 'Éclats de glace tirés en étoile, qui ralentissent.',
+      p: { dmg: 7, cd: 1.7, n: 6, spd: 380, pierce: 2, r: 6, aim: 'radial', look: 'ice', fx: { slow: [0.4, 1.5] } },
+      lv: [{ n: 2 }, { dmg: 4 }, { cdm: 0.85, pierce: 1 }, { n: 2, dmg: 4 }] },
+    { id: 'w_whip', n: 'Fouet de ronces', i: '🌿', e: ['nature'], type: 'arc', d: 'Fouette à gauche et à droite.',
+      p: { dmg: 15, cd: 1.05, area: 105, arc: 0.9, both: 1, knock: 60, look: 'vine', fx: { slow: [0.2, 1] } },
+      lv: [{ dmg: 6 }, { area: 20 }, { cdm: 0.85 }, { dmg: 9, arc: 0.3 }] },
+    { id: 'w_boomerang', n: 'Lune tranchante', i: '🌙', e: ['arcane'], type: 'boomerang', d: 'Une lame en croissant qui part et revient.',
+      p: { dmg: 13, cd: 1.35, n: 1, spd: 420, range: 230, r: 14, look: 'moon' },
+      lv: [{ dmg: 5 }, { n: 1 }, { range: 50, r: 4 }, { n: 1, dmg: 6 }] },
+    { id: 'w_embers', n: 'Pluie de braises', i: '🌋', e: ['fire'], type: 'strike', d: 'Des braises tombent du ciel sur les ennemis.',
+      p: { dmg: 19, cd: 2.1, n: 2, area: 44, delay: 0.6, aim: 'rand', look: 'meteor', fx: { burn: 0.4 } },
+      lv: [{ n: 1 }, { dmg: 8 }, { area: 10, cdm: 0.9 }, { n: 2 }] },
+    { id: 'w_thunder', n: 'Foudre céleste', i: '🌩️', e: ['bolt'], type: 'strike', d: 'La foudre tombe sur l\'ennemi le plus proche.',
+      p: { dmg: 26, cd: 1.7, n: 1, area: 34, delay: 0.12, aim: 'near', look: 'thunder', fx: { stun: [0.25, 0.5] } },
+      lv: [{ dmg: 10 }, { n: 1 }, { cdm: 0.85 }, { n: 1, dmg: 12 }] },
+    { id: 'w_aura', n: 'Aura de lanterne', i: '🌕', e: ['light'], type: 'aura', d: 'Brûle doucement les ennemis proches.',
+      p: { dmg: 7, area: 72, tick: 0.5, look: 'holy' },
+      lv: [{ area: 12 }, { dmg: 4 }, { area: 12, tick: -0.05 }, { dmg: 5 }] },
+    { id: 'w_frostaura', n: 'Souffle glacial', i: '🌨️', e: ['ice'], type: 'aura', d: 'Un froid mordant ralentit et blesse ce qui approche.',
+      p: { dmg: 4, area: 95, tick: 0.5, look: 'frost', fx: { slow: [0.35, 0.6] } },
+      lv: [{ area: 15 }, { dmg: 3, fxslow: 0.07 }, { area: 15 }, { dmg: 4, fxslow: 0.08 }] },
+    { id: 'w_beam', n: 'Rayon arcanique', i: '🔮', e: ['arcane'], type: 'beam', d: 'Un rayon qui transperce tout sur sa ligne.',
+      p: { dmg: 22, cd: 2.0, n: 1, range: 280, r: 12, look: 'beam' },
+      lv: [{ dmg: 9 }, { range: 60, r: 4 }, { cdm: 0.85 }, { n: 1, dmg: 10 }] },
+    { id: 'w_mine', n: 'Pièges à braises', i: '💣', e: ['fire'], type: 'mine', d: 'Pose des pièges qui explosent quand un ennemi passe.',
+      p: { dmg: 32, cd: 1.6, n: 4, area: 60, look: 'mine', fx: { burn: 0.3 } },
+      lv: [{ dmg: 12 }, { n: 2, area: 10 }, { cdm: 0.8 }, { dmg: 16, n: 2 }] },
+    { id: 'w_wolves', n: 'Loups de brume', i: '🐺', e: ['nature'], type: 'summon', d: 'Un loup fidèle mord vos ennemis.',
+      p: { dmg: 18, n: 1, cd: 0.85, spd: 300, r: 13, look: 'wolf' },
+      lv: [{ dmg: 8 }, { n: 1 }, { cdm: 0.85, spd: 40 }, { n: 1, dmg: 8 }] },
+    { id: 'w_nova', n: 'Onde sacrée', i: '💫', e: ['light'], type: 'nova', d: 'Une onde de lumière part de vous et repousse.',
+      p: { dmg: 16, cd: 2.4, area: 115, knock: 160, look: 'nova' },
+      lv: [{ dmg: 7 }, { area: 25 }, { cdm: 0.85 }, { dmg: 9, area: 20 }] },
+    { id: 'w_axe', n: 'Haches tournoyantes', i: '🪓', e: [], type: 'proj', d: 'Des haches partent en spirale autour de vous.',
+      p: { dmg: 16, cd: 1.6, n: 2, spd: 300, pierce: 4, r: 11, aim: 'spiral', dur: 1.6, look: 'axe' },
+      lv: [{ n: 1 }, { dmg: 6 }, { cdm: 0.85, pierce: 2 }, { n: 1, dmg: 7 }] },
+    { id: 'w_shuriken', n: 'Étoiles d\'ombre', i: '✴️', e: ['shadow'], type: 'proj', d: 'Étoiles qui rebondissent d\'un ennemi à l\'autre.',
+      p: { dmg: 9, cd: 1.1, n: 1, spd: 520, pierce: 1, bounce: 3, r: 7, aim: 'rand', look: 'star' },
+      lv: [{ bounce: 1, dmg: 3 }, { n: 1 }, { cdm: 0.85, bounce: 1 }, { n: 1, dmg: 4 }] },
+    { id: 'w_spores', n: 'Spores tueuses', i: '🍄', e: ['poison', 'nature'], type: 'proj', d: 'Spores lentes qui poursuivent les ennemis et empoisonnent.',
+      p: { dmg: 6, cd: 1.3, n: 2, spd: 170, pierce: 1, home: 3.2, r: 8, aim: 'rand', dur: 4, look: 'spore', fx: { poison: 2 } },
+      lv: [{ n: 1 }, { dmg: 3 }, { n: 1, cdm: 0.88 }, { dmg: 4, n: 1 }] },
+    { id: 'w_icicle', n: 'Lance de glace', i: '🧊', e: ['ice'], type: 'proj', d: 'Grande lance perçante qui peut geler.',
+      p: { dmg: 20, cd: 1.5, n: 1, spd: 520, pierce: 5, r: 9, aim: 'near', look: 'lance', fx: { freeze: [0.15, 1.2] } },
+      lv: [{ dmg: 8 }, { n: 1 }, { cdm: 0.85, fxfreeze: 0.08 }, { dmg: 10, n: 1 }] },
+    { id: 'w_tornado', n: 'Tornade', i: '🌪️', e: ['arcane', 'nature'], type: 'proj', d: 'Une tornade erre et aspire les ennemis.',
+      p: { dmg: 8, cd: 3.2, n: 1, spd: 120, pierce: 99, r: 26, aim: 'rand', dur: 4, wander: 1, tick: 0.35, pull: 90, look: 'tornado' },
+      lv: [{ dmg: 4 }, { dur: 1, r: 6 }, { n: 1 }, { dmg: 5, cdm: 0.85 }] },
+    { id: 'w_bell', n: 'Cloche du temple', i: '🔔', e: ['arcane'], type: 'nova', d: 'Un coup de cloche qui assomme les ennemis proches.',
+      p: { dmg: 12, cd: 3.4, area: 135, knock: 60, look: 'bell', fx: { stun: [1, 0.9] } },
+      lv: [{ dmg: 6 }, { area: 25 }, { cdm: 0.85 }, { dmg: 8, fxstun: 0.3 }] },
+    { id: 'w_runes', n: 'Cercle de runes', i: '🔯', e: ['arcane'], type: 'pool', d: 'Trace sous vos pieds un cercle de runes qui blesse.',
+      p: { dmg: 12, cd: 2.6, n: 1, area: 70, dur: 3, tick: 0.5, self: 1, look: 'runes' },
+      lv: [{ dmg: 5 }, { area: 15 }, { dur: 1, cdm: 0.88 }, { dmg: 7, area: 10 }] },
+    { id: 'w_swords', n: 'Épées volantes', i: '⚔️', e: ['light'], type: 'proj', d: 'Des épées de lumière cherchent leur cible.',
+      p: { dmg: 12, cd: 1.25, n: 2, spd: 360, pierce: 2, home: 5, r: 8, aim: 'rand', dur: 2.2, look: 'sword' },
+      lv: [{ dmg: 5 }, { n: 1 }, { cdm: 0.85 }, { n: 1, dmg: 6, pierce: 1 }] }
+  ];
+
+  // ───────────── ÉVOLUTIONS (arme niveau 5 + passif) ─────────────
+  const E = [
+    { id: 'e_sun', n: 'Soleil captif', i: '🌞', e: ['light', 'fire'], from: 'w_lantern', with: 'p_oil', type: 'proj', d: 'Des soleils perçants qui brûlent tout sur leur passage.',
+      p: { dmg: 34, cd: 0.6, n: 3, spd: 470, pierce: 6, r: 12, aim: 'near', spread: 0.2, look: 'sun', fx: { burn: 0.6 } } },
+    { id: 'e_arrows', n: 'Tempête de flèches', i: '🎯', e: ['nature'], from: 'w_arrow', with: 'p_crit', type: 'proj', d: 'Des salves de flèches critiques dans toutes les directions.',
+      p: { dmg: 30, cd: 0.45, n: 5, spd: 760, pierce: 6, r: 7, aim: 'near', spread: 0.2, crit: 0.2, look: 'arrow' } },
+    { id: 'e_titan', n: 'Marteau des Titans', i: '⚒️', e: ['fire'], from: 'w_hammer', with: 'p_armor', type: 'arc', d: 'Un coup circulaire qui fait trembler le sol.',
+      p: { dmg: 85, cd: 1.0, area: 135, arc: 6.3, knock: 320, look: 'hammer', quake: 1, fx: { stun: [0.3, 0.6] } } },
+    { id: 'e_plague', n: 'Déluge de peste', i: '☣️', e: ['poison'], from: 'w_flask', with: 'p_dur', type: 'pool', d: 'Des fioles en cascade : le marais vous obéit.',
+      p: { dmg: 26, cd: 1.0, n: 4, area: 72, dur: 5, tick: 0.35, look: 'poison', fx: { poison: 3, slow: [0.3, 0.5] } } },
+    { id: 'e_blades', n: 'Mille lames', i: '🌀', e: ['shadow'], from: 'w_dagger', with: 'p_critd', type: 'proj', d: 'Un tourbillon de dagues aux critiques dévastateurs.',
+      p: { dmg: 18, cd: 0.16, n: 2, spd: 760, pierce: 3, r: 6, aim: 'spinface', crit: 0.25, look: 'dagger' } },
+    { id: 'e_crown', n: 'Couronne solaire', i: '👑', e: ['light'], from: 'w_orb', with: 'p_regen', type: 'orbit', d: 'Huit soleils en orbite qui vous soignent en frappant.',
+      p: { dmg: 30, n: 8, area: 105, spd: 3.6, r: 16, tick: 0.35, heal: 0.15, look: 'sunorb' } },
+    { id: 'e_legion', n: 'Légion spectrale', i: '💀', e: ['shadow', 'arcane'], from: 'w_soul', with: 'p_grave', type: 'summon', d: 'Une armée d\'âmes qui grandit à chaque élimination.',
+      p: { dmg: 22, n: 7, cd: 0.5, spd: 330, r: 11, look: 'wisp', grow: 1 } },
+    { id: 'e_wrath', n: 'Colère du ciel', i: '🌩️', e: ['bolt'], from: 'w_spark', with: 'p_coil', type: 'chain', d: 'Des éclairs qui se divisent et assomment.',
+      p: { dmg: 30, cd: 0.55, n: 9, range: 230, fork: 2, look: 'bolt', fx: { stun: [0.2, 0.5] } } },
+    { id: 'e_meteor', n: 'Météore', i: '🌠', e: ['fire'], from: 'w_fireball', with: 'p_ember', type: 'proj', d: 'D\'énormes boules de feu qui laissent le sol en flammes.',
+      p: { dmg: 55, cd: 0.9, n: 2, spd: 380, pierce: 1, r: 16, aim: 'near', explode: 95, spread: 0.35, firepool: 1, look: 'fireball', fx: { burn: 1 } } },
+    { id: 'e_blizzard', n: 'Blizzard éternel', i: '🌬️', e: ['ice'], from: 'w_frost', with: 'p_cold', type: 'proj', d: 'Une spirale de glace sans fin qui gèle.',
+      p: { dmg: 16, cd: 0.22, n: 2, spd: 430, pierce: 4, r: 7, aim: 'spiral2', dur: 1.4, look: 'ice', fx: { slow: [0.5, 1.5], freeze: [0.08, 1] } } },
+    { id: 'e_forest', n: 'Étreinte sylvestre', i: '🌳', e: ['nature'], from: 'w_whip', with: 'p_thorns', type: 'arc', d: 'Des ronces géantes enlacent tout autour de vous.',
+      p: { dmg: 48, cd: 0.85, area: 175, arc: 1.4, both: 2, knock: 80, look: 'vine', fx: { slow: [0.5, 1.5] } } },
+    { id: 'e_eclipse', n: 'Éclipse', i: '🌑', e: ['arcane', 'shadow'], from: 'w_boomerang', with: 'p_moon', type: 'boomerang', d: 'Quatre lunes noires qui tournent et reviennent.',
+      p: { dmg: 40, cd: 1.0, n: 4, spd: 480, range: 300, r: 22, look: 'moon' } },
+    { id: 'e_lighthouse', n: 'Halo du Phare', i: '🗼', e: ['light'], from: 'w_aura', with: 'p_wick', type: 'aura', d: 'Votre lumière elle-même brûle les créatures de la brume.',
+      p: { dmg: 24, area: 0, tick: 0.3, lightAura: 1, look: 'holy', fx: { burn: 0.3 } } },
+    { id: 'e_apoc', n: 'Apocalypse', i: '🔥', e: ['fire'], from: 'w_embers', with: 'p_area', type: 'strike', d: 'Le ciel s\'embrase : une pluie de météores.',
+      p: { dmg: 50, cd: 1.1, n: 6, area: 70, delay: 0.5, aim: 'rand', look: 'meteor', fx: { burn: 0.8 } } },
+    { id: 'e_judge', n: 'Jugement', i: '⚖️', e: ['bolt', 'light'], from: 'w_thunder', with: 'p_luck', type: 'strike', d: 'La foudre divine frappe les plus forts en premier.',
+      p: { dmg: 90, cd: 0.9, n: 3, area: 55, delay: 0.1, aim: 'strong', look: 'thunder', fx: { stun: [0.5, 0.7] } } },
+    { id: 'e_prism', n: 'Prisme', i: '🌈', e: ['arcane', 'light'], from: 'w_beam', with: 'p_multi', type: 'beam', d: 'Le rayon se divise en un éventail aux mille couleurs.',
+      p: { dmg: 48, cd: 1.1, n: 5, range: 360, r: 14, fan: 0.35, look: 'prism' } },
+    { id: 'e_pack', n: 'Meute alpha', i: '🐾', e: ['nature'], from: 'w_wolves', with: 'p_swift', type: 'summon', d: 'Une meute de loups énormes et rapides.',
+      p: { dmg: 42, n: 5, cd: 0.55, spd: 400, r: 16, look: 'wolf' } },
+    { id: 'e_queen', n: 'Reine des spores', i: '🦠', e: ['poison', 'nature'], from: 'w_spores', with: 'p_venom', type: 'proj', d: 'Des nuées de spores qui éclatent en nuages toxiques.',
+      p: { dmg: 16, cd: 0.6, n: 4, spd: 210, pierce: 1, home: 4, r: 9, aim: 'rand', dur: 4, look: 'spore', sporecloud: 1, fx: { poison: 3 } } }
+  ];
+
+  // ───────────── PASSIFS ─────────────
+  // st : bonus par niveau ; max : niveau max
+  const P = [
+    { id: 'p_might', n: 'Force brute', i: '💪', e: [], st: { dmg: 0.1 }, d: 'Dégâts +10 %.' },
+    { id: 'p_haste', n: 'Hâte', i: '⏳', e: [], st: { cd: 0.06 }, d: 'Recharge des armes −6 %.' },
+    { id: 'p_vigor', n: 'Vigueur', i: '❤️', e: [], st: { hp: 20 }, d: 'Vie max +20 (et soigne autant).' },
+    { id: 'p_armor', n: 'Peau de fer', i: '🛡️', e: [], st: { armor: 2 }, d: 'Armure +2 (réduit les dégâts reçus).' },
+    { id: 'p_swift', n: 'Bottes de vent', i: '👢', e: ['nature'], st: { spd: 0.07 }, d: 'Vitesse de déplacement +7 %.' },
+    { id: 'p_magnet', n: 'Aimant', i: '🧲', e: [], st: { pick: 0.3 }, d: 'Rayon de ramassage +30 %.' },
+    { id: 'p_wick', n: 'Mèche éternelle', i: '🕯️', e: ['light'], st: { light: 0.14 }, d: 'Rayon de la lanterne +14 %.' },
+    { id: 'p_wisdom', n: 'Sagesse', i: '📖', e: ['arcane'], st: { xp: 0.08 }, d: 'Expérience gagnée +8 %.' },
+    { id: 'p_luck', n: 'Trèfle', i: '🍀', e: [], st: { luck: 0.1 }, d: 'Chance +10 % (raretés, butin, critiques rares).' },
+    { id: 'p_area', n: 'Ampleur', i: '⭕', e: [], st: { area: 0.08 }, d: 'Zone des attaques +8 %.' },
+    { id: 'p_dur', n: 'Alambic', i: '⚗️', e: ['poison'], st: { dur: 0.12 }, d: 'Durée des effets +12 %.' },
+    { id: 'p_multi', n: 'Écho', i: '🔁', e: ['arcane'], st: { n: 0.5 }, max: 4, d: 'Un projectile de plus tous les 2 niveaux.' },
+    { id: 'p_crit', n: 'Œil de faucon', i: '👁️', e: [], st: { crit: 0.05 }, d: 'Chances de critique +5 %.' },
+    { id: 'p_critd', n: 'Voile d\'ombre', i: '🌘', e: ['shadow'], st: { critd: 0.2 }, d: 'Dégâts critiques +20 %.' },
+    { id: 'p_regen', n: 'Auréole', i: '😇', e: ['light'], st: { regen: 0.4 }, d: 'Régénère 0,4 vie par seconde.' },
+    { id: 'p_pspd', n: 'Plume', i: '🪶', e: [], st: { pspd: 0.12 }, d: 'Vitesse des projectiles +12 %.' },
+    { id: 'p_oil', n: 'Huile bénite', i: '🫙', e: ['light', 'fire'], st: { lightDmg: 0.12, burnPow: 0.1 }, d: 'Dégâts de lumière +12 %, brûlures +10 %.' },
+    { id: 'p_ember', n: 'Braise vive', i: '🔥', e: ['fire'], st: { fireDmg: 0.12, burnPow: 0.15 }, d: 'Dégâts de feu +12 %, brûlures +15 %.' },
+    { id: 'p_cold', n: 'Cœur glacé', i: '💎', e: ['ice'], st: { iceDmg: 0.12, slowPow: 0.08 }, d: 'Dégâts de glace +12 %, ralentissements plus forts.' },
+    { id: 'p_coil', n: 'Bobine', i: '🌀', e: ['bolt'], st: { boltDmg: 0.12, cd: 0.03 }, d: 'Dégâts de foudre +12 %, recharge −3 %.' },
+    { id: 'p_grave', n: 'Pacte des tombes', i: '⚰️', e: ['shadow'], st: { shadowDmg: 0.1, soulChance: 0.04 }, d: 'Dégâts d\'ombre +10 %. 4 % de chance qu\'une élimination lâche une âme vengeresse.' },
+    { id: 'p_thorns', n: 'Écorce épineuse', i: '🌵', e: ['nature'], st: { thorns: 6, natureDmg: 0.08 }, d: 'Renvoie 6 dégâts aux ennemis qui vous touchent. Nature +8 %.' },
+    { id: 'p_moon', n: 'Pierre de lune', i: '🪨', e: ['arcane'], st: { arcaneDmg: 0.12, area: 0.04 }, d: 'Dégâts arcaniques +12 %, zone +4 %.' },
+    { id: 'p_venom', n: 'Venin', i: '🐍', e: ['poison'], st: { poisonDmg: 0.12, poisonPow: 0.15 }, d: 'Dégâts de poison +12 %, poisons plus forts.' },
+    { id: 'p_vamp', n: 'Soif', i: '🩸', e: ['shadow'], st: { lifesteal: 0.006 }, d: 'Vol de vie : 0,6 % des dégâts infligés.' },
+    { id: 'p_shield', n: 'Égide', i: '🔰', e: ['light'], st: { aegis: 1 }, d: 'Bloque un coup toutes les 14 s (−2 s par niveau).' },
+    { id: 'p_dodge', n: 'Pas léger', i: '🍃', e: ['shadow'], st: { dodge: 0.04 }, d: 'Esquive +4 %.' },
+    { id: 'p_revive', n: 'Plume de phénix', i: '🐦‍🔥', e: ['fire'], st: { revive: 1 }, max: 1, d: 'Une fois par expédition, revenez à la vie avec 50 % de vie.' },
+    { id: 'p_greed', n: 'Avarice', i: '💰', e: [], st: { gold: 0.15 }, d: 'Or et braises gagnés +15 %.' },
+    { id: 'p_hunter', n: 'Couperet', i: '🪓', e: [], st: { elite: 0.1 }, d: 'Dégâts contre élites et boss +10 %.' },
+    { id: 'p_rage', n: 'Rage', i: '😡', e: ['fire'], st: { rage: 0.1 }, d: 'Jusqu\'à +10 % de dégâts quand votre vie baisse.' },
+    { id: 'p_static', n: 'Charge statique', i: '🔋', e: ['bolt'], st: { staticc: 1 }, d: 'En marchant, vous chargez un choc qui frappe les ennemis proches.' },
+    { id: 'p_bomb', n: 'Dernier souffle', i: '💥', e: ['fire'], st: { boom: 0.05 }, d: '5 % de chance que les ennemis explosent en mourant.' },
+    { id: 'p_frostarmor', n: 'Armure de givre', i: '🥶', e: ['ice'], st: { frostArmor: 1 }, d: 'Quand vous êtes touché, une onde gèle les ennemis proches (recharge 6 s).' },
+    { id: 'p_heal', n: 'Pain de route', i: '🥖', e: ['nature'], st: { healPow: 0.25, lvlHeal: 3 }, d: 'Soins +25 %. Chaque niveau gagné soigne 3.' },
+    { id: 'p_focus', n: 'Concentration', i: '🧘', e: ['arcane'], st: { focus: 0.07 }, d: 'Immobile : +7 % de dégâts et de cadence.' },
+    { id: 'p_momentum', n: 'Élan', i: '🏃', e: ['nature'], st: { momentum: 0.05 }, d: 'En mouvement : +5 % de dégâts.' },
+    { id: 'p_knock', n: 'Poids lourd', i: '🏋️', e: [], st: { knock: 0.25, stunPow: 0.1 }, d: 'Recul +25 %, étourdissements +10 %.' }
+  ];
+
+  W.forEach(x => { x.kind = 'w'; x.max = 5; });
+  E.forEach(x => { x.kind = 'e'; x.max = 1; });
+  P.forEach(x => { x.kind = 'p'; if (!x.max) x.max = 5; });
+  B.WEAPONS = W; B.EVOS = E; B.PASSIVES = P;
+  B.POWERS = {};
+  W.concat(E, P).forEach(x => { B.POWERS[x.id] = x; });
+  B.EVO_BY_WEAPON = {};
+  E.forEach(x => { B.EVO_BY_WEAPON[x.from] = x; });
+
+  // Libellés des statistiques (descriptions des niveaux)
+  B.PARAM_LABEL = { dmg: 'Dégâts', n: 'Nombre', cdm: 'Recharge', pierce: 'Perforation', area: 'Zone', spd: 'Vitesse', dur: 'Durée',
+    range: 'Portée', explode: 'Explosion', bounce: 'Rebonds', r: 'Taille', arc: 'Angle', tick: 'Cadence', fxslow: 'Ralentissement',
+    fxfreeze: 'Gel', fxstun: 'Étourdissement' };
+
+  // ───────────── SYNERGIES D'ÉLÉMENTS ─────────────
+  B.SYNERGY = {
+    fire: [{ n: 2, d: 'Brûlures +25 %', st: { burnPow: 0.25 } }, { n: 4, d: 'Les ennemis en feu explosent en mourant', flag: 'fireBoom' }, { n: 6, d: 'Tous vos coups enflamment', flag: 'allBurn' }],
+    ice: [{ n: 2, d: 'Ralentissements +15 %', st: { slowPow: 0.15 } }, { n: 4, d: 'Les ennemis gelés volent en éclats (dégâts de zone)', flag: 'shatter' }, { n: 6, d: 'Une onde de gel part de vous toutes les 6 s', flag: 'iceNova' }],
+    bolt: [{ n: 2, d: 'Cadence +8 %', st: { cd: 0.08 } }, { n: 4, d: 'Les critiques lancent un éclair', flag: 'critBolt' }, { n: 6, d: 'Toutes les 2,5 s, la foudre frappe 3 ennemis', flag: 'skyBolt' }],
+    poison: [{ n: 2, d: 'Poison +25 %', st: { poisonPow: 0.25 } }, { n: 4, d: 'Ennemis empoisonnés : +20 % de dégâts reçus', flag: 'weaken' }, { n: 6, d: 'Le poison se propage à la mort', flag: 'plague' }],
+    light: [{ n: 2, d: 'Lanterne +20 %', st: { light: 0.2 } }, { n: 4, d: 'Ennemis dans la lumière : +15 % de dégâts reçus', flag: 'radiant' }, { n: 6, d: 'Chaque élimination soigne 1 vie', flag: 'lifelight' }],
+    shadow: [{ n: 2, d: 'Critique +8 %', st: { crit: 0.08 } }, { n: 4, d: 'Dégâts critiques +50 %', st: { critd: 0.5 } }, { n: 6, d: 'Achève les ennemis (hors boss) sous 12 % de vie', flag: 'execute' }],
+    nature: [{ n: 2, d: 'Régénération +0,5/s', st: { regen: 0.5 } }, { n: 4, d: 'Épines : renvoie 15 dégâts', st: { thorns: 15 } }, { n: 6, d: 'Vos soins sont doublés et la vie max +25 %', flag: 'bloom' }],
+    arcane: [{ n: 2, d: 'Recharge −8 %', st: { cd: 0.08 } }, { n: 4, d: '+1 projectile', st: { n: 1 } }, { n: 6, d: 'Toutes les 8 s, vos armes tirent deux fois', flag: 'echo' }]
+  };
+
+  // ───────────── COMPAGNONS ─────────────
+  // Niveaux 1 à 10 ; pouvoirs débloqués aux niveaux 1, 4, 8
+  B.COMPANIONS = [
+    { id: 'firefly', n: 'Luciole', i: '✨', col: '#ffe680', d: 'Tire de petits éclats de lumière.', pw: ['Éclat (tire toutes les 1,2 s)', 'Lanterne +10 %', 'Éclats doubles'], cost: null },
+    { id: 'fox', n: 'Renardeau', i: '🦊', col: '#ff9a3c', d: 'Rapporte l\'expérience et l\'or qui traînent, et mord.', pw: ['Ramasse les objets proches', 'Morsure (12 dégâts)', 'Or +15 %'], cost: { braise: 400 } },
+    { id: 'owl', n: 'Hibou', i: '🦉', col: '#c9a47a', d: 'Repère les faiblesses des ennemis.', pw: ['Critique +4 %', 'Les élites subissent +10 % de dégâts', 'Révèle les salles mystère sur la carte'], cost: { braise: 700, essence: 10 } },
+    { id: 'salamander', n: 'Salamandre', i: '🦎', col: '#ff5a2a', d: 'Laisse une traînée de flammes.', pw: ['Traînée de feu', 'Brûlures +15 %', 'Traînée plus longue'], cost: { braise: 1100, essence: 20 } },
+    { id: 'crow', n: 'Corbeau', i: '🐦‍⬛', col: '#4a4a6a', d: 'Pique les ennemis et vole de l\'or.', pw: ['Coups de bec', 'Chaque élimination : chance de pièce', 'Pique deux cibles'], cost: { braise: 1500, essence: 30 } },
+    { id: 'turtle', n: 'Tortue', i: '🐢', col: '#6ab04a', d: 'Vous protège de son bouclier.', pw: ['Armure +2', 'Bouclier toutes les 20 s', 'Bouclier toutes les 12 s'], cost: { braise: 2000, essence: 40 } },
+    { id: 'cat', n: 'Chat spectral', i: '🐈‍⬛', col: '#b48cff', d: 'Agile et mystérieux, il porte chance.', pw: ['Esquive +4 %', 'Chance +10 %', 'Griffes d\'ombre (critiques)'], cost: { braise: 2600, essence: 60 } },
+    { id: 'drake', n: 'Dragonnet', i: '🐉', col: '#ff4f4f', d: 'Un bébé dragon qui crache du feu.', pw: ['Souffle de feu en cône', 'Feu +10 %', 'Souffle plus large'], cost: { braise: 4000, essence: 100, aube: 3 } }
+  ];
+})(this.B || (this.B = {}));
