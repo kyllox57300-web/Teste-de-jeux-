@@ -134,9 +134,10 @@
     const P = B.P, st = Me().heroState(h), own = P.heroes[h.id];
     let right = '';
     if (st === 'own') right = P.hero === h.id ? '<span class="tag good">✔ Choisi</span>' : '<span class="tag">Niv. ' + own.lvl + '</span>';
-    else if (st === 'ok') right = '<button class="btn sm ' + (Me().can(h.unlock.cost) ? 'green' : 'off') + '" data-a="hire" data-id="' + h.id + '">Engager<br>' + U.cost(h.unlock.cost) + '</button>';
-    else right = '<span class="tiny mut" style="max-width:110px;text-align:right">🔒 ' + (st === 'tav' ? 'Taverne niv. ' + h.unlock.tav : h.unlock.req.biome ? 'Atteindre : ' + B.BIOMES[h.unlock.req.biome].n : 'Vaincre ' + h.unlock.req.boss + ' boss de biome') + '</span>';
-    return '<div class="card row' + (P.hero === h.id ? ' sel' : '') + (st === 'own' || st === 'ok' ? '' : ' lock') + '" data-a="hero" data-id="' + h.id + '" style="cursor:pointer"><canvas data-hero="' + h.id + '" width="72" height="72" style="position:static;width:56px;height:56px;border-radius:14px;background:radial-gradient(#3a2e50,#1a1426)"></canvas><div style="flex:1;min-width:0"><b>' + h.n + '</b> <span class="mut small">' + h.t + '</span><div class="tiny mut">' + h.d + '</div></div>' + right + '</div>';
+    let below = '';
+    if (st === 'ok') below = '<button class="btn sm ' + (Me().can(h.unlock.cost) ? 'green' : 'off') + '" data-a="hire" data-id="' + h.id + '" style="width:100%;margin-top:8px">Engager · ' + U.cost(h.unlock.cost) + '</button>';
+    else if (st !== 'own') below = '<div class="tiny mut" style="margin-top:6px">🔒 ' + (st === 'tav' ? 'Taverne niveau ' + h.unlock.tav : h.unlock.req.biome ? 'Atteindre : ' + B.BIOMES[h.unlock.req.biome].n : 'Vaincre ' + h.unlock.req.boss + ' boss de biome') + ' · ' + U.cost(h.unlock.cost).replace(/ bad/g, '') + '</div>';
+    return '<div class="card' + (P.hero === h.id ? ' sel' : '') + (st === 'own' || st === 'ok' ? '' : ' lock') + '" data-a="hero" data-id="' + h.id + '" style="cursor:pointer"><div class="row"><canvas data-hero="' + h.id + '" width="72" height="72" style="position:static;width:56px;height:56px;border-radius:14px;background:radial-gradient(#3a2e50,#1a1426)"></canvas><div style="flex:1;min-width:0"><b>' + h.n + '</b> <span class="mut small">' + h.t + '</span><div class="tiny mut">' + h.d + '</div></div>' + right + '</div>' + below + '</div>';
   };
   S.heroes = function (fromPrep) {
     const re = () => S.heroes(fromPrep);

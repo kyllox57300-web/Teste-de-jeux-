@@ -213,7 +213,7 @@
     w.R = p.lightAura ? this.lightR() * 0.92 : p.area;
     if (w.t > 0) return;
     w.t = Math.max(0.15, p.tick);
-    for (const e of this.near(P.x, P.y, w.R).slice()) this.hurt(e, p.dmg * w.t / 0.5, { el: p.elems[0], fx: p.fx, nocrit: 1, base: p.dmg });
+    for (const e of this.near(P.x, P.y, w.R).slice()) this.hurt(e, p.dmg * w.t / 0.5, { el: p.elems[0], fx: p.fx, nocrit: 1, base: p.dmg, dot: 1 });
   };
 
   C.wSummon = function (w, dt) {

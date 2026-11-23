@@ -14,7 +14,7 @@
     const old = root.querySelectorAll('.scr');
     old.forEach(o => { o.classList.add('out'); setTimeout(() => o.remove(), 260); });
     const el = document.createElement('div');
-    el.className = 'scr ' + (opts.cls || '');
+    el.className = 'scr ' + (opts.cls || '') + (['village', 'title', 'loading', 'combat', 'map'].indexOf(name) < 0 ? ' dim' : '');
     el.dataset.name = name;
     el.innerHTML = html;
     root.appendChild(el);

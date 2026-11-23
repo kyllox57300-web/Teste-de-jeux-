@@ -3,7 +3,7 @@
   'use strict';
   const G = B.G, TAU = Math.PI * 2;
   const ELC = { fire: '#ff7a2f', ice: '#7fd8ff', bolt: '#ffe14d', poison: '#8ee04a', light: '#fff1b0', shadow: '#c9a0ff', nature: '#7ae07a', arcane: '#ff7ad9' };
-  const LOOKGLOW = { shard: '#ffe9a0', sun: '#ffb43c', arrow: '#d8f0a0', dagger: '#c9a0ff', fireball: '#ff7a2f', ice: '#7fd8ff', lance: '#7fd8ff', moon: '#ff7ad9', star: '#a77bff', spore: '#8ee04a', sword: '#fff1b0', axe: '#ffd0a0', tornado: '#c8b0ff', soul: '#5ad0c0', orb: '#fff1b0', sunorb: '#ffb43c', wisp: '#9ae8ff', soulbig: '#c8b0ff', wolf: '#9be37a' };
+  const LOOKGLOW = { shard: '#ffe9a0', sun: '#ffb43c', arrow: '#d8f0a0', dagger: '#c9a0ff', fireball: '#ff7a2f', ice: '#7fd8ff', lance: '#7fd8ff', moon: '#ff7ad9', star: '#a77bff', spore: '#8ee04a', sword: '#fff1b0', axe: '#ffd0a0', tornado: '#c8b0ff', soul: '#5ad0c0', orb: '#ffc45a', sunorb: '#ffb43c', wisp: '#9ae8ff', soulbig: '#c8b0ff', wolf: '#9be37a' };
   const LIGHTLOOK = { shard: 1, sun: 1, fireball: 1, orb: 1, sunorb: 1, sword: 1, wisp: 1, soul: 1, soulbig: 1, moon: 1, spore: 0.5 };
 
   class Render {
@@ -77,7 +77,9 @@
       if (this.nums.length > 50) this.nums.shift();
       this.nums.push({ x: x + (Math.random() - 0.5) * 12, y: y, vy: -55, life: 0.75, txt: v, col: col, size: size || 13 });
     }
-    hit(e, d, crit, el) {
+    hit(e, d, crit, el, dot) {
+      if (dot) { if (this.q > 1 && this.nums.length < 14 && d >= 3 && Math.random() < 0.3) this.num(e.x, e.y - e.r - 4, Math.round(d), el ? ELC[el] || '#fff' : '#fff', 10); return; }
+      if (this.nums.length > 34 && !crit && d < e.max * 0.15) { if (Math.random() < 0.5) this.burst(e.x, e.y, 1, '#fff', 80, 3, 0.2, true); return; }
       if (d >= 1 || crit) this.num(e.x, e.y - e.r - 4, Math.round(d), crit ? '#ffd23a' : (el ? ELC[el] || '#fff' : '#fff'), crit ? 18 : 12 + Math.min(4, d / 60));
       if (Math.random() < 0.5) this.burst(e.x, e.y, 2, el ? ELC[el] || '#fff' : '#fff', 90, 3, 0.25, true);
       if (crit) B.Audio && B.Audio.sfx('crit', 0.5);

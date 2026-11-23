@@ -260,7 +260,7 @@
   Gm.offerModal = function (o, done, title) {
     const run = Gm.run;
     let off = run.makeOffer(o);
-    let banMode = false;
+    let banMode = false, picked = false;
     const leg = off.cards.some(c => c.rar >= 3 || c.evo);
     if (leg) { B.Audio.sfx('legendary'); Gm.R.flash('#ffb43c', 0.35); B.vibrate([30, 40, 60]); }
     const html = () => '<div class="center"><h2 style="font-size:26px">' + (title || 'Nouveau pouvoir') + '</h2><div class="mut small">' + (banMode ? 'Touchez une carte pour la bannir de l\'expédition' : 'Choisissez un pouvoir') + '</div></div>' +
@@ -269,8 +269,10 @@
       '<div class="center"><button class="btn sm ghost" data-a="mine">Voir mes pouvoirs</button></div>';
     const m = U.modal(html(), {
       pick: (t) => {
+        if (picked) return;
         const card = off.cards[+t.dataset.i];
         if (banMode) { if (card.evo || card.id[0] === '_') return; run.d.banished.push(card.id); run.d.banishes--; banMode = false; off = run.makeOffer(o); m.querySelector('.box').innerHTML = html(); return; }
+        picked = true;
         run.applyCard(card);
         B.Audio.sfx(card.evo ? 'legendary' : 'pick');
         if (card.evo) U.toast('★ ' + B.POWERS[card.id].n + ' !', 3000);

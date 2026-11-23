@@ -8,7 +8,7 @@
   B.VLAYOUT = {
     fanal: [240, 480], observatory: [240, 205], forge: [92, 335], tavern: [388, 335], academy: [92, 585], altar: [388, 585], garden: [240, 715], stable: [100, 820]
   };
-  B.HOUSES = [[48, 190], [140, 120], [340, 120], [432, 190], [160, 430], [320, 430], [40, 460], [440, 460], [175, 575], [305, 575], [395, 815], [300, 860], [40, 690], [440, 700], [200, 850], [240, 100]];
+  B.HOUSES = [[160, 432], [322, 432], [178, 578], [304, 578], [40, 470], [440, 470], [150, 255], [330, 255], [40, 690], [440, 700], [395, 815], [300, 860], [48, 190], [432, 190], [140, 120], [340, 120]];
 
   // ───── Dessin des bâtiments ─────
   function wall(x, cx, by, w, h, col) { P_().rrect(x, cx, by - h / 2, w, h, 3, col, 2); x.save(); x.beginPath(); x.rect(cx - w / 2, by - h, w, h); x.clip(); x.fillStyle = 'rgba(0,0,0,0.18)'; x.fillRect(cx + w * 0.15, by - h, w, h); x.restore(); }
@@ -165,7 +165,11 @@
       this.vh = 900 * this.vs;
       this.camY = B.clamp(this.camY, 0, Math.max(0, this.vh - ch + 150));
     }
-    start(mode, opt) { this.mode = mode; this.opt = opt || {}; this.on = true; this.cv.classList.remove('off'); this.fps = mode === 'village' ? 30 : 30; if (mode === 'village') this.initVillage(); }
+    start(mode, opt) {
+      const was = this.mode;
+      this.mode = mode; this.opt = opt || {}; this.on = true; this.cv.classList.remove('off'); this.fps = 30;
+      if (mode === 'village') { this.initVillage(); if (was !== 'village' || !this.camSet) { this.resize(); this.camY = B.clamp(480 * this.vs + 40 - this.ch * 0.55, 0, Math.max(0, this.vh - this.ch + 160)); this.camSet = true; } }
+    }
     stop() { this.on = false; this.cv.classList.add('off'); }
     draw(dt) {
       this.t += dt;

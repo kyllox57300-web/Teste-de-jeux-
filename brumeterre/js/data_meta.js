@@ -159,7 +159,7 @@
   B.TALENT_BRANCHES = [{ n: 'Survie', i: '❤️', c: '#ff6a6a' }, { n: 'Puissance', i: '⚔️', c: '#ffb43c' }, { n: 'Lanterne', i: '🏮', c: '#ffe08a' }, { n: 'Fortune', i: '💰', c: '#7ae09a' }, { n: 'Maîtrise', i: '🔮', c: '#c9a0ff' }];
   B.TALENTS = T.map(a => ({ id: a[0], br: a[1], tier: a[2], n: a[3], i: a[4], d: a[5], max: a[6], st: a[7], flag: a[8] || null }));
   B.TALENT = {}; B.TALENTS.forEach(t => { B.TALENT[t.id] = t; });
-  B.talentCost = (t, rank) => Math.round([0, 3, 7, 14, 24, 40][t.tier] * (1 + rank * 0.6));
+  B.talentCost = (t, rank) => Math.round([0, 4, 10, 20, 34, 56][t.tier] * (1 + rank * 0.6));
 
   // ───────────── BÉNÉDICTIONS (autel) ─────────────
   B.BLESSINGS = [

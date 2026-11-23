@@ -583,7 +583,11 @@
   PROJ.axe = { w: 30, h: 30, glow: '#ffd0a0', f(x) { rrect(x, 0, 0, 3, 22, 1, '#6a4a2a', 1); x.beginPath(); x.moveTo(1, -10); x.quadraticCurveTo(12, -8, 11, 2); x.quadraticCurveTo(6, -2, 1, -2); x.closePath(); x.fillStyle = '#d8dde8'; x.fill(); x.strokeStyle = OUT; x.lineWidth = 1.2; x.stroke(); } };
   PROJ.tornado = { w: 70, h: 80, glow: '#c8b0ff', f(x) { for (let i = 0; i < 6; i++) { x.strokeStyle = 'rgba(220,210,255,' + (0.7 - i * 0.08) + ')'; x.lineWidth = 3; x.beginPath(); x.ellipse(Math.sin(i) * 3, 22 - i * 9, 6 + i * 4.5, 2.5 + i * 1.2, 0, 0, TAU); x.stroke(); } } };
   PROJ.soul = { w: 26, h: 26, glow: '#5ad0c0', f(x) { ell(x, 0, 0, 6, 6, '#bffff4', 1); ell(x, -4, 0, 5, 3, 'rgba(90,208,192,0.6)'); } };
-  PROJ.orb = { w: 30, h: 30, glow: '#fff1b0', f(x) { ell(x, 0, 0, 9, 9, '#fff6c8', 1.4); ell(x, -3, -3, 3, 3, '#fff'); } };
+  PROJ.orb = { w: 32, h: 32, glow: '#ffd36a', f(x) {
+    for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + 0.4; poly(x, [Math.cos(a) * 14, Math.sin(a) * 14, Math.cos(a + 0.35) * 7, Math.sin(a + 0.35) * 7, Math.cos(a - 0.35) * 7, Math.sin(a - 0.35) * 7], '#ffe08a', 0); }
+    const g = x.createRadialGradient(-2, -2, 0, 0, 0, 9); g.addColorStop(0, '#ffffff'); g.addColorStop(0.45, '#fff0b0'); g.addColorStop(1, '#ffb43c');
+    x.fillStyle = g; x.beginPath(); x.arc(0, 0, 8.5, 0, TAU); x.fill(); x.lineWidth = 1.4; x.strokeStyle = '#a0601a'; x.stroke();
+  } };
   PROJ.sunorb = { w: 40, h: 40, glow: '#ffb43c', f(x) { PROJ.sun.f(x); } };
   PROJ.wisp = { w: 30, h: 30, glow: '#9ae8ff', f(x) { x.beginPath(); x.moveTo(0, -10); x.quadraticCurveTo(7, -2, 6, 4); x.quadraticCurveTo(0, 10, -6, 4); x.quadraticCurveTo(-7, -2, 0, -10); x.fillStyle = '#bff8ff'; x.fill(); x.strokeStyle = '#3a8aa0'; x.lineWidth = 1.2; x.stroke(); ell(x, -2, 1, 1.2, 1.6, OUT); ell(x, 2, 1, 1.2, 1.6, OUT); } };
   PROJ.soulbig = { w: 34, h: 34, glow: '#c8b0ff', f(x) { x.beginPath(); x.moveTo(0, -13); x.quadraticCurveTo(9, -2, 8, 5); x.quadraticCurveTo(0, 13, -8, 5); x.quadraticCurveTo(-9, -2, 0, -13); x.fillStyle = '#e0d0ff'; x.fill(); x.strokeStyle = '#6a3aa0'; x.lineWidth = 1.4; x.stroke(); ell(x, -3, 1, 1.5, 2, OUT); ell(x, 3, 1, 1.5, 2, OUT); } };

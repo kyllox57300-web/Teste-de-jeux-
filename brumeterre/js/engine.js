@@ -6,11 +6,11 @@
 
   // Réglages d'équilibrage (ajustés avec tools/sim.js)
   B.CFG = {
-    biomeHp: [1, 1.2, 1.45, 1.75, 2.1],
-    biomeDmg: [1, 1.15, 1.3, 1.45, 1.6],
-    rowHp: 0.2, rowHp2: 0.012, rowDmg: 0.06,
-    bossHpMul: 1,
-    spawnBase: 1.25, spawnRow: 0.2, spawnTime: 0.02,
+    biomeHp: [1, 1.15, 1.3, 1.45, 1.6],
+    biomeDmg: [1, 1.1, 1.2, 1.3, 1.4],
+    rowHp: 0.28, rowHpB: 0.08, rowHp2: 0.028, rowHp2B: 0.008, rowDmg: 0.07, rowDmgB: 0.35,
+    bossHpMul: 2.2, guardMul: 0.8, bossBiome: [1, 1.15, 1.3, 1.5, 1.7],
+    spawnBase: 0.95, spawnRow: 0.16, spawnTime: 0.016,
     maxEnemies: 140,
     xpBase: 1, xpRow: 0.12,
     fightTime: 36, fightRow: 2.4,
@@ -19,6 +19,8 @@
     eliteHp: 6, eliteDmg: 1.4
   };
 
+  B.hpScale = function (b, r) { const C = B.CFG; return C.biomeHp[b] * (1 + r * (C.rowHp + C.rowHpB * b) + r * r * (C.rowHp2 + C.rowHp2B * b)); };
+  B.dmgScale = function (b, r) { const C = B.CFG; return C.biomeDmg[b] * (1 + r * C.rowDmg * (1 + C.rowDmgB * b)); };
   B.xpNeed = function (lvl) { return Math.round(5 + lvl * 6.5 + lvl * lvl * 0.85); };
 
   // ───────────── STATISTIQUES ─────────────
@@ -160,8 +162,8 @@
       if (this.kind === 'tutorial') this.duration = 30;
       if (this.mods.shortFights) this.duration *= 0.8;
       this.spawnAcc = 0;
-      this.hpMul = C.biomeHp[this.biome] * (1 + this.row * C.rowHp + this.row * this.row * C.rowHp2) * (this.mods.hpMul || 1);
-      this.dmgMul = C.biomeDmg[this.biome] * (1 + this.row * C.rowDmg) * (this.mods.dmgMul || 1);
+      this.hpMul = B.hpScale(this.biome, this.row) * (this.mods.hpMul || 1);
+      this.dmgMul = B.dmgScale(this.biome, this.row) * (this.mods.dmgMul || 1);
       this.spdMul = (1 + 0.02 * this.biome) * (this.mods.spdMul || 1);
       if (this.kind === 'tutorial') { this.hpMul *= 0.7; this.dmgMul *= 0.6; }
       this.recompute(true);
@@ -190,7 +192,7 @@
       }
       if (this.kind === 'ambush') { this.duration = 30; for (let i = 0; i < 12; i++) this.spawnOne(); }
       if (this.kind === 'mimic') { const e = this.spawnMob('x_mimic', P.x, P.y - 220); e.hp = e.max = e.max * 2; e.elite = 'armored'; this.mimic = e; }
-      for (let i = 0; i < 6 && this.kind !== 'tutorial'; i++) this.spawnOne();
+      for (let i = 0; i < 3 + this.row * 0.4 && this.kind !== 'tutorial'; i++) this.spawnOne();
     }
 
     recompute(first) {
@@ -226,10 +228,13 @@
     spawnMob(id, x, y, extra) {
       const d = B.MONSTERS[id];
       const boss = d.kind === 'boss';
-      const hpm = boss ? (this.mods.hpMul || 1) * B.CFG.bossHpMul * (this.kind === 'endless' ? this.endlessMul : 1) : this.hpMul;
+      const hpm = boss ? (this.mods.hpMul || 1) * B.CFG.bossHpMul * B.CFG.bossBiome[Math.max(0, d.b)] * (d.guard ? B.CFG.guardMul : 1) * (this.kind === 'endless' ? this.endlessMul : 1) : this.hpMul;
+      // les monstres de chaque biome sont ramenés à l'échelle du loup de la forêt (14 PV, 8 dégâts)
+      let hpN = 1, dmN = 1;
+      if (!boss && d.b >= 0) { const ref = B.MONSTERS[B.BIOMES[d.b].mobs[0]]; hpN = 14 / ref.hp; dmN = 8 / ref.dmg; }
       const e = {
-        uid: UID++, d: d, id: id, x: x, y: y, vx: 0, vy: 0, r: d.r, hp: d.hp * hpm, max: d.hp * hpm,
-        spd: d.spd * this.spdMul, dmg: d.dmg * (boss ? (this.mods.dmgMul || 1) * B.CFG.biomeDmg[d.b] * (this.kind === 'endless' ? Math.sqrt(this.endlessMul) : 1) : this.dmgMul),
+        uid: UID++, d: d, id: id, x: x, y: y, vx: 0, vy: 0, r: d.r, hp: d.hp * hpm * hpN, max: d.hp * hpm * hpN,
+        spd: d.spd * this.spdMul, dmg: d.dmg * dmN * (boss ? (this.mods.dmgMul || 1) * (this.kind === 'endless' ? Math.sqrt(this.endlessMul) : 1) : this.dmgMul),
         xp: (d.xp || 1) * B.CFG.xpBase * (1 + this.row * B.CFG.xpRow), st: 'move', t: 0, cd: 1 + this.rng() * 2,
         elite: null, boss: boss, burn: 0, burnT: 0, pois: 0, poisD: 0, poisT: 0, slowF: 0, slowT: 0, frzT: 0, stunT: 0, flash: 0,
         shield: 0, dead: false, face: 1, ph: this.rng() * 10, ticks: null, untarget: false, alpha: 1, z: 0, a: 0
@@ -240,19 +245,21 @@
       this.seen[id] = 1;
       return e;
     }
+    // coût d'un monstre en « unités de poursuivant » de son biome
+    mobCost(d) { const ref = B.MONSTERS[B.BIOMES[Math.max(0, d.b)].mobs[0]].hp; return Math.max(0.3, Math.pow(d.hp / ref, 0.85)); }
     spawnOne(id) {
-      if (this.en.length >= B.CFG.maxEnemies) return null;
+      if (this.en.length >= B.CFG.maxEnemies) return 1;
       const pool = this.mobPool();
       id = id || pool[Math.floor(this.rng() * pool.length)];
       const d = B.MONSTERS[id];
       const [x, y] = this.spawnPos();
       if (d.beh === 'swarm' && !d.child) {
-        const k = 3 + Math.floor(this.rng() * 3);
-        let last = null;
-        for (let i = 0; i < k && this.en.length < B.CFG.maxEnemies; i++) last = this.spawnMob(id, x + (this.rng() - 0.5) * 60, y + (this.rng() - 0.5) * 60);
-        return last;
+        const k = 2 + Math.floor(this.rng() * 3);
+        for (let i = 0; i < k && this.en.length < B.CFG.maxEnemies; i++) this.spawnMob(id, x + (this.rng() - 0.5) * 60, y + (this.rng() - 0.5) * 60);
+        return this.mobCost(d) * k;
       }
-      return this.spawnMob(id, x, y);
+      this.spawnMob(id, x, y);
+      return this.mobCost(d);
     }
     spawnElite(id) {
       const pool = this.mobPool().filter(m => !B.MONSTERS[m].child && B.MONSTERS[m].beh !== 'swarm');
@@ -389,13 +396,13 @@
         if (!this.boss && this.bossDelay > 0) { this.bossDelay -= dt; if (this.bossDelay <= 0) this.spawnBoss(); }
         // quelques serviteurs
         this.spawnAcc += dt * 0.35 * (1 + this.biome * 0.15);
-        while (this.spawnAcc >= 1) { this.spawnAcc -= 1; if (this.en.length < 40) this.spawnOne(); }
+        while (this.spawnAcc >= 1) { this.spawnAcc -= this.en.length < 40 ? this.spawnOne() : 1; }
         return;
       }
       if (this.kind === 'mimic') return;
       let rate = C.spawnBase + this.row * C.spawnRow + this.t * C.spawnTime;
       if (this.kind === 'endless') {
-        rate = 1.6 + this.t * 0.012;
+        rate = 1.3 + this.t * 0.01;
         this.endlessUpdate(dt);
       }
       if (this.kind === 'tutorial') rate = 0.9 + this.t * 0.03;
@@ -405,7 +412,7 @@
       // vagues : pics réguliers
       const wave = 1 + 0.6 * Math.max(0, Math.sin(this.t * 0.45));
       this.spawnAcc += dt * rate * wave;
-      while (this.spawnAcc >= 1) { this.spawnAcc -= 1; this.spawnOne(); }
+      while (this.spawnAcc >= 1) this.spawnAcc -= this.spawnOne();
       // élites surprises (Brume profonde)
       if (this.mods.moreElites && this.kind === 'fight' && !this.surpriseElite && this.t > this.duration * 0.5) { this.surpriseElite = 1; this.spawnElite(); }
     }
@@ -419,8 +426,8 @@
         this.row = Math.min(11, 3 + stage);
         const loop = Math.floor(stage / 5);
         this.endlessMul = (1 + stage * 0.55) * Math.pow(1.6, loop);
-        this.hpMul = B.CFG.biomeHp[this.biome] * (1 + stage * 0.5) * Math.pow(2, loop);
-        this.dmgMul = B.CFG.biomeDmg[this.biome] * (1 + stage * 0.14) * Math.pow(1.35, loop);
+        this.hpMul = B.hpScale(this.biome, Math.min(11, 2 + stage * 2)) * Math.pow(2.2, loop);
+        this.dmgMul = B.dmgScale(this.biome, Math.min(11, 2 + stage * 2)) * Math.pow(1.35, loop);
         if (this.F) this.F.biomeChange(this.biome);
         if (stage > 0 && stage % 2 === 0) {
           const g = B.BIOMES[this.biome].guard;
@@ -460,7 +467,7 @@
       if (o.kb && !e.boss) { const k = o.kb / (e.elite ? 3 : 1) / Math.sqrt(e.r / 12); e.vx += Math.cos(o.ka) * k; e.vy += Math.sin(o.ka) * k; }
       const fx = o.fx;
       if (fx || S.flags.allBurn) this.applyFx(e, d, fx, o);
-      if (this.F) this.F.hit(e, d, crit, o.el);
+      if (this.F) this.F.hit(e, d, crit, o.el, o.dot);
       if (crit && S.flags.critBoom && Math.random() < 0.2 && !o.fromBoom) { const l = this.near(e.x, e.y, 45).slice(); for (const t of l) this.hurt(t, d * 0.5, { el: 'fire', nocrit: 1, fromBoom: 1 }); if (this.F) this.F.boom(e.x, e.y, 45, 'fire'); }
       if (crit && S.flags.critBolt && Math.random() < 0.25 && !o.fromBolt) this.chainFrom(e, d * 0.5, 3, 160, { el: 'bolt', fromBolt: 1 });
       if (S.flags.execute && !e.boss && e.hp > 0 && e.hp < e.max * 0.12) { e.hp = 0; if (this.F) this.F.text(e.x, e.y - 20, '✝', '#c9a0ff'); }
@@ -509,14 +516,14 @@
       if (e.elite) {
         this.eliteKills++; this.elitesAlive = Math.max(0, (this.elitesAlive || 1) - 1);
         this.drop('chest', e.x, e.y, 1);
-        this.loot.essence += 1 + Math.floor(this.biome * 0.8 + Math.random() * 2);
+        this.loot.essence += 1 + Math.floor(this.biome * 0.5 + Math.random() * 2);
         this.loot.bois += 1 + Math.floor(Math.random() * 2 + this.biome * 0.5);
         if (e.elite === 'explosive') this.enemyBoom(e.x, e.y, 70, e.dmg * 1.2);
         if (e.elite === 'splitter' && !e.split2) for (let i = 0; i < 2; i++) { const c = this.spawnMob(e.id, e.x + (i ? 15 : -15), e.y); c.max = c.hp = e.max * 0.3; c.r = e.r * 0.75; c.split2 = 1; c.xp = e.xp * 0.1; }
       }
       if (e.boss) {
         this.bossKilled = e.id;
-        this.loot.essence += 6 + this.biome * 6 + (e.d.guard ? 0 : 8 + this.biome * 4);
+        this.loot.essence += e.d.guard ? 3 + this.biome * 3 : 8 + this.biome * 6;
         this.loot.bois += 4 + this.biome * 2;
         this.drop('chest', e.x, e.y, 2);
         for (let i = 0; i < 14; i++) this.drop('gold', e.x + (Math.random() - 0.5) * 80, e.y + (Math.random() - 0.5) * 80, 2 + this.biome);
@@ -821,8 +828,8 @@
         e.ph += dt;
         if (e.flash > 0) e.flash -= dt;
         // états
-        if (e.burnT > 0) { e.burnT -= dt; e.btk = (e.btk || 0) + dt; if (e.btk >= 0.5) { e.btk = 0; this.hurt(e, e.burn * 0.5, { el: 'fire', nocrit: 1 }); if (e.dead) continue; } }
-        if (e.poisT > 0) { e.poisT -= dt; e.ptk = (e.ptk || 0) + dt; if (e.ptk >= 0.5) { e.ptk = 0; this.hurt(e, e.pois * e.poisD * 0.5, { el: 'poison', nocrit: 1 }); if (e.dead) continue; } } else e.pois = 0;
+        if (e.burnT > 0) { e.burnT -= dt; e.btk = (e.btk || 0) + dt; if (e.btk >= 0.5) { e.btk = 0; this.hurt(e, e.burn * 0.5, { el: 'fire', nocrit: 1, dot: 1 }); if (e.dead) continue; } }
+        if (e.poisT > 0) { e.poisT -= dt; e.ptk = (e.ptk || 0) + dt; if (e.ptk >= 0.5) { e.ptk = 0; this.hurt(e, e.pois * e.poisD * 0.5, { el: 'poison', nocrit: 1, dot: 1 }); if (e.dead) continue; } } else e.pois = 0;
         if (e.slowT > 0) e.slowT -= dt; else e.slowF = 0;
         if (e.frzT > 0) { e.frzT -= dt; }
         if (e.stunT > 0) { e.stunT -= dt; }
@@ -872,7 +879,7 @@
       const spd = e.spd * sm;
       const ang = Math.atan2(P.y - e.y, P.x - e.x);
       e.cd -= dt; e.t -= dt;
-      const col = B.BIOMES[Math.max(0, d.b)] ? B.BIOMES[Math.max(0, d.b)].pal.acc : '#f55';
+      const col = B.BIOMES[Math.max(0, d.b)] ? B.BIOMES[Math.max(0, d.b)].pal.eb : '#f55';
       switch (d.beh) {
         case 'chase': case 'tank': this.moveTo(e, P.x, P.y, spd, dt); break;
         case 'swarm': {
@@ -987,7 +994,7 @@
     bossAct(e, dt) {
       const P = this.P, A = e.act, a = A.a;
       A.t += dt;
-      const col = B.BIOMES[Math.max(0, e.d.b)].pal.acc;
+      const col = B.BIOMES[Math.max(0, e.d.b)].pal.eb;
       const ang = Math.atan2(P.y - e.y, P.x - e.x);
       const end = () => { e.act = null; e.st = 'idle'; e.untarget = false; e.alpha = 1; e.z = 0; };
       const bd = e.dmg * 0.8;
@@ -1122,7 +1129,7 @@
         if (z.tt > 0) continue;
         z.tt = z.tick;
         if (z.own === 'p') {
-          for (const e of this.near(z.x, z.y, z.r).slice()) this.hurt(e, z.dmg * z.tick / 0.5, { el: z.el || (z.look === 'fire' ? 'fire' : z.look === 'poison' ? 'poison' : z.look === 'holy' ? 'light' : 'arcane'), fx: z.fx, nocrit: !z.crit, base: z.dmg });
+          for (const e of this.near(z.x, z.y, z.r).slice()) this.hurt(e, z.dmg * z.tick / 0.5, { el: z.el || (z.look === 'fire' ? 'fire' : z.look === 'poison' ? 'poison' : z.look === 'holy' ? 'light' : 'arcane'), fx: z.fx, nocrit: !z.crit, base: z.dmg, dot: 1 });
           if (z.heal) P.hp = Math.min(this.S.hp, P.hp + this.S.hp * z.heal * this.S.healPow * z.tick / 0.5);
         } else if (B.dist2(z.x, z.y, P.x, P.y) < (z.r + P.r * 0.5) * (z.r + P.r * 0.5)) this.hitPlayer(z.dmg);
       }

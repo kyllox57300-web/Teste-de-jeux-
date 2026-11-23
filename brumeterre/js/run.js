@@ -143,6 +143,7 @@
       for (const k in c.seen) d.st.seen[k] = 1;
       if (c.bossKilled) { d.bossKills = d.bossKills || {}; d.bossKills[c.bossKilled] = (d.bossKills[c.bossKilled] || 0) + 1; }
       if (c.over !== 'win') return { lost: true };
+      d.loot.bois += 1 + Math.floor(Math.max(0, d.pos.r) / 4) + (c.kind === 'elite' ? 2 : 0) + (c.kind === 'boss' ? 4 + d.biome * 2 : c.kind === 'guard' ? 2 + d.biome : 0);
       if (c.dmgTaken === 0 && c.t > 15) d.st.noHit++;
       if (fl.postHeal) { const S = B.computeStats(RH); RH.hp = Math.min(S.hp, RH.hp + S.hp * 0.04 * fl.postHeal); }
       const n = this.node();
@@ -226,9 +227,9 @@
         return;
       }
       const cur = this.owned(card.id);
-      if (cur) cur.lvl = card.lv;
-      else if (def.kind === 'w') RH.ws.push({ id: card.id, lvl: card.lv });
-      else RH.ps.push({ id: card.id, lvl: card.lv });
+      if (cur) cur.lvl = Math.max(cur.lvl, card.lv);
+      else if (def.kind === 'w') { if (RH.ws.length >= RH.slotsW) return; RH.ws.push({ id: card.id, lvl: card.lv }); }
+      else { if (RH.ps.length >= RH.slotsP) return; RH.ps.push({ id: card.id, lvl: card.lv }); }
       if (def.st && def.st.hp) RH.hp += def.st.hp * (card.lv - (card.from || 0));
     }
     // aperçu des synergies qu'apporterait une carte
@@ -306,7 +307,7 @@
       const out = { gold: g, item: null, offer: false };
       if (this.rng.chance(0.65)) out.item = this.addItem(this.rollItem(0));
       if (this.rng.chance(0.35) || !out.item) { out.offer = true; d.queue.push({ k: 'offer', o: { minRar: 1, chest: true } }); }
-      d.loot.bois += 1 + this.rng.int(0, 2);
+      d.loot.bois += 2 + this.rng.int(0, 2) + d.biome;
       return out;
     }
     // ───── Événement ─────

@@ -40,9 +40,9 @@
   B.pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
   B.fmt = function (n) {
     n = Math.floor(n);
-    if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace('.', ',') + ' M';
-    if (n >= 1e4) return (n / 1e3).toFixed(n >= 1e5 ? 0 : 1).replace('.', ',') + ' k';
-    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace('.', ',') + '\u202fM';
+    if (n >= 1e4) return (n / 1e3).toFixed(n >= 1e5 ? 0 : 1).replace('.', ',') + '\u202fk';
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u202f');
   };
   B.fmtTime = function (s) {
     s = Math.max(0, Math.floor(s));
