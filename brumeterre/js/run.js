@@ -117,10 +117,10 @@
     // ───── Combats ─────
     combatOpts(kind, extra) {
       const d = this.d, n = this.node();
-      const k = kind || (n.t === 'survivor' ? 'survivor' : n.t);
+      const k = kind || (d.mode === 'endless' ? 'endless' : !n ? 'fight' : n.t === 'survivor' ? 'survivor' : n.t);
       const row = d.mode === 'endless' ? 0 : Math.max(0, d.pos.r) * (d.mods.shortMap ? 1.4 : 1);
       const o = { RH: d.RH, biome: d.biome, kind: d.mode === 'endless' ? 'endless' : d.mode === 'tutorial' && k === 'fight' ? 'tutorial' : k, row: Math.min(11, row), mods: Object.assign({}, d.mods), rng: B.rng(this.rng.int(1, 1e9)) };
-      if (k === 'survivor' && n.surv) o.survivorName = B.SURVIVORS.find(s => s.id === n.surv).n;
+      if (k === 'survivor' && n && n.surv) o.survivorName = B.SURVIVORS.find(s => s.id === n.surv).n;
       if (d.mode === 'tutorial' && k === 'guard') { o.mods.hpMul = 0.45; o.mods.dmgMul = 0.6; }
       if (d.next.lightMul) o.mods.lightMul = (o.mods.lightMul || 1) * d.next.lightMul;
       if (d.next.xpMul) o.mods.xpMul = (o.mods.xpMul || 1) * d.next.xpMul;
@@ -143,7 +143,8 @@
       for (const k in c.seen) d.st.seen[k] = 1;
       if (c.bossKilled) { d.bossKills = d.bossKills || {}; d.bossKills[c.bossKilled] = (d.bossKills[c.bossKilled] || 0) + 1; }
       if (c.over !== 'win') return { lost: true };
-      d.loot.bois += 2 + Math.floor(Math.max(0, d.pos.r) / 3) + (c.kind === 'elite' ? 3 : 0) + (c.kind === 'boss' ? 4 + d.biome * 2 : c.kind === 'guard' ? 2 + d.biome : 0);
+      d.loot.essence += c.kind === 'fight' || c.kind === 'survivor' ? 1 : 0;
+      d.loot.bois += 3 + Math.floor(Math.max(0, d.pos.r) / 2) + (c.kind === 'elite' ? 4 : 0) + (c.kind === 'boss' ? 4 + d.biome * 2 : c.kind === 'guard' ? 2 + d.biome : 0);
       if (c.dmgTaken === 0 && c.t > 15) d.st.noHit++;
       if (fl.postHeal) { const S = B.computeStats(RH); RH.hp = Math.min(S.hp, RH.hp + S.hp * 0.04 * fl.postHeal); }
       const n = this.node();

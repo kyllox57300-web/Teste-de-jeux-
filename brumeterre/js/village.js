@@ -189,8 +189,8 @@
       x.fillStyle = g; x.fillRect(0, 0, w, h);
       if (!pal) {
         // lune
-        const mg = G.glow('#ffe9c0', 128); x.globalCompositeOperation = 'lighter'; x.globalAlpha = 0.55; x.drawImage(mg.c, w * 0.72 - 90, h * 0.14 - 90, 180, 180); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
-        x.fillStyle = '#fff4dc'; x.beginPath(); x.arc(w * 0.72, h * 0.14, 26, 0, TAU); x.fill();
+        const mg = G.glow('#ffe9c0', 128); x.globalCompositeOperation = 'lighter'; x.globalAlpha = 0.5; x.drawImage(mg.c, w * 0.84 - 80, h * 0.075 - 80, 160, 160); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
+        x.fillStyle = '#fff4dc'; x.beginPath(); x.arc(w * 0.84, h * 0.075, 20, 0, TAU); x.fill(); x.fillStyle = 'rgba(200,190,170,0.35)'; x.beginPath(); x.arc(w * 0.84 - 6, h * 0.075 - 4, 5, 0, TAU); x.arc(w * 0.84 + 7, h * 0.075 + 5, 3.5, 0, TAU); x.fill();
         // montagnes
         for (let k = 0; k < 3; k++) {
           x.fillStyle = ['#2a2040', '#1e1730', '#140f20'][k];

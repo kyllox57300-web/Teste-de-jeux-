@@ -312,6 +312,7 @@
     const html = '<div class="scroll grow pad"><div class="col" style="gap:12px;max-width:480px;margin:0 auto">' +
       '<div class="center" style="margin-top:20px"><div style="font-size:60px">' + titles[1] + '</div><h2 style="font-size:28px">' + titles[0] + '</h2><div class="mut small">' + (r.mode === 'endless' ? '' : B.BIOMES[r.biome].n + ' · ') + 'Niveau ' + r.lvl + ' · ' + B.fmt(r.kills) + ' monstres · ' + B.fmtTime(r.time) + '</div>' + (!r.won && r.mode !== 'endless' ? '<div class="small" style="margin-top:6px">Vous gardez <b class="gold">' + Math.round(r.keep * 100) + ' %</b> des ressources.</div>' : '') + '</div>' +
       '<div class="grid3">' + gl + '</div>' +
+      '<div class="card center small" style="border-color:var(--gold)">' + S.nextGoal() + '</div>' +
       (disc.length ? '<div class="panel col" style="gap:6px"><h3>Nouveautés</h3>' + disc.map(x => '<div class="small">' + x + '</div>').join('') + '</div>' : '') +
       (items ? '<h3>Butin (' + r.items.length + ')</h3><div class="col">' + items + '</div>' : '') +
       '</div></div><div class="pad col" style="padding-top:8px;gap:8px"><button class="btn main big pulse" data-a="again">🔁 Rejouer</button><button class="btn" data-a="vil">🏘️ Retour au village</button></div>';
@@ -320,6 +321,22 @@
       vil: () => S.village()
     });
     if (r.items.some(i => i.rar >= 3)) setTimeout(() => { S.legendFlash(r.items.find(i => i.rar >= 3)); B.Audio.sfx('legendary'); }, 500);
+  };
+
+  // Prochain objectif (motivation)
+  S.nextGoal = function () {
+    const P = B.P, M = Me();
+    for (const sid in P.survivors) { const q = M.questOf(sid); if (q && q.done) return '🎁 ' + B.SURVIVORS.find(s => s.id === sid).n + ' a une récompense de quête pour vous !';
+    }
+    for (const b of B.BUILDINGS) { if (M.bldState(b) === 'ok' && M.can(M.bldCost(b))) return '🔨 Vous pouvez ' + (P.bld[b.id] ? 'améliorer' : 'construire') + ' : <b>' + b.n + '</b> !'; }
+    const tal = B.TALENTS.find(t => M.talentState(t) === 'ok' && P.res.essence >= B.talentCost(t, M.tRank(t.id)));
+    if (tal) return '📚 Nouveau talent disponible à l\'Académie : <b>' + tal.n + '</b>';
+    const h = B.HEROES.find(x => M.heroState(x) === 'ok' && M.can(x.unlock.cost)); if (h) return '🍻 ' + h.n + ' peut être engagé(e) à la Taverne !';
+    let best = null;
+    for (const b of B.BUILDINGS) { if (M.bldState(b) !== 'ok') continue; const c = M.bldCost(b); let miss = 0, k0 = null; for (const k in c) { const m = c[k] - (P.res[k] || 0); if (m > 0 && (!k0 || m / c[k] > miss)) { miss = m / c[k]; k0 = k; } } if (k0 && (!best || miss < best.m)) best = { b: b, m: miss, k: k0, v: c[k0] - P.res[k0] }; }
+    if (best) return '🎯 Plus que ' + M.RES[best.k].i + ' ' + B.fmt(best.v) + ' pour ' + (P.bld[best.b.id] ? 'améliorer' : 'construire') + ' : <b>' + best.b.n + '</b>';
+    const s = B.SURVIVORS.find(x => !P.survivors[x.id]); if (s) return '🙋 Un survivant attend dans : <b>' + B.BIOMES[s.b].n + '</b>';
+    return '🌫️ La Brume Profonde vous attend…';
   };
 
   // ───── Pause ─────

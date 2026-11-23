@@ -6,10 +6,10 @@
 
   // Réglages d'équilibrage (ajustés avec tools/sim.js)
   B.CFG = {
-    biomeHp: [1, 1.35, 1.8, 2.4, 3.1],
-    biomeDmg: [1, 1.18, 1.36, 1.58, 1.8],
+    biomeHp: [1, 1.45, 2.0, 2.7, 3.35],
+    biomeDmg: [1, 1.2, 1.42, 1.64, 1.85],
     rowHp: 0.28, rowHpB: 0.1, rowHp2: 0.028, rowHp2B: 0.01, rowDmg: 0.07, rowDmgB: 0.35,
-    bossHpMul: 2.2, guardMul: 0.8, bossBiome: [1, 1.4, 1.9, 2.5, 3.2],
+    bossHpMul: 2.2, guardMul: 0.8, bossBiome: [1, 1.5, 2.05, 2.7, 3.35],
     spawnBase: 0.95, spawnRow: 0.16, spawnTime: 0.016,
     maxEnemies: 140,
     xpBase: 1, xpRow: 0.12,
@@ -212,7 +212,7 @@
     // ───── Apparition des ennemis ─────
     mobPool() {
       const bio = B.BIOMES[this.biome];
-      const k = Math.min(bio.mobs.length, 3 + Math.floor(this.row / 2) + (this.kind === 'endless' ? 8 : 0));
+      const k = Math.min(bio.mobs.length, 3 + Math.floor(this.row / 2));
       return bio.mobs.slice(0, k);
     }
     spawnPos(minD) {
@@ -403,7 +403,7 @@
       if (this.kind === 'mimic') return;
       let rate = C.spawnBase + this.row * C.spawnRow + this.t * C.spawnTime;
       if (this.kind === 'endless') {
-        rate = 1.3 + this.t * 0.01;
+        rate = 0.9 + this.t * 0.008;
         this.endlessUpdate(dt);
       }
       if (this.kind === 'tutorial') rate = 0.9 + this.t * 0.03;
@@ -424,11 +424,11 @@
       if (stage !== this.endStage) {
         this.endStage = stage;
         this.biome = stage % 5;
-        this.row = Math.min(11, 3 + stage);
+        this.row = Math.min(11, stage * 1.5);
         const loop = Math.floor(stage / 5);
         this.endlessMul = (1 + stage * 0.55) * Math.pow(1.6, loop);
-        this.hpMul = B.hpScale(this.biome, Math.min(11, 2 + stage * 2)) * Math.pow(2.2, loop);
-        this.dmgMul = B.dmgScale(this.biome, Math.min(11, 2 + stage * 2)) * Math.pow(1.35, loop);
+        this.hpMul = B.hpScale(this.biome, this.row) * Math.pow(2.2, loop);
+        this.dmgMul = B.dmgScale(this.biome, this.row) * Math.pow(1.35, loop);
         if (this.F) this.F.biomeChange(this.biome);
         if (stage > 0 && stage % 2 === 0) {
           const g = B.BIOMES[this.biome].guard;
@@ -486,8 +486,8 @@
       }
       if (!fx) return;
       if (fx.poison) {
-        e.pois = Math.min(12 + (S.flags.plague ? 4 : 0), e.pois + fx.poison);
-        e.poisD = Math.max(e.poisD, (o.base || d) * 0.25 * (1 + S.poisonPow));
+        e.pois = Math.min(10 + (S.flags.plague ? 4 : 0), e.pois + fx.poison);
+        e.poisD = Math.max(e.poisD, (o.base || d) * 0.14 * (1 + S.poisonPow));
         e.poisT = 4 * S.dur;
       }
       if (fx.slow) {
@@ -517,14 +517,14 @@
       if (e.elite) {
         this.eliteKills++; this.elitesAlive = Math.max(0, (this.elitesAlive || 1) - 1);
         this.drop('chest', e.x, e.y, 1);
-        this.loot.essence += 2 + Math.floor(this.biome * 0.6 + Math.random() * 2);
+        this.loot.essence += 3 + Math.floor(this.biome * 0.8 + Math.random() * 2);
         this.loot.bois += 1 + Math.floor(Math.random() * 2 + this.biome * 0.5);
         if (e.elite === 'explosive') this.enemyBoom(e.x, e.y, 70, e.dmg * 1.2);
         if (e.elite === 'splitter' && !e.split2) for (let i = 0; i < 2; i++) { const c = this.spawnMob(e.id, e.x + (i ? 15 : -15), e.y); c.max = c.hp = e.max * 0.3; c.r = e.r * 0.75; c.split2 = 1; c.xp = e.xp * 0.1; }
       }
       if (e.boss) {
         this.bossKilled = e.id;
-        this.loot.essence += e.d.guard ? 5 + this.biome * 4 : 12 + this.biome * 8;
+        this.loot.essence += e.d.guard ? 7 + this.biome * 5 : 16 + this.biome * 10;
         this.loot.bois += 4 + this.biome * 2;
         this.drop('chest', e.x, e.y, 2);
         for (let i = 0; i < 14; i++) this.drop('gold', e.x + (Math.random() - 0.5) * 80, e.y + (Math.random() - 0.5) * 80, 2 + this.biome);

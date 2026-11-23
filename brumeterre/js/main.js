@@ -205,7 +205,7 @@
     if (Gm.c !== c) return;
     const run = Gm.run, d = run.d;
     Gm.joy.active = false;
-    if (d.mode === 'endless') { Gm.endRun(false, { time: c.t }); return; }
+    if (d.mode === 'endless') { run.afterCombat(c); Gm.endRun(false, { time: c.t }); return; }
     const res = run.afterCombat(c);
     if (res.lost) { Gm.endRun(false); return; }
     if (res.rescued) { const s = B.SURVIVORS.find(x => x.id === res.rescued); U.toast(s.i + ' <b>' + s.n + '</b> est sauvé ! Il part vers le village.', 4000); }

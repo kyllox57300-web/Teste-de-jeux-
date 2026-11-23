@@ -151,7 +151,8 @@ h3 { font-size: 17px; }
 
 /* Barre du village */
 .vtop { position: absolute; left: 0; right: 0; top: 0; padding: calc(8px + var(--sat)) calc(10px + var(--sar)) 8px calc(10px + var(--sal)); display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; background: linear-gradient(rgba(10, 7, 16, .92), rgba(10, 7, 16, 0)); pointer-events: auto; }
-.vtop .res { background: rgba(20, 14, 30, .8); border: 1px solid var(--line); border-radius: 99px; padding: 4px 10px; font-size: 13.5px; }
+.vtop .res { background: rgba(20, 14, 30, .8); border: 1px solid var(--line); border-radius: 99px; padding: 3px 8px; font-size: 12.5px; }
+.vtop .btn.sm { min-height: 32px !important; padding: 4px 9px; font-size: 12.5px; }
 .vbot { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px calc(8px + var(--sar)) calc(10px + var(--sab)) calc(8px + var(--sal)); display: grid; grid-template-columns: 1fr 1fr 1.5fr 1fr 1fr; gap: 6px; background: linear-gradient(rgba(10, 7, 16, 0), rgba(10, 7, 16, .95) 35%); pointer-events: auto; }
 .vbot button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 60px; border-radius: 16px; background: var(--panel2); border: 1px solid var(--line); font-size: 11.5px; font-weight: 700; position: relative; }
 .vbot button span { font-size: 24px; line-height: 1; }
