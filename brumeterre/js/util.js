@@ -90,7 +90,7 @@
     bolt: { n: 'Foudre', en: 'Lightning', c: '#ffe14d', i: '⚡' },
     poison: { n: 'Poison', en: 'Poison', c: '#8ee04a', i: '☠️' },
     light: { n: 'Lumière', en: 'Light', c: '#fff1b0', i: '✨' },
-    shadow: { n: 'Ombre', en: 'Shadow', c: '#a77bff', i: '🌑' },
+    shadow: { n: 'Ombre', en: 'Shadow', c: '#a77bff', i: '🌘' },
     nature: { n: 'Nature', en: 'Nature', c: '#5bd17a', i: '🌿' },
     arcane: { n: 'Arcane', en: 'Arcane', c: '#ff7ad9', i: '🔮' }
   };

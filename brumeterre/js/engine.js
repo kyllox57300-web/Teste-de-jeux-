@@ -1189,7 +1189,7 @@
             if (S.lvlHeal) P.hp = Math.min(S.hp, P.hp + S.lvlHeal * S.healPow);
             need = B.xpNeed(RH.lvl);
           }
-          if (this.pendingLevels && this.o.onLevel && !this.over) { this.paused = true; this.o.onLevel(this); }
+          if (this.pendingLevels && this.o.onLevel && !this.over && !this._lvlAsk) { this.paused = true; this._lvlAsk = true; this.o.onLevel(this); this._lvlAsk = false; }
           break;
         }
         case 'gold': this.loot.gold += Math.round(p.v * S.gold); if (this.F) this.F.sfx('coin'); break;

@@ -222,13 +222,15 @@
       if (card.id === '_heal') { const S = B.computeStats(RH); RH.hp = Math.min(S.hp, RH.hp + S.hp * 0.3); return; }
       const def = B.POWERS[card.id];
       if (card.evo) {
+        if (RH.ws.some(w => w.id === def.id)) { d.gold += 25; return; }
         const i = RH.ws.findIndex(w => w.id === def.from);
-        if (i >= 0) RH.ws[i] = { id: def.id, lvl: 1 }; else RH.ws.push({ id: def.id, lvl: 1 });
+        if (i >= 0) RH.ws[i] = { id: def.id, lvl: 1 }; else { d.gold += 25; return; }
         d.st.evos.push(def.id);
         return;
       }
       const cur = this.owned(card.id);
-      if (cur) cur.lvl = Math.max(cur.lvl, card.lv);
+      if (!cur && def.kind === 'w' && this.evolvedFrom(card.id)) { d.gold += 15; return; }
+      if (cur) cur.lvl = Math.min(def.max, Math.max(cur.lvl, card.lv));
       else if (def.kind === 'w') { if (RH.ws.length >= RH.slotsW) return; RH.ws.push({ id: card.id, lvl: card.lv }); }
       else { if (RH.ps.length >= RH.slotsP) return; RH.ps.push({ id: card.id, lvl: card.lv }); }
       if (def.st && def.st.hp) RH.hp += def.st.hp * (card.lv - (card.from || 0));

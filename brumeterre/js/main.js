@@ -187,6 +187,7 @@
     o.onLevel = (c) => Gm.levelUp(c);
     o.onChest = (c, v) => Gm.chest(c, v);
     o.onEnd = (c) => setTimeout(() => Gm.combatEnd(c), c.over === 'win' ? 300 : 900);
+    Gm.cq = []; Gm.cmOpen = false;
     const c = Gm.c = new B.Combat(o);
     Gm.R.setCombat(c); Gm.R.heroDef = null; Gm.R.lanternCol = B.P.lanternCol || null; Gm.R.lanternGlow = B.P.lanternGlow || '#ff9a40';
     Gm.mode = 'combat'; Gm.paused = false; Gm.acc = 0;
@@ -237,24 +238,39 @@
   Gm.resume = function () { Gm.paused = false; Gm.last = performance.now(); U.closeAll(); };
 
   // Montée de niveau
-  Gm.levelUp = function (c) {
-    B.Audio.sfx('levelup'); B.vibrate(25);
-    Gm.R.flash('#ffe9a0', 0.3);
-    Gm.joy.active = false; c.mx = c.my = 0;
-    if (Gm.run.d.mods.autoPick) {
-      const off = Gm.run.makeOffer({}); const card = off.cards[Math.floor(Math.random() * off.cards.length)];
-      Gm.run.applyCard(card); c.recompute(); U.toast('🎲 ' + (B.POWERS[card.id] ? B.POWERS[card.id].n : 'Bonus')); c.resume(); return;
-    }
-    Gm.offerModal({}, () => { c.recompute(); Gm.last = performance.now(); c.resume(); }, 'Niveau ' + c.RH.lvl + ' !');
-  };
-  Gm.chest = function (c, v) {
+  // Les fenêtres de combat (niveau, coffre) passent l'une après l'autre ; le combat reprend quand il n'y en a plus
+  Gm.cq = [];
+  Gm.levelUp = function (c) { if (!Gm.cq.some(q => q.k === 'lvl')) Gm.cq.push({ k: 'lvl' }); Gm.nextCM(c); };
+  Gm.chest = function (c, v) { Gm.cq.push({ k: 'chest', v: v }); Gm.nextCM(c); };
+  Gm.nextCM = function (c) {
+    if (Gm.cmOpen || Gm.c !== c) return;
+    const q = Gm.cq.shift();
+    if (!q) { c.recompute(); Gm.last = performance.now(); c.paused = false; return; }
+    c.paused = true; Gm.joy.active = false; c.mx = c.my = 0;
+    Gm.cmOpen = true;
+    const done = () => { Gm.cmOpen = false; c.recompute(); Gm.nextCM(c); };
     const run = Gm.run;
+    if (q.k === 'lvl') {
+      c.pendingLevels = Math.max(0, (c.pendingLevels || 1) - 1);
+      if (c.pendingLevels > 0) Gm.cq.unshift({ k: 'lvl' });
+      B.Audio.sfx('levelup'); B.vibrate(25); Gm.R.flash('#ffe9a0', 0.3);
+      if (run.d.mods.autoPick) {
+        const off = run.makeOffer({}); const card = off.cards[Math.floor(Math.random() * off.cards.length)];
+        run.applyCard(card); U.toast('🎲 ' + (B.POWERS[card.id] ? B.POWERS[card.id].n : 'Bonus'));
+        setTimeout(done, 250); return;
+      }
+      Gm.offerModal({}, done, 'Niveau ' + (c.RH.lvl - c.pendingLevels) + ' !');
+      return;
+    }
+    const v = q.v;
     const g = Math.round((8 + run.d.biome * 6) * v); run.d.gold += g;
-    if (Math.random() < 0.35 * v) run.addItem(run.rollItem(v > 1 ? 1 : 0));
+    if (Math.random() < 0.35 * v) {
+      const it = run.addItem(run.rollItem(v > 1 ? 1 : 0));
+      if (it.rar >= 1) U.toast(B.SLOT_ICON[it.slot] + ' <b class="r' + it.rar + ' rt">' + B.Meta.itemName(it) + '</b> (' + B.rarityName(it.rar) + ')', 2600);
+      if (it.rar >= 3) { B.SCR.legendFlash(it); B.Audio.sfx('legendary'); B.vibrate([40, 30, 80]); }
+    }
     Gm.R.flash('#ffcf6a', 0.4); B.vibrate(40);
-    const evo = run.evoReady().length > 0;
-    if (evo) B.Audio.sfx('legendary');
-    Gm.offerModal({ chest: true, minRar: v > 1 ? 1 : 0 }, () => { c.recompute(); Gm.last = performance.now(); c.paused = false; }, 'Coffre ! +' + g + ' 🪙');
+    Gm.offerModal({ chest: true, minRar: v > 1 ? 1 : 0 }, done, 'Coffre ! +' + g + ' 🪙');
   };
   // Fenêtre de choix de pouvoir
   Gm.offerModal = function (o, done, title) {
@@ -266,7 +282,7 @@
     const html = () => '<div class="center"><h2 style="font-size:26px">' + (title || 'Nouveau pouvoir') + '</h2><div class="mut small">' + (banMode ? 'Touchez une carte pour la bannir de l\'expédition' : 'Choisissez un pouvoir') + '</div></div>' +
       '<div class="col" style="gap:9px">' + off.cards.map((c, i) => U.powerCard(c, run, i)).join('') + '</div>' +
       '<div class="grid2"><button class="btn sm' + (run.d.rerolls > 0 ? '' : ' off') + '" data-a="reroll">🎲 Relancer (' + run.d.rerolls + ')</button><button class="btn sm' + (run.d.banishes > 0 ? '' : ' off') + (banMode ? ' main' : '') + '" data-a="ban">🚫 Bannir (' + run.d.banishes + ')</button></div>' +
-      '<div class="center"><button class="btn sm ghost" data-a="mine">Voir mes pouvoirs</button></div>';
+      '<div class="center"><button class="btn sm ghost" data-a="mine" style="margin:0 auto">Voir mes pouvoirs</button></div>';
     const m = U.modal(html(), {
       pick: (t) => {
         if (picked) return;

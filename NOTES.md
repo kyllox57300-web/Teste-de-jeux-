@@ -22,7 +22,10 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
   - Fait : 5 biomes, 43 monstres + 10 boss, 8 héros, 84 pouvoirs (28 armes, 38 passifs, 18 évolutions) + synergies d'éléments,
     équipement 5 raretés + 16 uniques, 8 compagnons, 18 événements, 16 survivants avec quêtes, 8 bâtiments, 65 talents,
     Brume Profonde 1-20, mode Infini, défis du jour/semaine, 66 succès, encyclopédie, tutoriel, réglages complets, lanternes cosmétiques.
-  - Réglages de difficulté : `B.CFG` en haut de `engine.js`.
+  - Réglages de difficulté : `B.CFG` en haut de `engine.js`. Dernières simulations (robot, 6 parties) : 1er biome battu
+    en 1 à 7 expéditions, victoire finale entre la 38e et la 163e (médiane ~95), soit 4 à 11 h « robot » (~15 h estimées
+    pour un humain). Dégâts des armes niveau 5 ramenés entre ~0,7× et ~1,5× de la moyenne (outil : boucle de mesure dans la session).
+  - Captures : `brumeterre/captures/`.
   - Reste / idées : traduction anglaise partielle (menus seulement), tester sur un vrai téléphone (fluidité, taille des boutons),
     affiner l'équilibrage avec les retours réels.
 
