@@ -424,6 +424,9 @@
   ach('a_quests', 'Serviable', 'Terminer 15 quêtes de survivants.', '📜', P => P.st.quests >= 15, { aube: 2 });
   ach('a_lore', 'Historien', 'Débloquer toutes les pages d\'histoire.', '📖', P => Object.keys(P.lore).length >= B.LORE.length, { aube: 2 });
   ach('a_fast', 'Éclair', 'Vaincre un boss final en moins de 60 secondes.', '⏱️', P => P.st.fastBoss >= 1);
+  ach('a_gift7', 'Fidèle au poste', 'Recevoir 7 cadeaux du jour d\'affilée.', '🎁', P => (P.giftStreak || 0) >= 7, { aube: 2 });
+  ach('a_master', 'Maître d\'armes', 'Un héros au niveau de maîtrise 10.', '🎖️', P => Object.values(P.heroes).some(h => h.lvl >= 10), { aube: 2 });
+  ach('a_apoc', 'Apocalypse !', 'Vaincre 45 monstres en moins de 2 secondes.', '💥', P => (P.st.apoc || 0) >= 1);
   B.ACHIEVEMENTS = A;
 
   B.TIPS = [

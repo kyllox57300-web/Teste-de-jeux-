@@ -99,7 +99,7 @@
         if (e.boss) { B.Game && B.Game.hitstop(0.35); } else if (e.elite) { B.Game && B.Game.hitstop(0.09); }
         const now = this.t; this.kt = (this.kt || []).filter(t => now - t < 1.6); this.kt.push(now);
         const n = this.kt.length, lvl = n >= 45 ? 3 : n >= 28 ? 2 : n >= 15 ? 1 : 0;
-        if (lvl > (this.kmax || 0) && this.c) { this.kmax = lvl; this.callout(['', 'Carnage !', 'Massacre !', 'Apocalypse !'][lvl], ['', '#ffcf6a', '#ff8a3a', '#ff4a6a'][lvl]); }
+        if (lvl > (this.kmax || 0) && this.c) { this.kmax = lvl; if (lvl === 3 && B.P) B.P.st.apoc = 1; this.callout(['', 'Carnage !', 'Massacre !', 'Apocalypse !'][lvl], ['', '#ffcf6a', '#ff8a3a', '#ff4a6a'][lvl]); }
         if (n < 6) this.kmax = 0;
       }
       this.burst(e.x, e.y, e.boss ? 60 : e.elite ? 26 : 9, c[0], e.boss ? 300 : 140, e.boss ? 7 : 4, 0.6, false);

@@ -27,7 +27,8 @@
     'Expéditions': 'Expeditions', 'Victoires': 'Wins', 'Monstres vaincus': 'Monsters slain', 'Élites vaincues': 'Elites slain', 'Meilleur niveau': 'Best level', 'Survivants sauvés': 'Survivors rescued',
     'Braises gagnées': 'Embers earned', 'Talents achetés': 'Talents bought', 'Objets trouvés': 'Items found', 'Record Infini': 'Endless record', 'Brume Profonde vaincue': 'Deep Mist cleared',
     'Défis réussis': 'Challenges won', 'Temps de jeu': 'Play time', 'Compris !': 'Got it!', 'Bienvenue !': 'Welcome!', 'Suite': 'Next', 'Partir dans la brume': 'Into the mist',
-    'Touchez un cercle doré pour avancer': 'Tap a golden circle to move on', 'Butin': 'Loot', 'Expédition éclair': 'Blitz expedition', 'Construire': 'Build', 'Niveau maximum': 'Max level'
+    'Touchez un cercle doré pour avancer': 'Tap a golden circle to move on', 'Cadeau du jour': 'Daily gift', 'Merci !': 'Thanks!', 'Préparer': 'Brew', 'Emporter': 'Take along',
+    'La carte': 'The map', 'Maîtrise': 'Mastery', 'Héros choisi': 'Hero selected', 'Comment ça marche': 'How it works', 'Carnage !': 'Carnage!', 'Massacre !': 'Massacre!', 'Butin': 'Loot', 'Expédition éclair': 'Blitz expedition', 'Construire': 'Build', 'Niveau maximum': 'Max level'
   };
   const RX = [[/^Niv\. (\d+)$/, 'Lv. $1'], [/^Partir : (.*)$/, 'Go: $1'], [/^Niveau (\d+) !$/, 'Level $1!'], [/^Améliorer niv\. (\d+)/, 'Upgrade to lv. $1']];
   function tr(root) {

@@ -76,7 +76,8 @@
         Gm.autoQuality(fdt);
       }
     } else if (Gm.bg && Gm.bg.on) {
-      if (now - Gm.lastDraw >= (Gm.bg.fps === 60 ? 15.5 : 32)) { const fdt = (now - Gm.lastDraw) / 1000; Gm.lastDraw = now; Gm.bg.draw(Math.min(0.1, fdt)); }
+      const busy = ['village', 'title', 'loading', 'map', 'end', 'cwin', 'event', 'camp', 'treasure'].indexOf(U.cur) < 0 || U.hasModal();
+      if (now - Gm.lastDraw >= (busy ? 80 : 32)) { const fdt = (now - Gm.lastDraw) / 1000; Gm.lastDraw = now; Gm.bg.draw(Math.min(0.1, fdt)); }
     }
   };
   Gm.stopT = 0;

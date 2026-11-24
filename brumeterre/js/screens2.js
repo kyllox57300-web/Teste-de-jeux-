@@ -24,7 +24,7 @@
     let body = lvl ? (BODY[id] ? BODY[id](tab) : '') : '<div class="card center mut">Construisez ce bâtiment pour l\'utiliser.</div>';
     const H = {
       back: back,
-      up: () => { if (Me().build(b)) { B.Audio.sfx('build'); B.vibrate(40); U.toast(b.i + ' ' + b.n + ' niveau ' + P.bld[id] + ' !'); Me().checkAch().forEach(a => U.toast('🏆 ' + a.n)); S.building(id, fromPrep, tab); } else B.Audio.sfx('error'); }
+      up: () => { if (Me().build(b)) { B.Audio.sfx('build'); B.vibrate(40); U.confetti(35); U.toast(b.i + ' ' + b.n + ' niveau ' + P.bld[id] + ' !'); Me().checkAch().forEach(a => U.toast('🏆 ' + a.n)); S.building(id, fromPrep, tab); } else B.Audio.sfx('error'); }
     };
     Object.assign(H, ACT[id] ? ACT[id](() => S.building(id, fromPrep, S._tab), fromPrep) : {});
     U.show('bld', '<div class="vtop" style="position:relative">' + U.resBar() + '</div>' + U.top(b.n) + '<div class="scroll grow" style="padding:0 14px 30px"><div class="col" style="gap:12px">' + head + body + '</div></div>', H);
@@ -158,7 +158,7 @@
   };
   S.hire = function (id, re) {
     const h = B.HEROES.find(x => x.id === id);
-    if (Me().hireHero(h)) { B.P.hero = id; B.Audio.sfx('unlock'); B.vibrate(50); U.toast('🎉 ' + h.n + ' rejoint la compagnie !'); Me().checkAch().forEach(a => U.toast('🏆 ' + a.n)); re(); }
+    if (Me().hireHero(h)) { B.P.hero = id; B.Audio.sfx('unlock'); B.vibrate(50); U.confetti(45); U.toast('🎉 ' + h.n + ' rejoint la compagnie !'); Me().checkAch().forEach(a => U.toast('🏆 ' + a.n)); re(); }
     else B.Audio.sfx('error');
   };
   S.heroDetail = function (id, re) {

@@ -333,15 +333,19 @@
     const html = '<div class="scroll grow pad"><div class="col" style="gap:12px;max-width:480px;margin:0 auto">' +
       '<div class="center" style="margin-top:20px"><div style="font-size:60px">' + titles[1] + '</div><h2 style="font-size:28px">' + titles[0] + '</h2><div class="mut small">' + (r.mode === 'endless' ? '' : B.BIOMES[r.biome].n + ' · ') + 'Niveau ' + r.lvl + ' · ' + B.fmt(r.kills) + ' monstres · ' + B.fmtTime(r.time) + '</div>' + (!r.won && r.mode !== 'endless' ? '<div class="small" style="margin-top:6px">Vous gardez <b class="gold">' + Math.round(r.keep * 100) + ' %</b> des ressources.</div>' : '') + '</div>' +
       '<div class="grid3">' + gl + '</div>' +
-      '<div class="card center small" style="border-color:var(--gold)">' + S.nextGoal() + '</div>' +
+      (!r.won && r.mode !== 'endless' ? '<div class="card small center" style="line-height:1.45">' + B.pick(['💪 Chaque expédition vous rend plus fort : dépensez vos ressources au village !', '🔥 La brume recule à chaque tentative. Encore une !', '🌟 Même les plus grands Porteurs sont tombés. Relevez-vous !', '🏮 Votre lanterne brille un peu plus fort à chaque retour.']) + '<div class="tiny mut" style="margin-top:4px">Conseil : ' + B.pick(B.TIPS) + '</div></div>' : '') +
+      '<button class="card center small" data-a="vil" style="border-color:var(--gold);width:100%">' + S.nextGoal() + ' <span class="mut">›</span></button>' +
       (disc.length ? '<div class="panel col" style="gap:6px"><h3>Nouveautés</h3>' + disc.map(x => '<div class="small">' + x + '</div>').join('') + '</div>' : '') +
       (items ? '<h3>Butin (' + r.items.length + ')</h3><div class="col">' + items + '</div>' : '') +
-      '</div></div><div class="pad col" style="padding-top:8px;gap:8px"><button class="btn main big pulse" data-a="again">🔁 Rejouer</button><button class="btn" data-a="vil">🏘️ Retour au village</button></div>';
+      '</div></div><div class="pad col" style="padding-top:8px;gap:8px"><button class="btn main big pulse" data-a="again">🔁 Rejouer' + (r.mode === 'normal' ? ' <span class="small" style="font-weight:600">(' + B.BIOMES[Math.min(P.biome, r.unlocked !== null && r.unlocked !== undefined ? r.unlocked : r.biome)].n + ')</span>' : '') + '</button><div class="grid2"><button class="btn" data-a="prep">🧙 Changer</button><button class="btn" data-a="vil">🏘️ Village</button></div></div>';
     U.show('end', html, {
-      again: () => { if (r.mode === 'tutorial') { S.village(); return; } if (r.mode === 'endless') { Gm().startRun({ mode: 'endless', hero: P.hero, biome: 0 }); return; } S.prep(); },
+      again: () => { if (r.mode === 'tutorial') { S.village(); return; } if (r.mode === 'endless') { Gm().startRun({ mode: 'endless', hero: P.hero, biome: 0 }); return; } if (r.mode !== 'normal') { S.prep(); return; } const b = Math.min(P.biome, r.unlocked !== null && r.unlocked !== undefined ? r.unlocked : r.biome); Gm().startRun({ mode: 'normal', hero: P.hero, biome: b, deep: Math.min(P.deep, r.deep || 0) }); },
+      prep: () => S.prep(),
       vil: () => S.village()
     });
     if (r.items.some(i => i.rar >= 3)) setTimeout(() => { S.legendFlash(r.items.find(i => i.rar >= 3)); B.Audio.sfx('legendary'); }, 500);
+    setTimeout(() => { const el = document.querySelector('[data-name=end]'); if (el) U.countUp(el); }, 350);
+    if (r.won) setTimeout(() => U.confetti(60), 300);
   };
 
   // Prochain objectif (motivation)

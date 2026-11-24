@@ -6,8 +6,8 @@
 
   // Réglages d'équilibrage (ajustés avec tools/sim.js)
   B.CFG = {
-    biomeHp: [1, 1.45, 2.0, 2.7, 3.35],
-    biomeDmg: [1, 1.2, 1.42, 1.64, 1.85],
+    biomeHp: [1, 1.48, 2.2, 3.15, 4.0],
+    biomeDmg: [1, 1.2, 1.47, 1.72, 1.98],
     rowHp: 0.28, rowHpB: 0.1, rowHp2: 0.028, rowHp2B: 0.01, rowDmg: 0.07, rowDmgB: 0.35,
     bossHpMul: 2.2, guardMul: 0.8, bossBiome: [1, 1.5, 2.05, 2.7, 3.35],
     spawnBase: 0.95, spawnRow: 0.16, spawnTime: 0.016,
@@ -1027,7 +1027,7 @@
           const rep = a.rep || 1;
           if (A.t >= A.i * 0.32 && A.i < rep) {
             const n = a.n || 1, sp = a.spread || 0.2;
-            for (let i = 0; i < n; i++) this.shootE(e.x, e.y, ang + (i - (n - 1) / 2) * (n > 1 ? sp / (n - 1) * 2 : 0), a.bspd, a.big ? e.dmg : bd, { r: a.big ? 18 : a.wave ? 16 : 8, look: a.big ? 'boulder' : a.wave ? 'wave' : 'orb', col: col, life: 5 });
+            for (let i = 0; i < n; i++) this.shootE(e.x, e.y, ang + (i - (n - 1) / 2) * (n > 1 ? sp / (n - 1) * 2 : 0), a.bspd, a.big ? e.dmg * 0.8 : bd, { r: a.big ? 18 : a.wave ? 16 : 8, look: a.big ? 'boulder' : a.wave ? 'wave' : 'orb', col: col, life: 5 });
             A.i++; if (this.F) this.F.sfx('eshoot');
           }
           if (A.i >= rep && A.t > rep * 0.32 + 0.2) end();

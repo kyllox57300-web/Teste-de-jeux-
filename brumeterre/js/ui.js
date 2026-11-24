@@ -60,6 +60,26 @@
       { no: () => U.close(m), yes: () => { U.close(m); yes(); } }, { closeOnBg: true });
   };
 
+  // Confettis de célébration
+  U.confetti = function (n) {
+    const ov = document.getElementById('ov'); const cols = ['#ffcf6a', '#ff8a3a', '#7ae09a', '#7ac8ff', '#c178ff', '#ff6a8a'];
+    for (let i = 0; i < (n || 40); i++) {
+      const c = document.createElement('i'); c.className = 'conf';
+      c.style.left = (Math.random() * 100) + '%'; c.style.background = cols[i % cols.length];
+      c.style.animationDuration = (1.4 + Math.random() * 1.2) + 's'; c.style.animationDelay = (Math.random() * 0.3) + 's';
+      c.style.setProperty('--dx', ((Math.random() - 0.5) * 160) + 'px'); c.style.setProperty('--r', (Math.random() * 720 - 360) + 'deg');
+      ov.appendChild(c); setTimeout(() => c.remove(), 3000);
+    }
+  };
+  // Nombres qui défilent (gains)
+  U.countUp = function (root) {
+    root.querySelectorAll('[data-count]').forEach(el => {
+      const end = +el.dataset.count, t0 = performance.now(), dur = 900;
+      const f = (now) => { const k = Math.min(1, (now - t0) / dur); el.textContent = '+' + B.fmt(Math.round(end * (1 - Math.pow(1 - k, 3)))); if (k < 1) requestAnimationFrame(f); else if (end > 0) B.Audio.sfx('coin'); };
+      requestAnimationFrame(f);
+    });
+  };
+
   // ───── Éléments communs ─────
   U.res = function (k, v, need) {
     const R = B.Meta.RES[k];
