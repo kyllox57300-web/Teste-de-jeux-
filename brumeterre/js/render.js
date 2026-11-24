@@ -77,7 +77,13 @@
       if (this.nums.length > 50) this.nums.shift();
       this.nums.push({ x: x + (Math.random() - 0.5) * 12, y: y, vy: -55, life: 0.75, txt: v, col: col, size: size || 13 });
     }
+    callout(txt, col) {
+      this.call = { txt: txt, col: col, t: 1.4 };
+      B.Audio && B.Audio.sfx('multikill', 0.8); B.vibrate && B.vibrate(20);
+    }
     hit(e, d, crit, el, dot) {
+      if (!dot) e.squash = 0.12;
+      if (crit && d > e.max * 0.3 && !e.boss) B.Game && B.Game.hitstop(0.03);
       if (dot) { if (this.q > 1 && this.nums.length < 14 && d >= 3 && Math.random() < 0.3) this.num(e.x, e.y - e.r - 4, Math.round(d), el ? ELC[el] || '#fff' : '#fff', 10); return; }
       if (this.nums.length > 34 && !crit && d < e.max * 0.15) { if (Math.random() < 0.5) this.burst(e.x, e.y, 1, '#fff', 80, 3, 0.2, true); return; }
       if (d >= 1 || crit) this.num(e.x, e.y - e.r - 4, Math.round(d), crit ? '#ffd23a' : (el ? ELC[el] || '#fff' : '#fff'), crit ? 18 : 12 + Math.min(4, d / 60));
@@ -87,6 +93,15 @@
     }
     death(e, silent) {
       const c = e.d.L.c;
+      if (!silent) {
+        const f = this.efr(e), key = 'mon_' + e.d.id + '_' + f;
+        this.fxs.push({ k: 'pop', x: e.x, y: e.y - (e.z || 0), sp: G.mon(e.d, f), wh: G.white(G.mon(e.d, f), key), face: e.face, sc: (e.elite ? 1.45 : e.boss ? 1.4 : 1), life: 0.22, max: 0.22 });
+        if (e.boss) { B.Game && B.Game.hitstop(0.35); } else if (e.elite) { B.Game && B.Game.hitstop(0.09); }
+        const now = this.t; this.kt = (this.kt || []).filter(t => now - t < 1.6); this.kt.push(now);
+        const n = this.kt.length, lvl = n >= 45 ? 3 : n >= 28 ? 2 : n >= 15 ? 1 : 0;
+        if (lvl > (this.kmax || 0) && this.c) { this.kmax = lvl; this.callout(['', 'Carnage !', 'Massacre !', 'Apocalypse !'][lvl], ['', '#ffcf6a', '#ff8a3a', '#ff4a6a'][lvl]); }
+        if (n < 6) this.kmax = 0;
+      }
       this.burst(e.x, e.y, e.boss ? 60 : e.elite ? 26 : 9, c[0], e.boss ? 300 : 140, e.boss ? 7 : 4, 0.6, false);
       this.burst(e.x, e.y, e.boss ? 30 : e.elite ? 8 : 2, this.pal ? this.pal.acc : '#fff', 110, 2.5, 0.4, true);
       this.fxs.push({ k: 'ring', x: e.x, y: e.y, r: e.r * 0.6, r2: e.r * 2.2, life: 0.3, max: 0.3, col: c[2] || '#fff' });
@@ -103,7 +118,10 @@
     }
     shake(a) { if (B.settings && !B.settings.shake) return; this.shakeA = Math.max(this.shakeA, a); }
     flash(col, a) { this.flashC = col; this.flashA = Math.max(this.flashA, a); }
-    sfx(id, v) { B.Audio && B.Audio.sfx(id, v); }
+    sfx(id, v) {
+      B.Audio && B.Audio.sfx(id, v);
+      if (this.c && (id === 'shoot' || id === 'bow' || id === 'throw' || id === 'fire' || id === 'ice' || id === 'zap')) { const lp = this.lanternPos(this.c); this.lights.push({ x: lp[0], y: lp[1], r: 70, life: 0.1, max: 0.1 }); this.muzzle = 0.08; }
+    }
     text(x, y, s, col) { this.nums.push({ x: x, y: y, vy: -35, life: 1.4, txt: s, col: col, size: 15, bold: 1 }); }
     bolt(pts, col) { this.fxs.push({ k: 'bolt', pts: pts, life: 0.18, max: 0.18, col: col, seed: Math.random() * 99 }); for (const p of pts) this.lights.push({ x: p[0], y: p[1], r: 80, life: 0.18, max: 0.18 }); }
     cone(x, y, a, w, len, el) { this.fxs.push({ k: 'cone', x: x, y: y, a: a, w: w, len: len, life: 0.35, max: 0.35, col: ELC[el] || '#ff7a2f' }); this.lights.push({ x: x + Math.cos(a) * len / 2, y: y + Math.sin(a) * len / 2, r: len, life: 0.35, max: 0.35 }); }
@@ -134,14 +152,21 @@
     }
     bossIntro(e) { this.bossBanner = { n: B.tx(e.d, 'n'), t: 2.6 }; }
     bossCast(e, t) { this.burst(e.x, e.y - e.r, 8, '#ff5a3c', 90, 4, 0.4, true); }
-    playerHit(d) { this.shake(4 + Math.min(8, d / 6)); this.hurtA = 0.6; B.Audio && B.Audio.sfx('hurt', 0.8); B.vibrate && B.vibrate(30); }
+    playerHit(d) { this.shake(4 + Math.min(8, d / 6)); this.hurtA = 0.6; this.flash('#ff1a2a', 0.18 + Math.min(0.2, d / 120)); B.Audio && B.Audio.sfx('hurt', 0.8); B.vibrate && B.vibrate(30); }
     special(id, P) {
       this.flash('#fff3c0', 0.35); this.shake(8); B.vibrate && B.vibrate(60);
       this.fxs.push({ k: 'ring', x: P.x, y: P.y, r: 20, r2: 240, life: 0.5, max: 0.5, col: '#ffe9a0', w: 12 });
       B.Audio && B.Audio.sfx('special', 1);
     }
+    levelUp(P) {
+      this.fxs.push({ k: 'ring', x: P.x, y: P.y, r: 10, r2: 120, life: 0.6, max: 0.6, col: '#ffe08a', w: 10 });
+      this.burst(P.x, P.y, 26, '#ffd36a', 220, 4, 0.8, true);
+      this.lights.push({ x: P.x, y: P.y, r: 220, life: 0.6, max: 0.6 });
+      this.nums.push({ x: P.x, y: P.y - 46, vy: -30, life: 1.2, txt: 'NIVEAU !', col: '#ffe08a', size: 18, bold: 1 });
+    }
+    spReady() { B.Audio && B.Audio.sfx('ready', 0.7); B.vibrate && B.vibrate(15); this.fxs.push({ k: 'ring', x: this.c.P.x, y: this.c.P.y, r: 60, r2: 14, life: 0.45, max: 0.45, col: '#ffd27a', w: 5 }); }
     clear() { this.flash('#fff8e0', 0.25); B.Audio && B.Audio.sfx('clear', 0.8); }
-    biomeChange(bi) { this.setBiome(bi); this.flash('#000', 0.6); this.bossBanner = { n: B.tx(B.BIOMES[bi], 'n'), t: 2.5 }; }
+    biomeChange(bi) { this.setBiome(bi); B.Audio && B.Audio.ambience(bi); this.flash('#000', 0.6); this.bossBanner = { n: B.tx(B.BIOMES[bi], 'n'), t: 2.5 }; }
 
     // ───── Mise à jour visuelle ─────
     update(dt) {
@@ -180,6 +205,12 @@
         }
       }
       if (c.P.dashT > 0) this.part(P.x, P.y, 0, 0, 0.3, 10, '#a77bff', true);
+      if (c.moving && Math.random() < 0.25 * q) this.part(P.x + (Math.random() - 0.5) * 8, P.y + 8, -c.mx * 20, -6, 0.45, 4, this.bi === 3 ? '#ffffff' : '#8a7a62', false, -10);
+      for (const e of c.en) if (e.squash > 0) e.squash -= dt;
+      if (this.call) { this.call.t -= dt; if (this.call.t <= 0) this.call = null; }
+      if (c.P.sp >= 1 && !this.spWas) this.spReady(); this.spWas = c.P.sp >= 1;
+      // traînées des projectiles rapides
+      if (this.q > 0) for (const b of c.pb) if ((b.look === 'arrow' || b.look === 'dagger' || b.look === 'lance' || b.look === 'shard' || b.look === 'sword') && Math.random() < 0.5) this.part(b.x - b.vx * 0.02, b.y - b.vy * 0.02, 0, 0, 0.18, 2.5, LOOKGLOW[b.look] || '#fff', true);
     }
     ambient() {
       const x = this.cx + (Math.random() - 0.5) * this.VW, y = this.cy + (Math.random() - 0.5) * this.VH;
@@ -279,7 +310,7 @@
       const fl = 1 + Math.sin(this.t * 9) * 0.02 + Math.sin(this.t * 23) * 0.015;
       const gw = G.glow(this.lanternGlow || '#ff9a40', 128);
       ctx.globalAlpha = 0.16; ctx.drawImage(gw.c, P.x - LR * fl, P.y - LR * fl, LR * 2 * fl, LR * 2 * fl);
-      ctx.globalAlpha = 0.5; const lp = this.lanternPos(c); ctx.drawImage(gw.c, lp[0] - 26, lp[1] - 26, 52, 52);
+      ctx.globalAlpha = 0.5 + (this.muzzle > 0 ? 0.4 : 0); const lp = this.lanternPos(c); const mz = this.muzzle > 0 ? 40 : 26; ctx.drawImage(gw.c, lp[0] - mz, lp[1] - mz, mz * 2, mz * 2); if (this.muzzle > 0) this.muzzle -= 1 / 60;
       // yeux dans la brume
       ctx.globalAlpha = 1;
       for (const e of c.en) {
@@ -323,6 +354,7 @@
       ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
       if (this.flashA > 0) { ctx.globalAlpha = this.flashA; ctx.fillStyle = this.flashC; ctx.fillRect(0, 0, this.cw, this.ch); ctx.globalAlpha = 1; }
       if (this.bossBanner) this.drawBanner(ctx);
+      if (this.call) { const k = this.call.t, a = Math.min(1, k * 3); const sc = 1 + Math.max(0, k - 1.2) * 3; ctx.save(); ctx.globalAlpha = a; ctx.translate(this.cw / 2, this.ch * 0.22); ctx.scale(sc, sc); ctx.font = '900 30px Georgia, serif'; ctx.textAlign = 'center'; ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(20,5,10,0.9)'; ctx.strokeText(this.call.txt, 0, 0); ctx.fillStyle = this.call.col; ctx.fillText(this.call.txt, 0, 0); ctx.restore(); }
       if (this.joy) this.drawJoy(ctx);
       this.offscreenBoss(ctx, c);
     }
@@ -334,7 +366,7 @@
       const f = this.efr(e);
       const sp = G.mon(e.d, f);
       const el = e.elite ? 1.45 : e.boss ? 1.4 : 1;
-      const sq = 1 + Math.sin(e.ph * 9) * 0.05;
+      const sq = (1 + Math.sin(e.ph * 9) * 0.05) * (e.squash > 0 ? 1 + e.squash * 1.6 : 1);
       const w = sp.w * el, h = sp.h * el;
       ctx.save();
       ctx.translate(e.x, e.y - (e.z || 0));
@@ -539,6 +571,11 @@
             const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.len); g.addColorStop(0, G.rgba(f.col, 0.9 * k)); g.addColorStop(1, G.rgba(f.col, 0));
             ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.arc(f.x, f.y, f.len, f.a - f.w, f.a + f.w); ctx.closePath(); ctx.fill();
             ctx.globalCompositeOperation = 'source-over'; break;
+          }
+          case 'pop': {
+            const g = 1 + (1 - k) * 0.5; ctx.save(); ctx.translate(f.x, f.y); if (f.face < 0) ctx.scale(-1, 1);
+            const w = f.sp.w * f.sc * g, h = f.sp.h * f.sc * (2 - g * 0.9);
+            ctx.globalAlpha = k; ctx.drawImage(f.wh.c, -w / 2, -h / 2, w, h); ctx.restore(); break;
           }
           case 'line': ctx.strokeStyle = f.col; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.x2, f.y2); ctx.stroke(); break;
           case 'spikes': {

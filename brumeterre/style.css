@@ -184,3 +184,9 @@ textarea { font-family: ui-monospace, monospace; }
 .mapnode .nvar { position: absolute; left: -8px; top: -8px; font-style: normal; font-size: 16px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: #2a1f3a; border: 1.5px solid var(--gold); }
 .mapnode .here { position: absolute; bottom: -14px; font-style: normal; font-size: 18px; filter: drop-shadow(0 0 6px #ffb43c); animation: hereB 1.2s ease-in-out infinite; }
 @keyframes hereB { 50% { transform: translateY(-4px); } }
+.upbtn { flex-direction: column; gap: 2px; min-height: 60px; }
+.upbtn .upcost { font-size: 13.5px; display: flex; gap: 10px; }
+.cwin-bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,.12); overflow: hidden; margin-top: 4px; }
+.cwin-bar i { display: block; height: 100%; background: var(--gold); animation: cwinBar 2.2s linear both; }
+@keyframes cwinBar { from { width: 0; } to { width: 100%; } }
+.diff { color: var(--good); font-weight: 800; } .diff.neg { color: var(--bad); }

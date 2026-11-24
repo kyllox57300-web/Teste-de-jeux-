@@ -620,7 +620,7 @@
       const P = this.P, S = this.S;
       P.sp = 0;
       const H = B.HEROES.find(h => h.id === this.RH.hero);
-      const pw = (1 + this.RH.lvl * 0.12) * S.dmg;
+      const pw = (1 + this.RH.lvl * 0.12) * S.dmg * (1 + ((this.RH.flags && this.RH.flags.spDmg) || 0));
       const F = this.F;
       if (F) F.special(H.sp.id, P);
       switch (H.sp.id) {
@@ -1197,7 +1197,7 @@
           if (this.F) this.F.sfx('xp');
           let need = B.xpNeed(RH.lvl);
           while (RH.xp >= need) {
-            RH.xp -= need; RH.lvl++; this.pendingLevels = (this.pendingLevels || 0) + 1;
+            RH.xp -= need; RH.lvl++; this.pendingLevels = (this.pendingLevels || 0) + 1; if (this.F && this.F.levelUp) this.F.levelUp(P);
             if (S.lvlHeal) P.hp = Math.min(S.hp, P.hp + S.lvlHeal * S.healPow);
             need = B.xpNeed(RH.lvl);
           }

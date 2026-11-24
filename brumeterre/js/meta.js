@@ -187,7 +187,8 @@
       if (it.u) { const u = B.UNIQUES.find(x => x.id === it.u); if (u.st) add(u.st, it.rar === 4 ? 1.3 : 1); if (u.flag) flags['u_' + u.flag] = 1; }
     }
     for (const id in P.survivors) { const s = B.SURVIVORS.find(x => x.id === id); if (s && s.st) { for (const k in s.st) { if (k === 'shop' || k === 'mapSee' || k === 'boisMul') flags[k] = (flags[k] || 0) + s.st[k]; else st[k] = (st[k] || 0) + s.st[k]; } } }
-    const h = P.heroes[heroId]; if (h) { st.dmg = (st.dmg || 0) + (h.lvl - 1) * 0.03; st.hp = (st.hp || 0) + (h.lvl - 1) * 4; }
+    const h = P.heroes[heroId]; if (h) { st.dmg = (st.dmg || 0) + (h.lvl - 1) * 0.03; st.hp = (st.hp || 0) + (h.lvl - 1) * 4;
+      if (h.lvl >= 3) flags.spDmg = 0.25; if (h.lvl >= 6) st.spCharge = (st.spCharge || 0) + 0.15; if (h.lvl >= 10) flags.startLvl = (flags.startLvl || 0) + 1; }
     if (!opts.noBless) for (const id of P.bless) { const b = B.BLESSINGS.find(x => x.id === id); if (!b) continue; if (b.st) add(b.st); if (b.flag) flags[b.flag] = 1; }
     // compagnon
     const cid = opts.comp !== undefined ? opts.comp : P.comp;

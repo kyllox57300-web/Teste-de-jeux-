@@ -60,6 +60,7 @@
     if (dt > 0.25) dt = 0.25;
     if (Gm.mode === 'combat' && Gm.c) {
       const c = Gm.c;
+      if (Gm.stopT > 0) { Gm.stopT -= dt; dt = 0; }
       if (!Gm.paused && !c.paused && !c.over) {
         Gm.acc += dt * (Gm.slowmo ? 0.35 : 1);
         let n = 0;
@@ -78,6 +79,8 @@
       if (now - Gm.lastDraw >= (Gm.bg.fps === 60 ? 15.5 : 32)) { const fdt = (now - Gm.lastDraw) / 1000; Gm.lastDraw = now; Gm.bg.draw(Math.min(0.1, fdt)); }
     }
   };
+  Gm.stopT = 0;
+  Gm.hitstop = function (t) { Gm.stopT = Math.max(Gm.stopT, t); };
   Gm.autoQuality = function (dt) {
     if (B.P.settings.quality !== 'auto') return;
     Gm.ft.push(dt); if (Gm.ft.length < 90) return;
@@ -203,7 +206,7 @@
     Gm.buildHud();
     Gm.R.resize();
     const tr = o.kind === 'boss' || o.kind === 'guard' ? 'boss' : o.kind === 'endless' ? 'endless' : B.Audio.biomeTrack(d.biome);
-    B.Audio.music(tr);
+    B.Audio.music(tr); B.Audio.ambience(d.biome);
     Gm.hintState = { t: 0, shown: {} };
     if (o.variant) { const v = B.VARIANTS.find(x => x.id === o.variant); setTimeout(() => Gm.showHint(v.i + ' <b>' + v.n + '</b> — ' + v.d, 3.5), o.kind === 'survivor' ? 4200 : 300); }
     if (o.kind === 'survivor') Gm.showHint('Restez dans le cercle doré pour libérer ' + (o.survivorName || 'le survivant') + ' !', 4);
@@ -226,6 +229,7 @@
     B.SCR.combatWin(c, res, () => Gm.nodeDone());
   };
   Gm.leaveCombat = function () {
+    B.Audio.ambience(null);
     Gm.mode = 'menu'; Gm.cv.classList.remove('on'); document.getElementById('hud').classList.add('hidden');
     Gm.c = null; Gm.bg.start('map');
   };

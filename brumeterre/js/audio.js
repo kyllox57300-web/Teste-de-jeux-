@@ -118,6 +118,10 @@
     victory: () => { const n = [523, 659, 784, 1047, 784, 1047, 1319]; n.forEach((f, i) => tone({ t: ctx.currentTime + i * 0.13, f: f, d: 0.6, v: 0.13, type: 'triangle', rv: 0.6 })); },
     defeat: () => { [392, 349, 311, 262].forEach((f, i) => tone({ t: ctx.currentTime + i * 0.25, f: f, d: 0.8, v: 0.12, type: 'triangle', rv: 0.6, lp: 1500 })); },
     unlock: () => { [659, 880, 1175].forEach((f, i) => tone({ t: ctx.currentTime + i * 0.1, f: f, d: 0.5, v: 0.12, type: 'sine', rv: 0.6 })); },
+    multikill: () => { [660, 880, 1320].forEach((f, i) => tone({ t: ctx.currentTime + i * 0.05, f: f, d: 0.25, v: 0.09, type: 'square', lp: 3000, rv: 0.3 })); noise({ f: 2000, f2: 6000, ft: 'bandpass', d: 0.2, v: 0.08 }); },
+    ready: () => { tone({ f: 1320, d: 0.25, v: 0.07, type: 'sine', rv: 0.5 }); tone({ t: ctx.currentTime + 0.08, f: 1760, d: 0.35, v: 0.06, type: 'sine', rv: 0.5 }); },
+    gift: () => { [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => tone({ t: ctx.currentTime + i * 0.06, f: f, d: 0.5, v: 0.09, type: 'triangle', rv: 0.6 })); },
+    tab: () => tone({ f: 1100, d: 0.03, v: 0.05, type: 'triangle' }),
     pick: () => { tone({ f: 600, f2: 1200, d: 0.15, v: 0.1, type: 'triangle', rv: 0.3 }); }
   };
   A.sfx = function (id, vol) {
@@ -144,7 +148,7 @@
     boss: { bpm: 132, root: 45, sc: 'hmin', prog: [0, 5, 6, 4], pad: 'sawtooth', lead: 'square', drums: 4, arp: 1, dens: 0.7, dark: 1 },
     endless: { bpm: 120, root: 48, sc: 'dor', prog: [0, 3, 6, 4], pad: 'sawtooth', lead: 'triangle', drums: 3, arp: 1, dens: 0.65 }
   };
-  let seqTimer = null, step = 0, nextT = 0, cur = null, motif = null;
+  let seqTimer = null, step = 0, nextT = 0, cur = null, motif = null, motifs = null;
   A.music = function (name) {
     A.wantTrack = name;
     if (!A.on || !ctx) return;
@@ -153,7 +157,7 @@
     if (musBus) { musBus.gain.cancelScheduledValues(ctx.currentTime); musBus.gain.setValueAtTime(musBus.gain.value, ctx.currentTime); musBus.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.6); musBus.gain.linearRampToValueAtTime(A.musVol * 0.55, ctx.currentTime + 1.4); }
     setTimeout(() => {
       cur = TRACKS[name] || null; step = 0; nextT = ctx.currentTime + 0.1;
-      if (cur) { const rr = B.rng(B.hashStr(name)); motif = []; for (let i = 0; i < 32; i++) motif.push(rr() < cur.dens ? rr.int(0, 9) : -1); }
+      if (cur) { const rr = B.rng(B.hashStr(name)); motifs = [[], []]; for (let k = 0; k < 2; k++) for (let i = 0; i < 32; i++) motifs[k].push(rr() < cur.dens * (k ? 0.8 : 1) ? rr.int(k ? 2 : 0, k ? 11 : 9) : -1); motif = motifs[0]; }
       if (!seqTimer) seqTimer = setInterval(tick, 60);
     }, 650);
   };
@@ -173,6 +177,7 @@
       // arpège
       if (T.arp && (T.drums >= 3 || s8 % 2 === 0)) { const k = [0, 2, 4, 7][s8 % 4]; tone({ t: t, f: mtof(deg(T, ch + k, 1)), d: spb * 0.9, v: 0.035, type: T.airy ? 'sine' : 'triangle', lp: 2600, bus: musBus, dl: 0.4 }); }
       // mélodie
+      motif = motifs[Math.floor(step / 64) % 2];
       const m = motif[step % 32];
       if (m >= 0 && (step % 64) >= 16) tone({ t: t, f: mtof(deg(T, ch + m, T.dark ? 1 : 2) - (T.dark ? 0 : 12)), d: spb * 1.8, a: 0.02, v: 0.05, type: T.lead, lp: T.lead === 'square' ? 1800 : 3000, bus: musBus, rv: 0.35, dl: 0.3 });
       if (T.bell && s8 === 6 && bar % 2 === 1) tone({ t: t, f: mtof(deg(T, ch + 4, 2)), d: 1.5, v: 0.04, type: 'sine', bus: musBus, rv: 0.7 });
@@ -186,5 +191,29 @@
       nextT += spb; step++;
     }
   }
+  // Ambiance sonore du biome (vent continu + petits bruits)
+  let amb = null, windSrc = null, windG = null, windF = null;
+  A.ambience = function (b) {
+    amb = b;
+    if (!ctx) return;
+    if (!windSrc) {
+      windSrc = ctx.createBufferSource(); windSrc.buffer = noiseBuf; windSrc.loop = true;
+      windF = ctx.createBiquadFilter(); windF.type = 'bandpass'; windF.Q.value = 0.7;
+      windG = ctx.createGain(); windG.gain.value = 0;
+      windSrc.connect(windF); windF.connect(windG); windG.connect(sfxBus); windSrc.start();
+    }
+    const cfg = b === null || b === undefined ? [0, 400] : [[0.03, 500], [0.02, 300], [0.02, 700], [0.06, 900], [0.035, 160]][b];
+    windG.gain.setTargetAtTime(cfg[0], ctx.currentTime, 0.8); windF.frequency.setTargetAtTime(cfg[1], ctx.currentTime, 0.5);
+  };
+  setInterval(() => {
+    if (!A.on || !ctx || ctx.state !== 'running' || amb === null || amb === undefined || A.sfxVol <= 0) return;
+    const t = ctx.currentTime;
+    if (windF && (amb === 3 || amb === 0)) windF.frequency.setTargetAtTime((amb === 3 ? 700 : 450) + Math.sin(t * 0.4) * 250, t, 0.6);
+    const r = Math.random();
+    if (amb === 0 && r < 0.12) { const f = 2400 + Math.random() * 1500; for (let i = 0; i < 3; i++) tone({ t: t + i * 0.09, f: f + i * 120, f2: f * 1.2, d: 0.06, v: 0.012, type: 'sine' }); }
+    if (amb === 1 && r < 0.2) { tone({ t: t, f: 200 + Math.random() * 80, f2: 400, d: 0.06, v: 0.02, type: 'sine' }); if (Math.random() < 0.3) { tone({ t: t + 0.2, f: 140, f2: 110, d: 0.12, v: 0.025, type: 'square', lp: 500 }); tone({ t: t + 0.35, f: 150, f2: 115, d: 0.12, v: 0.02, type: 'square', lp: 500 }); } }
+    if (amb === 2 && r < 0.14) tone({ t: t, f: 1600 + Math.random() * 900, f2: 900, d: 0.08, v: 0.018, type: 'sine', rv: 0.8 });
+    if (amb === 4 && r < 0.35) { tone({ t: t, f: 60, f2: 45, d: 0.15, v: 0.06, type: 'sine' }); tone({ t: t + 0.22, f: 55, f2: 40, d: 0.15, v: 0.045, type: 'sine' }); }
+  }, 900);
   A.biomeTrack = (b) => ['forest', 'swamp', 'ruins', 'peaks', 'heart'][b] || 'forest';
 })(this.B || (this.B = {}));

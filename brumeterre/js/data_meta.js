@@ -295,6 +295,28 @@
         { t: 'Lire l\'inscription', d: 'Une page d\'histoire', f: (R) => { R.lore(); return 'Une page de plus dans l\'encyclopédie.'; } }] }
   ];
 
+  B.EVENTS.push(
+    { id: 'forge_ghost', n: 'Forge abandonnée', i: '⚒️', d: 'Une enclume encore tiède au milieu des ruines. Quelqu\'un y travaillait il y a peu.',
+      o: [{ t: 'Forger (20 or)', d: 'Améliore un pouvoir de 2 niveaux', need: { gold: 20 }, f: (R) => { R.gold(-20); const a = R.upgradeRandom(), b = R.upgradeRandom(); return 'Le métal chante sous le marteau. (' + [a, b].filter(Boolean).join(', ') + ')'; } },
+        { t: 'Récupérer le métal', d: 'Bois-de-lune +6', f: (R) => { R.res('bois', 6); return 'Brann sera content.'; } }] },
+    { id: 'lost_child', n: 'Enfant perdu', i: '🧒', d: 'Un enfant pleure, accroché à une lanterne éteinte.',
+      o: [{ t: 'Rallumer sa lanterne', d: 'Lanterne −5 %, chance +10', f: (R) => { R.stat('light', -0.05); R.stat('luck', 0.1); return 'Il sourit et vous offre un trèfle à quatre feuilles.'; } },
+        { t: 'Le ramener au village', d: 'Survivant… ou or', f: (R) => { const s = R.survivor(); return s ? s + ' rejoint le village grâce à vous !' : 'Ses parents vous récompensent.'; } }] },
+    { id: 'gambler', n: 'Roue de la fortune', i: '🎡', d: 'Une roue grince dans la brume. Elle est couverte de symboles.',
+      o: [{ t: 'Faire tourner (15 or)', d: 'Récompense au hasard', need: { gold: 15 }, f: (R) => { R.gold(-15); const r = R.rng(); if (r < 0.25) { R.offer({ minRar: 2 }); return 'Jackpot ! Un pouvoir épique.'; } if (r < 0.55) { R.gold(35); return 'Vous gagnez 35 or.'; } if (r < 0.8) { R.heal(0.4); return 'Une douce lumière vous soigne.'; } R.hurt(0.15); return 'Perdu ! La roue vous mord.'; } },
+        { t: 'Passer', d: 'Rien', f: () => 'La roue tourne seule derrière vous…' }] },
+    { id: 'ancient_tree', n: 'Arbre ancien', i: '🌳', d: 'Un arbre gigantesque, aux racines lumineuses. Il semble respirer.',
+      o: [{ t: 'Méditer à ses pieds', d: 'Expérience (presque un niveau)', f: (R) => { const n = R.xp(0.9); return n ? 'Vous gagnez un niveau !' : 'Vous vous sentez plus sage.'; } },
+        { t: 'Cueillir ses fruits', d: 'Vie max +12, herbes +3', f: (R) => { R.maxHp(12); R.res('herbe', 3); return 'Juteux et sucrés.'; } }] },
+    { id: 'cursed_idol', n: 'Idole maudite', i: '🗿', d: 'Une idole aux yeux de rubis. Elle chuchote des promesses.',
+      o: [{ t: 'Arracher les rubis', d: '+70 or, malédiction', f: (R) => { R.gold(70); R.curse(R.rng.pick(['c_frail', 'c_weak', 'c_dark'])); return 'Les yeux s\'éteignent. Quelque chose vous suit.'; } },
+        { t: 'Briser l\'idole', d: 'Combat, puis pouvoir rare', f: (R) => { R.fight('ambush'); R.offer({ minRar: 1, after: 1 }); return 'Les gardiens de l\'idole se réveillent !'; } },
+        { t: 'S\'éloigner', d: 'Rien', f: () => 'Les chuchotements faiblissent.' }] },
+    { id: 'hot_spring', n: 'Source chaude', i: '♨️', d: 'Une eau fumante qui sent le soufre et la menthe.',
+      o: [{ t: 'Se baigner', d: 'Soigne 50 %', f: (R) => { R.heal(0.5); return 'Vos muscles se détendent enfin.'; } },
+        { t: 'Remplir une fiole', d: 'Une potion de soin', f: (R) => { R.potion('po_heal'); return 'Une fiole de plus dans la besace.'; } }] }
+  );
+
   // ───────────── BRUME PROFONDE (20 niveaux) ─────────────
   B.DEEP = [
     { d: 'Ennemis +15 % de vie', m: { hpMul: 1.15 } },

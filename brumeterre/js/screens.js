@@ -87,10 +87,26 @@
       B.Audio.sfx('click');
       if (h.k === 'bld') S.building(h.id); else S.house(h.id);
     });
-    // nouvelles (survivants arrivés)
-    setTimeout(() => S.news(), 400);
+    // nouvelles (survivants arrivés), cadeau du jour
+    setTimeout(() => { if (!S.dailyGift()) S.news(); }, 400);
     if (P.tuto === 1) setTimeout(() => S.villageTuto(), 600);
   };
+  S.dailyGift = function () {
+    const P = B.P, today = B.dayKey();
+    if (P.tuto < 2 || P.gift === today) return false;
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    P.giftStreak = P.gift === B.dayKey(y) ? (P.giftStreak || 0) + 1 : 1;
+    P.gift = today;
+    const day = ((P.giftStreak - 1) % 7) + 1;
+    const g = { braise: Math.round((120 + P.biome * 150) * (1 + day * 0.15)), herbe: 2 + day, bois: day >= 4 ? 4 + P.biome * 2 : 0, aube: day === 7 ? 1 : 0 };
+    for (const k in g) if (!g[k]) delete g[k];
+    Me().gain(g); Me().save(true);
+    const dots = [1, 2, 3, 4, 5, 6, 7].map(i => '<span style="width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:800;' + (i <= day ? 'background:linear-gradient(#ffc45a,#e8822a);color:#2a1408' : 'background:rgba(255,255,255,.08)') + '">' + (i === 7 ? '✨' : i) + '</span>').join('');
+    const m = U.modal('<div class="panel col center" style="gap:12px"><div style="font-size:54px" class="chestanim">🎁</div><h2>Cadeau du jour</h2><div class="small mut">Revenez chaque jour : le cadeau grandit, et le 7e jour offre un Éclat d\'Aube.</div><div class="row" style="justify-content:center;gap:6px">' + dots + '</div><div class="row" style="justify-content:center;gap:12px;flex-wrap:wrap;font-size:17px">' + U.cost(g).replace(/ bad/g, '') + '</div><button class="btn main" data-a="ok">Merci !</button></div>', { ok: () => { U.close(m); S.refreshVillageBar(); setTimeout(S.news, 300); } });
+    B.Audio.sfx('gift'); B.vibrate([20, 30, 40]);
+    return true;
+  };
+  S.refreshVillageBar = function () { const t = document.querySelector('[data-name=village] .vtop'); if (t) { const keep = t.innerHTML.split('<span style="flex-basis:100%')[1]; t.innerHTML = U.resBar() + '<span style="flex-basis:100%' + keep; } };
   S.newItems = () => B.P.items.filter(i => i.isNew).length;
   S.news = function () {
     const P = B.P; const n = P.news.shift(); if (!n) return;
@@ -288,9 +304,12 @@
     const html = '<div class="pad grow col" style="justify-content:center;align-items:center;gap:14px"><div class="panel col center" style="gap:8px;min-width:260px"><div style="font-size:46px">' + (c.kind === 'guard' ? '🛡️' : c.kind === 'elite' ? '💀' : '✨') + '</div><h2>' + (c.kind === 'guard' ? 'Gardien vaincu !' : 'La brume recule') + '</h2>' +
       '<div class="row" style="justify-content:center;gap:14px;flex-wrap:wrap"><span class="res">💀 ' + c.kills + '</span><span class="res">🪙 +' + c.loot.gold + '</span><span class="res">🔥 +' + Math.round(c.loot.braise) + '</span>' + (c.loot.essence ? '<span class="res">💧 +' + c.loot.essence + '</span>' : '') + '</div>' +
       (res.rescued ? '<div class="card">🙋 ' + B.SURVIVORS.find(s => s.id === res.rescued).n + ' est en route pour le village !</div>' : '') + (c.dmgTaken === 0 && c.t > 15 ? '<div class="gold small">🍃 Sans une égratignure !</div>' : '') +
-      '<button class="btn main" data-a="ok" style="margin-top:6px;min-width:200px">Continuer</button></div></div>';
-    U.show('cwin', html, { ok: next });
+      (res.item ? '<div class="small">' + B.SLOT_ICON[res.item.slot] + ' <b class="r' + res.item.rar + ' rt">' + Me().itemName(res.item) + '</b> trouvé(e) !</div>' : '') +
+      '<button class="btn main" data-a="ok" style="margin-top:6px;min-width:200px">Continuer</button><div class="cwin-bar"><i></i></div></div></div>';
+    let gone = false; const go = () => { if (gone) return; gone = true; next(); };
+    U.show('cwin', html, { ok: go });
     B.Audio.sfx('clear');
+    setTimeout(() => { if (B.UI.cur === 'cwin') go(); }, 2300);
   };
   // ───── Fin d'expédition ─────
   S.endRun = function (r) {

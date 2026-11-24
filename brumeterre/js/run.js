@@ -373,6 +373,7 @@
         compXp: (v) => { d.compXp = (d.compXp || 0) + v; },
         give: (id) => { if (R.owned(id)) { d.gold += 20; return false; } if (RH.ws.length >= RH.slotsW) { d.gold += 20; return false; } RH.ws.push({ id: id, lvl: 1 }); R.markSeen(id); return true; },
         spFull: () => { RH.spCharge = 1; },
+        potion: (id) => { d.potions.push(id); },
         lore: () => { const l = B.LORE.find(x => !B.P.lore[x.id] && d.st.lore.indexOf(x.id) < 0 && ['l_end', 'l_deep', 'l_knight'].indexOf(x.id) < 0); d.st.lore.push(l ? l.id : 'l_statue'); },
         flag: (f) => { if (f === 'pact') d.st.pacts++; }
       };

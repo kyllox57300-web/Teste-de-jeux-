@@ -19,7 +19,7 @@
     let up = '';
     if (st === 'max') up = '<div class="tag good">Niveau maximum</div>';
     else if (st === 'fanal') up = '<div class="small mut">🗼 Améliorez le Grand Fanal pour aller plus loin.</div>';
-    else up = '<button class="btn ' + (Me().can(cost) ? 'green' : 'off') + '" data-a="up" style="width:100%">' + (lvl ? '⬆ Améliorer niv. ' + (lvl + 1) : '🔨 Construire') + ' · ' + U.cost(cost) + '</button><div class="tiny mut center" style="margin-top:4px">Niveau ' + (lvl + 1) + ' : ' + b.eff(lvl + 1) + '</div>';
+    else up = '<button class="btn upbtn ' + (Me().can(cost) ? 'green' : 'off') + '" data-a="up" style="width:100%"><span>' + (lvl ? '⬆ Améliorer au niveau ' + (lvl + 1) : '🔨 Construire') + '</span><span class="upcost">' + U.cost(cost) + '</span></button><div class="tiny mut center" style="margin-top:4px">Niveau ' + (lvl + 1) + ' : ' + b.eff(lvl + 1) + '</div>';
     const head = '<div class="panel col" style="gap:8px"><div class="row"><span class="ico l">' + b.i + '</span><div style="flex:1"><h3>' + b.n + (lvl ? ' <span class="tag">Niv. ' + lvl + '/' + b.max + '</span>' : '') + '</h3><div class="small mut">' + b.d + '</div>' + (lvl ? '<div class="small gold" style="margin-top:4px">' + b.eff(lvl) + '</div>' : '') + '</div></div>' + up + '</div>';
     let body = lvl ? (BODY[id] ? BODY[id](tab) : '') : '<div class="card center mut">Construisez ce bâtiment pour l\'utiliser.</div>';
     const H = {
@@ -48,7 +48,7 @@
   BODY.forge = () => {
     const P = B.P;
     const list = P.items.slice().sort((a, b) => (Object.values(P.equip).indexOf(b.uid) >= 0) - (Object.values(P.equip).indexOf(a.uid) >= 0) || b.rar - a.rar || Me().itemPower(b) - Me().itemPower(a));
-    return '<div class="small mut">Touchez un objet pour l\'améliorer (+' + Me().upMax() + ' max), le recycler' + (P.bld.forge >= 3 ? ', relancer une ligne' : '') + (P.bld.forge >= 5 ? ' ou le transmuter en mythique' : '') + '.</div>' +
+    return '<div class="card small"><b>⚒️ Comment ça marche</b><div class="tiny mut" style="margin-top:3px">Touchez un objet, puis : <b>Améliorer</b> (+8 % à toutes ses lignes par niveau, jusqu\'à +' + Me().upMax() + ')' + (P.bld.forge >= 3 ? ', <b>Relancer</b> une ligne au hasard' : '') + (P.bld.forge >= 5 ? ', <b>Transmuter</b> un légendaire en mythique' : '') + ', ou <b>Recycler</b> pour du bois et des braises.</div></div>' +
       (list.length ? '<div class="col">' + list.map(it => U.itemCard(it, { a: 'item', eq: Object.values(P.equip).indexOf(it.uid) >= 0 })).join('') + '</div>' : '<div class="card center mut">Aucun objet. Les coffres, élites et boss en donnent.</div>');
   };
   ACT.forge = (re) => ({ item: (t) => S.itemDetail(+t.dataset.uid, re, true) });
@@ -87,8 +87,10 @@
   // Jardin
   BODY.garden = () => {
     const P = B.P; const n = Math.min(6, P.bld.garden + 1); const potMax = (P.bld.garden >= 3 ? 2 : 1) + Me().flagSum('potSlot');
-    return '<div class="small mut">Préparez des potions avec vos herbes 🌿 (' + P.res.herbe + '). Touchez une potion préparée pour l\'emporter (' + P.potSel.length + '/' + potMax + ').</div><div class="col">' +
-      B.POTIONS.map((p, i) => { const lock = i >= n, have = P.potions[p.id] || 0, sel = P.potSel.filter(x => x === p.id).length; return '<div class="card row' + (lock ? ' lock' : '') + (sel ? ' sel' : '') + '" style="gap:10px"><span class="ico">' + (lock ? '🔒' : p.i) + '</span><div style="flex:1;min-width:0" data-a="take" data-id="' + p.id + '"><b>' + p.n + '</b> <span class="tag">×' + have + '</span>' + (sel ? ' <span class="tag good">emportée ×' + sel + '</span>' : '') + '<div class="tiny mut">' + (lock ? 'Jardin niveau ' + (i) : p.d) + '</div></div>' + (lock ? '' : '<button class="btn sm ' + (Me().can(p.cost) ? 'green' : 'off') + '" data-a="brew" data-id="' + p.id + '">' + U.cost(p.cost) + '</button>') + '</div>'; }).join('') + '</div>';
+    return '<div class="card small">🌿 Herbes : <b>' + P.res.herbe + '</b> · 🎒 Potions emportées : <b>' + P.potSel.length + '/' + potMax + '</b><div class="tiny mut" style="margin-top:3px">1. Préparez une potion. 2. Touchez « Emporter » : vous pourrez la boire depuis la carte pendant l\'expédition.</div></div><div class="col">' +
+      B.POTIONS.map((p, i) => { const lock = i >= n, have = P.potions[p.id] || 0, sel = P.potSel.filter(x => x === p.id).length;
+        return '<div class="card' + (lock ? ' lock' : '') + (sel ? ' sel' : '') + '"><div class="row" style="gap:10px"><span class="ico">' + (lock ? '🔒' : p.i) + '</span><div style="flex:1;min-width:0"><b>' + p.n + '</b> <span class="tag">en stock ×' + have + '</span><div class="tiny mut">' + (lock ? 'Jardin niveau ' + i : p.d) + '</div></div></div>' +
+          (lock ? '' : '<div class="grid2" style="margin-top:8px"><button class="btn sm upbtn ' + (Me().can(p.cost) ? 'green' : 'off') + '" data-a="brew" data-id="' + p.id + '" style="min-height:48px"><span>Préparer</span><span class="upcost">' + U.cost(p.cost) + '</span></button><button class="btn sm ' + (have ? (sel ? 'main' : '') : 'off') + '" data-a="take" data-id="' + p.id + '">' + (sel ? '✔ Emportée ×' + sel : 'Emporter') + '</button></div>') + '</div>'; }).join('') + '</div>';
   };
   ACT.garden = (re) => ({
     brew: (t) => { const p = B.POTIONS.find(x => x.id === t.dataset.id); if (Me().pay(p.cost)) { B.P.potions[p.id] = (B.P.potions[p.id] || 0) + 1; B.Audio.sfx('heal'); re(); } else B.Audio.sfx('error'); },
@@ -167,6 +169,7 @@
       '<p class="small">' + h.d + '</p><div class="grid2 small"><span>❤️ Vie ' + stt.hp + '</span><span>👟 Vitesse ' + Math.round(stt.spd) + '</span><span>🎯 Critique ' + Math.round(stt.crit * 100) + ' %</span><span>🛡️ Armure ' + Math.round(stt.armor) + '</span></div>' +
       '<div class="card row">' + U.pwIcon(h.w, 's') + '<div><b>' + w.n + '</b><div class="tiny mut">' + w.d + '</div></div></div>' +
       '<div class="card"><b>✨ ' + h.sp.n + '</b><div class="tiny mut">' + h.sp.d + ' (recharge ' + h.sp.ch + ' s)</div></div>' +
+      '<div class="card small"><b>Maîtrise</b> <span class="tiny mut">(chaque niveau : dégâts +3 %, vie +4)</span>' + [[3, 'Capacité spéciale +25 % de dégâts'], [6, 'Capacité spéciale −15 % de recharge'], [10, 'Commence l\'expédition un niveau plus haut']].map(x => '<div class="' + (own && own.lvl >= x[0] ? 'good' : 'dim') + '">' + (own && own.lvl >= x[0] ? '✔' : '🔒') + ' Niv. ' + x[0] + ' : ' + x[1] + '</div>').join('') + '</div>' +
       (st === 'own' ? '<button class="btn main" data-a="sel">' + (P.hero === id ? '✔ Héros choisi' : 'Choisir ' + h.n) + '</button>' : st === 'ok' ? '<button class="btn green" data-a="hire">Engager · ' + U.cost(h.unlock.cost) + '</button>' : '<div class="card center mut">🔒 Pas encore disponible</div>') +
       '<button class="btn ghost" data-a="close">Fermer</button></div>', {
       sel: () => { P.hero = id; Me().save(); U.close(m); re(); },
@@ -199,7 +202,13 @@
     const forge = P.bld.forge;
     const upC = Me().upCost(it), canUp = forge && it.up < Me().upMax();
     const rr = { essence: 10 + it.rar * 10 + Math.round(it.tier * 10) };
-    const m = U.modal('<div class="col" style="gap:10px">' + U.itemCard(it, { eq: isEq }) + (cur && !isEq ? '<div class="tiny mut center">Actuellement équipé : ' + Me().itemName(cur) + ' (puissance ' + Me().itemPower(cur) + ')</div>' : '') +
+    let cmp = '';
+    if (cur && !isEq) {
+      const a = Me().itemStats(it, {}), b = Me().itemStats(cur, {});
+      const keys = Array.from(new Set(Object.keys(a).concat(Object.keys(b))));
+      cmp = '<div class="card small"><div class="tiny mut">Comparé à l\'objet équipé (' + Me().itemName(cur) + ') :</div>' + keys.map(k => { const af = B.AFFIX[it.slot].find(x => x[0] === k); if (!af) return ''; const dv = (a[k] || 0) - (b[k] || 0); if (Math.abs(dv) < 1e-4) return ''; const pct = af[3].indexOf('%') >= 0 && k !== 'luck'; const v = pct ? Math.round(dv * 1000) / 10 : k === 'luck' ? Math.round(dv * 100) : Math.round(dv * 10) / 10; const lab = af[3].replace(/[+−-]?\{v\}.*$/, '').trim(); return '<div class="diff' + (dv < 0 ? ' neg' : '') + '">' + (dv > 0 ? '▲ +' : '▼ ') + String(v).replace('.', ',') + (pct ? ' %' : '') + ' ' + lab + '</div>'; }).join('') + (it.u || cur.u ? '<div class="tiny mut">Les effets uniques ne sont pas comptés.</div>' : '') + '</div>';
+    }
+    const m = U.modal('<div class="col" style="gap:10px">' + U.itemCard(it, { eq: isEq }) + cmp +
       '<div class="panel col" style="gap:8px">' +
       '<button class="btn main" data-a="eq">' + (isEq ? 'Retirer' : 'Équiper') + '</button>' +
       (forge ? '<button class="btn ' + (canUp && Me().can(upC) ? 'green' : 'off') + '" data-a="up">⚒️ Améliorer +' + (it.up + 1) + ' · ' + U.cost(upC) + '</button>' : '<div class="tiny mut center">Construisez la Forge pour améliorer.</div>') +

@@ -187,6 +187,13 @@
       if (pal) { g.addColorStop(0, G.shade(pal.g3, -0.5)); g.addColorStop(1, G.shade(pal.g1, -0.3)); }
       else { g.addColorStop(0, '#120c22'); g.addColorStop(0.55, '#2a1c3a'); g.addColorStop(1, '#3a2230'); }
       x.fillStyle = g; x.fillRect(0, 0, w, h);
+      if (pal) {
+        const gp = this.mapPat && this.mapPatB === bi ? this.mapPat : (this.mapPatB = bi, this.mapPat = x.createPattern(G.ground(bi).c, 'repeat'));
+        x.globalAlpha = 0.55; x.fillStyle = gp; x.save(); x.translate(0, (t * 4) % 256); x.fillRect(0, -256, w, h + 256); x.restore(); x.globalAlpha = 1;
+        const D = B.BIOMES[bi].pal.deco.filter(k => G.DECO[k].tall); const rr = B.rng(bi * 13 + 5);
+        for (let i = 0; i < 10 && D.length; i++) { const sp = G.deco(rr.pick(D), rr.int(0, 3), pal); const side = i % 2 ? w - 20 - rr() * 40 : 20 + rr() * 40; const yy = (i / 10) * h + rr() * 40; x.globalAlpha = 0.5; x.drawImage(sp.c, side - sp.w / 2, yy - sp.h / 2, sp.w, sp.h); }
+        x.globalAlpha = 1;
+      }
       if (!pal) {
         // lune
         const mg = G.glow('#ffe9c0', 128); x.globalCompositeOperation = 'lighter'; x.globalAlpha = 0.5; x.drawImage(mg.c, w * 0.84 - 80, h * 0.075 - 80, 160, 160); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
@@ -204,17 +211,28 @@
         for (let i = 0; i < 9; i++) { const px = w * 0.38 + (i - 4) * 12 + Math.sin(i * 7) * 6, py = h * 0.74 + Math.cos(i * 3) * 6; x.globalAlpha = 0.6 + Math.sin(t * 3 + i) * 0.2; x.drawImage(lg.c, px - 10, py - 10, 20, 20); }
         x.globalAlpha = 0.5 + Math.sin(t * 1.5) * 0.1; x.drawImage(lg.c, w * 0.38 - 50, h * 0.7 - 70, 100, 100);
         x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
+
       }
       // couches de brume
       const fogc = pal ? pal.fog : [40, 30, 60];
       for (let k = 0; k < 3; k++) {
         const cl = G.fogBand(5 + k * 7), sz = 380 + k * 160, sp = (8 + k * 10) * (k % 2 ? -1 : 1);
-        x.globalAlpha = 0.5 + k * 0.12;
+        x.globalAlpha = (pal ? 0.18 : 0.5) + k * (pal ? 0.06 : 0.12);
         const ox = ((t * sp) % sz + sz) % sz - sz, oy = h * (0.35 + k * 0.18) - sz / 2;
         for (let px = ox; px < w; px += sz) x.drawImage(cl.c, px, oy, sz, sz);
       }
       x.globalAlpha = 1;
-      x.fillStyle = 'rgba(' + fogc.join(',') + ',0.25)'; x.fillRect(0, 0, w, h);
+      x.fillStyle = 'rgba(' + fogc.join(',') + ',' + (pal ? 0.12 : 0.25) + ')'; x.fillRect(0, 0, w, h);
+      if (!pal) {
+        // le Porteur de Lanterne sur sa colline
+        const hx = w * 0.68, hy = h * 0.56, k = 2.3;
+        const hl = x.createLinearGradient(0, hy, 0, h); hl.addColorStop(0, '#2a1d34'); hl.addColorStop(1, '#0e0914');
+        x.fillStyle = hl; x.beginPath(); x.moveTo(w * 0.38, h); x.quadraticCurveTo(w * 0.55, hy + 8, hx, hy + 22); x.quadraticCurveTo(w * 0.92, hy + 26, w, hy + 50); x.lineTo(w, h); x.fill();
+        const H = B.HEROES[0], sp = G.hero(H, 0);
+        x.globalCompositeOperation = 'lighter'; const hg = G.glow('#ff9a40', 128); x.globalAlpha = 0.6 + Math.sin(t * 7) * 0.05; x.drawImage(hg.c, hx - 30 - 130, hy - 20 - 130, 260, 260); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
+        x.save(); x.translate(hx, hy - 6 + Math.sin(t * 2) * 0.6); x.scale(-1, 1); x.filter = 'brightness(0.85)'; x.drawImage(sp.c, -sp.w * k / 2, -sp.h * k / 2, sp.w * k, sp.h * k); x.filter = 'none'; x.restore();
+        const ls = G.lantern(); x.save(); x.translate(hx - 28, hy - 4 + Math.sin(t * 3) * 1.2); x.rotate(Math.sin(t * 2) * 0.08); x.drawImage(ls.c, -ls.w * 1.1, 0, ls.w * 2.2, ls.h * 2.2); x.restore();
+      }
       // braises / lucioles
       if (Math.random() < 0.3) this.parts.push({ x: Math.random() * w, y: h + 5, vx: (Math.random() - 0.5) * 12, vy: -15 - Math.random() * 25, life: 6, c: pal ? pal.acc : '#ffb04a' });
       x.globalCompositeOperation = 'lighter';
