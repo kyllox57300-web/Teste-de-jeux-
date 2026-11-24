@@ -25,7 +25,15 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
   - Réglages de difficulté : `B.CFG` en haut de `engine.js`. Dernières simulations (robot, 6 parties) : 1er biome battu
     en 1 à 7 expéditions, victoire finale entre la 38e et la 163e (médiane ~95), soit 4 à 11 h « robot » (~15 h estimées
     pour un humain). Dégâts des armes niveau 5 ramenés entre ~0,7× et ~1,5× de la moyenne (outil : boucle de mesure dans la session).
-  - Captures : `brumeterre/captures/`.
+  - Captures : `brumeterre/captures/` (`avant/`, `apres/`, `avant-apres.jpg`).
+  - Révision du 24/11 (voir `brumeterre/AUDIT.md`) : copie v1.0 dans `brumeterre/versions/brumeterre-v1.0.zip`.
+    Corrigé : reprise en plein combat (l'état d'avant le combat est restauré), choix de pouvoir perdu si l'appli se ferme,
+    révélation des salles mystère, boss rééquilibrés (Yéti, Crapaud-Roi, Chevalier, boss final) + « Fureur » après 2 min 30.
+    Ajouté : 8 particularités de salle (pastille sur la carte + légende « ? »), impact des coups (hitstop, éclatement),
+    annonces Carnage/Massacre/Apocalypse, cadeau du jour (série de 7), maîtrise des héros (niv. 3/6/10), 6 événements (24),
+    3 succès (69), ambiances sonores par biome, 2 mélodies par musique, confettis, décompte des gains, Rejouer direct,
+    comparaison d'objets à la forge, jardin plus clair, titre et carte illustrés, fond animé ralenti derrière les menus.
+    Les anciennes sauvegardes restent compatibles (testé).
   - Reste / idées : traduction anglaise partielle (menus seulement), tester sur un vrai téléphone (fluidité, taille des boutons),
     affiner l'équilibrage avec les retours réels.
 
