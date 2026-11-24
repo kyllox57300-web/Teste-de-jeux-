@@ -604,6 +604,7 @@
     playerDown() {
       const P = this.P, S = this.S;
       if (this.over) return;
+      if (this.mods.tutoSafe) { P.hp = S.hp * 0.6; P.inv = 3; for (const e of this.near(P.x, P.y, 200).slice()) { e.vx += (e.x - P.x) * 4; e.vy += (e.y - P.y) * 4; } if (this.F) { this.F.boom(P.x, P.y, 200, 'light'); this.F.text(P.x, P.y - 40, 'La lanterne vous protège !', '#ffe08a'); } return; }
       if (S.revive > (this.RH.revUsed || 0)) {
         this.RH.revUsed = (this.RH.revUsed || 0) + 1;
         P.hp = S.hp * 0.5; P.inv = 2.5;

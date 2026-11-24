@@ -13,7 +13,9 @@ avec le vrai moteur (`tools/sim.js`), mesure des dégâts de chaque arme, relect
 3. ✅ **Deux fenêtres (niveau + coffre) pouvaient s'ouvrir en même temps** : évolution prise deux fois, combat qui reprenait derrière (corrigé juste avant la révision, revérifié).
 4. ✅ **« Révèle les salles mystère »** (Fenwick, Hibou niveau 8, carte oubliée) n'avait aucun effet : l'événement exact s'affiche maintenant sur la carte.
 5. ✅ Mode Infini : plantage au lancement et ressources non comptées (corrigé juste avant la révision, revérifié).
-6. ✅ Vérifié sans erreur : sauvegarde v1.0 chargée dans la nouvelle version (ressources, talents, héros, objets, expédition en cours), mode hors ligne, reprise après rechargement, événement → mimique → carte, tous les monstres et boss simulés 40 s.
+6. ✅ **Le tutoriel pouvait être perdu** (le combat pour libérer Brann avait la difficulté normale) : un nouveau joueur repartait
+   sans la Forge. Ce combat est maintenant plus doux et la lanterne relève le joueur pendant tout le tutoriel.
+7. ✅ Vérifié sans erreur : sauvegarde v1.0 chargée dans la nouvelle version (ressources, talents, héros, objets, expédition en cours), mode hors ligne, reprise après rechargement, événement → mimique → carte, tous les monstres et boss simulés 40 s.
 
 ## 2. Sensations de jeu
 1. ✅ Les coups manquaient d'impact : monstres qui « s'écrasent » quand on les touche, silhouette blanche qui éclate à leur mort, micro-pause (hitstop) sur les gros coups, les élites et les boss.
@@ -29,7 +31,10 @@ avec le vrai moteur (`tools/sim.js`), mesure des dégâts de chaque arme, relect
 3. ✅ **Chevalier Creux et Brume Incarnée** : combats de 2 min 30 à 9 min → moins de vie ; après 2 min 30 tous les boss entrent en « FUREUR » (plus rapides) pour qu'aucun combat ne s'éternise.
 4. ✅ Écarts de puissance entre armes (Fioles ×2,2 la moyenne, Orbes ×0,57) → rapprochées (corrigé juste avant la révision).
 5. ✅ Poison qui s'empilait trop fort.
-6. ⏳ La chance pèse beaucoup : selon les parties simulées, la victoire finale arrive entre la ~50e et la ~150e expédition.
+6. ✅ Après les corrections des boss, le jeu devenait trop facile (victoire finale vers la 50e expédition) → monstres ordinaires des biomes 3 à 5 redurcis.
+   Résultat final sur 8 joueurs simulés : 1er biome battu entre la 2e et la 6e expédition, victoire finale entre la 36e et la 124e
+   (médiane ~77, soit 3,4 à 8,5 h « robot », ~12 à 15 h estimées pour un humain) ; combats de boss entre 34 s et 1 min 25 en médiane.
+7. ⏳ La chance pèse encore beaucoup (36e à 124e expédition selon les parties) ; le Yéti et le Chevalier restent les murs principaux (environ 1 échec par victoire).
 
 ## 4. Rythme et envie de rejouer
 1. ✅ Les combats d'un même biome se ressemblaient → **8 particularités de salle** (Pleine lune, Ruée vers l'or, Horde, Orage, Brume épaisse, Lune de sang, Coffres cachés, Faille), visibles sur la carte.

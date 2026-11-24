@@ -134,7 +134,7 @@
         if (n.v === 'rift') m.rift = 1;
       }
       if (k === 'survivor' && n && n.surv) o.survivorName = B.SURVIVORS.find(s => s.id === n.surv).n;
-      if (d.mode === 'tutorial' && k === 'guard') { o.mods.hpMul = 0.45; o.mods.dmgMul = 0.6; }
+      if (d.mode === 'tutorial') { o.mods.tutoSafe = 1; if (k === 'guard') { o.mods.hpMul = 0.45; o.mods.dmgMul = 0.6; } if (k === 'survivor') { o.mods.hpMul = 0.6; o.mods.dmgMul = 0.55; o.mods.spawnMul = 0.6; } }
       if (d.next.lightMul) o.mods.lightMul = (o.mods.lightMul || 1) * d.next.lightMul;
       if (d.next.xpMul) o.mods.xpMul = (o.mods.xpMul || 1) * d.next.xpMul;
       d.RH.tmp = d.next.st || null;
