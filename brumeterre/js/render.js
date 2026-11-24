@@ -458,6 +458,8 @@
       f.globalAlpha = 0.32;
       for (const d of this.deco) if (d.glow) { const r = 38; f.drawImage(h.c, (d.x - vx - r) * k, (d.y - vy - r) * k, r * 2 * k, r * 2 * k); }
       for (const z of c.zones) if (z.own === 'p' && (z.look === 'fire' || z.look === 'holy')) { const r = z.r * 1.5; f.drawImage(h.c, (z.x - vx - r) * k, (z.y - vy - r) * k, r * 2 * k, r * 2 * k); }
+      for (const p of c.picks) if (p.type === 'chest') { const r = 70; f.globalAlpha = 0.6; f.drawImage(h.c, (p.x - vx - r) * k, (p.y - vy - r) * k, r * 2 * k, r * 2 * k); }
+      f.globalAlpha = 0.5;
       if (c.survivor) { const s = c.survivor, r = 90; f.drawImage(h.c, (s.x - vx - r) * k, (s.y - vy - r) * k, r * 2 * k, r * 2 * k); }
       if (c.comp && c.comp.id === 'firefly') { const r = 60; f.drawImage(h.c, (c.comp.x - vx - r) * k, (c.comp.y - vy - r) * k, r * 2 * k, r * 2 * k); }
       f.globalAlpha = 1; f.globalCompositeOperation = 'source-over';
@@ -469,7 +471,7 @@
     drawTele(ctx, c) {
       for (const T of c.tele) {
         const k = Math.min(1, T.t / T.delay);
-        const col = T.roar ? '191,232,255' : '255,70,50';
+        const col = T.roar ? '191,232,255' : T.storm ? '255,214,60' : '255,70,50';
         ctx.fillStyle = 'rgba(' + col + ',' + (0.12 + k * 0.12) + ')'; ctx.strokeStyle = 'rgba(' + col + ',' + (0.5 + k * 0.4) + ')'; ctx.lineWidth = 2;
         if (T.k === 'circle') {
           ctx.beginPath(); ctx.ellipse(T.x, T.y, T.r, T.r * 0.85, 0, 0, TAU); ctx.fill(); ctx.stroke();
@@ -577,6 +579,13 @@
         const cx = this.cw / 2, cy = this.ch / 2, a = Math.atan2(sy - cy, sx - cx);
         const m = 26, x = B.clamp(cx + Math.cos(a) * 1000, m, this.cw - m), y = B.clamp(cy + Math.sin(a) * 1000, m + 90, this.ch - m - 60);
         ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.fillStyle = e.boss ? '#ff5a3c' : '#ffcf4a'; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-6, -8); ctx.lineTo(-6, 8); ctx.closePath(); ctx.fill(); ctx.restore();
+      }
+      for (const p of c.picks) if (p.type === 'chest' && !p.dead) {
+        const sx = (p.x - this.vx) * this.s, sy = (p.y - this.vy) * this.s;
+        if (sx > 0 && sx < this.cw && sy > 0 && sy < this.ch) continue;
+        const cx = this.cw / 2, cy = this.ch / 2, a = Math.atan2(sy - cy, sx - cx);
+        const x = B.clamp(cx + Math.cos(a) * 1000, 30, this.cw - 30), y = B.clamp(cy + Math.sin(a) * 1000, 120, this.ch - 90);
+        ctx.font = '20px system-ui'; ctx.textAlign = 'center'; ctx.globalAlpha = 0.7 + Math.sin(this.t * 5) * 0.3; ctx.fillText('🎁', x, y + 7); ctx.globalAlpha = 1;
       }
       if (c.survivor && !c.survivor.done) {
         const s = c.survivor; const sx = (s.x - this.vx) * this.s, sy = (s.y - this.vy) * this.s;

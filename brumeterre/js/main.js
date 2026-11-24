@@ -145,8 +145,8 @@
     if (!B.P.run) return;
     Gm.run = new B.Run(B.P.run);
     const d = Gm.run.d;
-    if (d.mode === 'endless') { Gm.startCombat(); return; }
-    if (d.state === 'combat' && d.pos.r >= 0) { U.toast('Le combat reprend depuis le début.'); Gm.startCombat(d.combatKind); return; }
+    if (d.mode === 'endless') { Gm.restoreSnap(); Gm.startCombat(null, true); return; }
+    if (d.state === 'combat' && d.pos.r >= 0) { Gm.restoreSnap(); U.toast('Le combat reprend depuis le début.'); Gm.startCombat(d.combatKind, true); return; }
     if (d.state === 'node' && d.pos.r >= 0) { Gm.enterNode(Gm.run.node(), true); return; }
     Gm.processQueue(() => B.SCR.map());
   };
@@ -169,17 +169,24 @@
   // file d'attente : cartes de pouvoir et combats déclenchés par les événements
   Gm.processQueue = function (done) {
     const d = Gm.run.d;
-    const q = d.queue.shift();
+    const q = d.queue[0];
     Gm.saveRun();
     if (!q) { done(); return; }
-    if (q.k === 'offer') { Gm.offerModal(q.o, () => Gm.processQueue(done)); return; }
-    if (q.k === 'fight') { Gm.afterFight = () => Gm.processQueue(done); Gm.startCombat(q.kind); return; }
-    Gm.processQueue(done);
+    // on ne retire l'élément qu'une fois traité : rien n'est perdu si l'appli se ferme
+    if (q.k === 'offer') { Gm.offerModal(q.o, () => { d.queue.shift(); Gm.processQueue(done); }); return; }
+    if (q.k === 'fight') { d.queue.shift(); Gm.afterFight = () => Gm.processQueue(done); Gm.startCombat(q.kind); return; }
+    d.queue.shift(); Gm.processQueue(done);
   };
 
   // ───── Combat ─────
-  Gm.startCombat = function (kind) {
+  // Copie de l'état avant un combat : si l'appli se ferme, on reprend exactement comme avant ce combat
+  Gm.restoreSnap = function () {
+    const d = Gm.run.d; if (!d.snap) return;
+    try { const s = JSON.parse(d.snap); d.RH = s.RH; d.gold = s.gold; d.items.length = Math.min(d.items.length, s.items); d.rerolls = s.rerolls; d.banishes = s.banishes; d.banished = s.banished; } catch (e) { }
+  };
+  Gm.startCombat = function (kind, resumed) {
     const run = Gm.run, d = run.d;
+    if (!resumed) d.snap = JSON.stringify({ RH: d.RH, gold: d.gold, items: d.items.length, rerolls: d.rerolls, banishes: d.banishes, banished: d.banished });
     d.state = 'combat'; d.combatKind = kind || null;
     Gm.saveRun(); B.Meta.save(true);
     const o = run.combatOpts(kind);
@@ -198,6 +205,7 @@
     const tr = o.kind === 'boss' || o.kind === 'guard' ? 'boss' : o.kind === 'endless' ? 'endless' : B.Audio.biomeTrack(d.biome);
     B.Audio.music(tr);
     Gm.hintState = { t: 0, shown: {} };
+    if (o.variant) { const v = B.VARIANTS.find(x => x.id === o.variant); setTimeout(() => Gm.showHint(v.i + ' <b>' + v.n + '</b> — ' + v.d, 3.5), o.kind === 'survivor' ? 4200 : 300); }
     if (o.kind === 'survivor') Gm.showHint('Restez dans le cercle doré pour libérer ' + (o.survivorName || 'le survivant') + ' !', 4);
     else if (o.kind === 'elite') Gm.showHint('Une élite rôde : battez-la pour un coffre !', 3);
     else if (o.kind === 'guard' && d.mode === 'tutorial') Gm.showHint('Un gardien ! Évitez les zones rouges au sol.', 4);

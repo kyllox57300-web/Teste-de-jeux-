@@ -95,11 +95,11 @@
       d: 'Le cœur pourri de la Forêt Sombre. Ses racines sont partout.',
       atk: [{ t: 'target', w: 3, k: 5, r: 48, delay: 0.9 }, { t: 'aimed', w: 2, n: 5, spread: 0.5, bspd: 210, rep: 3 }, { t: 'summon', w: 1, m: 'f_shroomling', k: 6 }],
       ph2: [{ t: 'target', w: 3, k: 7, r: 52, delay: 0.8 }, { t: 'spiral', w: 2, arms: 3, dur: 3, rate: 0.12, bspd: 150 }, { t: 'summon', w: 1, m: 'f_treant', k: 2 }, { t: 'line', w: 2, k: 3 }] },
-    { id: 'g_toad', n: 'Crapaud-Roi', b: 1, guard: 1, hp: 1500, r: 38, spd: 40, dmg: 20, L: { a: 'frog', c: ['#6a8a2a', '#3a5a1a', '#ffcf2a'], eye: '#ff6a2a', crown: 1, sc: 1 },
+    { id: 'g_toad', n: 'Crapaud-Roi', b: 1, guard: 1, hp: 1350, r: 38, spd: 40, dmg: 16, L: { a: 'frog', c: ['#6a8a2a', '#3a5a1a', '#ffcf2a'], eye: '#ff6a2a', crown: 1, sc: 1 },
       d: 'Il règne sur la vase et dévore ses sujets.',
       atk: [{ t: 'leap', w: 3 }, { t: 'line', w: 2, k: 1, tongue: 1 }, { t: 'pools', w: 2, k: 5 }],
-      ph2: [{ t: 'leap', w: 3, n: 2 }, { t: 'radial', w: 2, n: 16, bspd: 150, rep: 2 }, { t: 'pools', w: 2, k: 8 }, { t: 'summon', w: 1, m: 's_frog', k: 3 }] },
-    { id: 'b_hydra', n: 'Hydre des Tourbières', b: 1, hp: 3600, r: 46, spd: 0, dmg: 20, L: { a: 'hydra', c: ['#3a6a4a', '#1a3a2a', '#c0ff8a'], eye: '#ffef2a', sc: 1 },
+      ph2: [{ t: 'leap', w: 3, n: 2 }, { t: 'radial', w: 2, n: 16, bspd: 150, rep: 2 }, { t: 'pools', w: 2, k: 6 }, { t: 'summon', w: 1, m: 's_frog', k: 2 }] },
+    { id: 'b_hydra', n: 'Hydre des Tourbières', b: 1, hp: 3900, r: 46, spd: 0, dmg: 20, L: { a: 'hydra', c: ['#3a6a4a', '#1a3a2a', '#c0ff8a'], eye: '#ffef2a', sc: 1 },
       d: 'Trois têtes, trois faims. Elle plonge et resurgit où on ne l\'attend pas.',
       atk: [{ t: 'aimed', w: 3, n: 3, spread: 0.35, bspd: 230, rep: 4 }, { t: 'teleport', w: 1 }, { t: 'cone', w: 2 }, { t: 'pools', w: 1, k: 6 }],
       ph2: [{ t: 'aimed', w: 3, n: 5, spread: 0.4, bspd: 250, rep: 5 }, { t: 'teleport', w: 2 }, { t: 'spiral', w: 2, arms: 3, dur: 3, rate: 0.1, bspd: 170 }, { t: 'summon', w: 1, m: 's_slime', k: 3 }] },
@@ -111,19 +111,19 @@
       d: 'Elle a lu tous les livres du monde, et elle veut écrire sa fin.',
       atk: [{ t: 'spiral', w: 3, arms: 4, dur: 3.5, rate: 0.1, bspd: 160 }, { t: 'teleport', w: 2 }, { t: 'summon', w: 1, m: 'r_skel', k: 5 }, { t: 'aimed', w: 2, n: 7, spread: 0.6, bspd: 220, rep: 3 }],
       ph2: [{ t: 'spiral', w: 3, arms: 6, dur: 4, rate: 0.09, bspd: 170 }, { t: 'teleport', w: 2 }, { t: 'target', w: 2, k: 8, r: 50 }, { t: 'summon', w: 1, m: 'r_specter', k: 4 }] },
-    { id: 'g_yeti', n: 'Yéti Hurleur', b: 3, guard: 1, hp: 4200, r: 40, spd: 60, dmg: 26, L: { a: 'brute', c: ['#f0f4f8', '#b0c0d0', '#6a8aaa'], eye: '#2a6aff', fur: 1, sc: 1 },
+    { id: 'g_yeti', n: 'Yéti Hurleur', b: 3, guard: 1, hp: 3900, r: 40, spd: 55, dmg: 22, L: { a: 'brute', c: ['#f0f4f8', '#b0c0d0', '#6a8aaa'], eye: '#2a6aff', fur: 1, sc: 1 },
       d: 'Son cri fait trembler la montagne. Et vos jambes.',
       atk: [{ t: 'leap', w: 3 }, { t: 'aimed', w: 2, n: 1, big: 1, bspd: 230, rep: 4 }, { t: 'roar', w: 1 }],
-      ph2: [{ t: 'leap', w: 3, n: 3 }, { t: 'roar', w: 1 }, { t: 'radial', w: 2, n: 22, bspd: 170, rep: 2 }, { t: 'summon', w: 1, m: 'm_yetiling', k: 2 }] },
+      ph2: [{ t: 'leap', w: 3, n: 2 }, { t: 'roar', w: 1 }, { t: 'radial', w: 2, n: 22, bspd: 170, rep: 2 }, { t: 'summon', w: 1, m: 'm_yetiling', k: 2 }] },
     { id: 'b_wyrm', n: 'Wyrm de Givre', b: 3, hp: 7600, r: 30, spd: 120, dmg: 26, L: { a: 'wyrm', c: ['#9ad8f5', '#3a7aa8', '#fff'], eye: '#ff4a8a', sc: 1 },
       d: 'Un dragon de glace qui ondule dans le blizzard.',
       atk: [{ t: 'cone', w: 3, ice: 1 }, { t: 'line', w: 2, k: 3 }, { t: 'charge', w: 2, n: 2 }, { t: 'radial', w: 1, n: 18, bspd: 160 }],
       ph2: [{ t: 'cone', w: 3, ice: 1, wide: 1 }, { t: 'line', w: 2, k: 5 }, { t: 'charge', w: 2, n: 3 }, { t: 'spiral', w: 2, arms: 4, dur: 3, rate: 0.09, bspd: 170 }] },
-    { id: 'g_knight', n: 'Chevalier Creux', b: 4, guard: 1, hp: 7000, r: 30, spd: 80, dmg: 30, L: { a: 'knight', c: ['#3a3a4a', '#1a1a24', '#ff5a3c'], eye: '#ff3a1a', sc: 1 },
+    { id: 'g_knight', n: 'Chevalier Creux', b: 4, guard: 1, hp: 5000, r: 30, spd: 80, dmg: 30, L: { a: 'knight', c: ['#3a3a4a', '#1a1a24', '#ff5a3c'], eye: '#ff3a1a', sc: 1 },
       d: 'Une armure vide qui sert encore un roi disparu.',
       atk: [{ t: 'charge', w: 3, n: 3 }, { t: 'aimed', w: 2, n: 1, wave: 1, bspd: 260, rep: 3 }, { t: 'slam', w: 2, r: 130 }],
       ph2: [{ t: 'charge', w: 3, n: 4 }, { t: 'aimed', w: 2, n: 3, wave: 1, spread: 0.5, bspd: 280, rep: 3 }, { t: 'target', w: 2, k: 6, r: 55 }, { t: 'summon', w: 1, m: 'h_shade', k: 3 }] },
-    { id: 'b_mist', n: 'La Brume Incarnée', b: 4, hp: 14000, r: 50, spd: 30, dmg: 30, L: { a: 'mistlord', c: ['#1a0a14', '#3a1a2a', '#ff5a3c'], eye: '#ff3a1a', sc: 1 },
+    { id: 'b_mist', n: 'La Brume Incarnée', b: 4, hp: 11000, r: 50, spd: 30, dmg: 30, L: { a: 'mistlord', c: ['#1a0a14', '#3a1a2a', '#ff5a3c'], eye: '#ff3a1a', sc: 1 },
       d: 'La source de tout. Elle veut éteindre la dernière lanterne.',
       atk: [{ t: 'spiral', w: 3, arms: 5, dur: 3.5, rate: 0.08, bspd: 170 }, { t: 'target', w: 2, k: 7, r: 55 }, { t: 'summon', w: 1, m: 'h_spawn', k: 8 }, { t: 'darken', w: 1 }],
       ph2: [{ t: 'spiral', w: 3, arms: 6, dur: 4, rate: 0.075, bspd: 180 }, { t: 'line', w: 2, k: 5 }, { t: 'radial', w: 2, n: 26, bspd: 170, gap: 1, rep: 3 }, { t: 'darken', w: 1 }, { t: 'summon', w: 1, m: 'h_reaper', k: 3 }],
@@ -143,5 +143,19 @@
     { id: 'shielded', n: 'Protégé', d: 'Un bouclier se recharge sans cesse.' },
     { id: 'berserk', n: 'Enragé', d: 'Plus rapide et plus fort quand il est blessé.' },
     { id: 'splitter', n: 'Diviseur', d: 'Se divise en deux à sa mort.' }
+  ];
+})(this.B || (this.B = {}));
+// Particularités de salle (affichées sur la carte) : rendent chaque combat un peu différent
+(function (B) {
+  'use strict';
+  B.VARIANTS = [
+    { id: 'moon', n: 'Pleine lune', i: '🌕', d: 'Lanterne +40 %, expérience +20 %.' },
+    { id: 'gold', n: 'Ruée vers l\'or', i: '💰', d: 'Les monstres lâchent trois fois plus d\'or.' },
+    { id: 'horde', n: 'La horde', i: '👹', d: 'Bien plus de monstres, mais plus fragiles. Expérience +25 %.' },
+    { id: 'storm', n: 'Orage', i: '🌩️', d: 'La foudre tombe au hasard : elle blesse tout le monde. Essences +2.' },
+    { id: 'fog', n: 'Brume épaisse', i: '🌫️', d: 'Lanterne −30 %, mais braises +50 %.' },
+    { id: 'blood', n: 'Lune de sang', i: '🩸', d: 'Monstres +25 % de dégâts. Un objet garanti à la fin.' },
+    { id: 'chests', n: 'Coffres cachés', i: '🎁', d: 'Deux coffres sont cachés dans la brume. Trouvez-les !' },
+    { id: 'rift', n: 'Faille', i: '🌀', d: 'Une élite surgit en plein combat. Essences +3.' }
   ];
 })(this.B || (this.B = {}));

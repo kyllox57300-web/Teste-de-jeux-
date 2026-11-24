@@ -193,6 +193,7 @@
       if (this.kind === 'ambush') { this.duration = 30; for (let i = 0; i < 12; i++) this.spawnOne(); }
       if (this.kind === 'mimic') { const e = this.spawnMob('x_mimic', P.x, P.y - 220); e.hp = e.max = e.max * 2; e.elite = 'armored'; this.mimic = e; }
       for (let i = 0; i < 3 + this.row * 0.4 && this.kind !== 'tutorial'; i++) this.spawnOne();
+      if (this.mods.chests) for (let i = 0; i < this.mods.chests; i++) { const a = this.rng() * Math.PI * 2, d = 260 + this.rng() * 200; this.picks.push({ type: 'chest', x: B.clamp(P.x + Math.cos(a) * d, 60, this.W - 60), y: B.clamp(P.y + Math.sin(a) * d, 60, this.H - 60), v: 1, vx: 0, vy: 0, mag: false, t: 0, hidden: 1 }); }
     }
 
     recompute(first) {
@@ -414,6 +415,16 @@
       const wave = 1 + 0.6 * Math.max(0, Math.sin(this.t * 0.45));
       this.spawnAcc += dt * rate * wave;
       while (this.spawnAcc >= 1) this.spawnAcc -= this.spawnOne();
+      if (this.mods.rift && !this.riftDone && this.t > this.duration * 0.4) { this.riftDone = 1; const e = this.spawnElite(); if (this.F) { this.F.puff(e.x, e.y, '#c86aff'); this.F.text(this.P.x, this.P.y - 60, '🌀 Une faille s\'ouvre !', '#e0a0ff'); } }
+      if (this.mods.storm) {
+        this.stormT = (this.stormT || 0) + dt;
+        if (this.stormT > 2.2) {
+          this.stormT = 0; const P = this.P;
+          for (let i = 0; i < 2; i++) { const x = B.clamp(P.x + (this.rng() - 0.5) * 420, 30, this.W - 30), y = B.clamp(P.y + (this.rng() - 0.5) * 520, 30, this.H - 30);
+            this.tele.push({ k: 'circle', x: x, y: y, r: 55, t: 0, delay: 1.1, dmg: 14 * this.dmgMul, vis: 1, storm: 1 });
+            this.strikes.push({ x: x, y: y, t: -1.0, delay: 0.1, r: 55, dmg: 60 * this.S.dmg * (1 + this.RH.lvl * 0.1), look: 'thunder', el: 'bolt' }); }
+        }
+      }
       // élites surprises (Brume profonde)
       if (this.mods.moreElites && this.kind === 'fight' && !this.surpriseElite && this.t > this.duration * 0.5) { this.surpriseElite = 1; this.spawnElite(); }
     }
@@ -509,7 +520,7 @@
       if (!e.d.child || Math.random() < 0.6) this.drop('xp', e.x, e.y, xp);
       this.loot.braise += xp * B.CFG.braisePerXp * (1 + this.biome * 0.35) * S.gold * (this.mods.lootMul || 1);
       const luck = 1 + S.luck;
-      if (Math.random() < 0.09 * luck) this.drop('gold', e.x + 6, e.y, Math.ceil((1 + this.biome * 0.6) * (0.5 + Math.random())));
+      if (Math.random() < 0.09 * luck * (this.mods.goldDrop || 1)) this.drop('gold', e.x + 6, e.y, Math.ceil((1 + this.biome * 0.6) * (0.5 + Math.random())));
       if (Math.random() < 0.006 * luck * (this.mods.noHealDrops ? 0 : 1)) this.drop('heal', e.x, e.y - 6, 20);
       if (Math.random() < 0.0015 * luck) this.drop('magnet', e.x, e.y, 1);
       if (Math.random() < 0.004 * luck) this.drop('herb', e.x, e.y, 1);
@@ -982,7 +993,8 @@
         else { const a = Math.atan2(P.y - e.y, P.x - e.x) + Math.PI / 2; e.x += Math.cos(a) * e.spd * 0.5 * dt; e.y += Math.sin(a) * e.spd * 0.5 * dt; }
       }
       e.face = P.x > e.x ? 1 : -1;
-      e.cd -= dt * (this.mods.bossFast ? 1.25 : 1);
+      e.cd -= dt * (this.mods.bossFast ? 1.25 : 1) * (this.t > 150 ? 1.6 : 1);
+      if (this.t > 150 && !e.rage) { e.rage = 1; e.spd *= 1.3; e.dmg *= 1.25; if (this.F) { this.F.text(e.x, e.y - e.r - 30, 'FUREUR !', '#ff3a1a'); this.F.shake(10); this.F.sfx('roar'); } }
       if (e.cd <= 0) {
         const list = e.phase === 3 ? d.ph3 : e.phase === 2 ? d.ph2 : d.atk;
         const atk = this.rng.weighted(list, a => a.w * (e.lastAtk === a.t ? 0.35 : 1));
@@ -1069,8 +1081,8 @@
           const n = a.n || 1;
           if (!A.ph) { A.ph = 'crouch'; A.pt = 0; }
           A.pt += dt;
-          if (A.ph === 'crouch' && A.pt > 0.3) { A.ph = 'air'; A.pt = 0; A.sx = e.x; A.sy = e.y; A.tx = P.x; A.ty = P.y; e.untarget = true; this.tele.push({ k: 'circle', x: P.x, y: P.y, r: e.r * 2.3, t: 0, delay: 0.85, dmg: e.dmg * 1.2, vis: 1, shock: 1 }); }
-          else if (A.ph === 'air') { const k = Math.min(1, A.pt / 0.85); e.x = B.lerp(A.sx, A.tx, k); e.y = B.lerp(A.sy, A.ty, k); e.z = Math.sin(k * Math.PI) * 120; if (k >= 1) { e.z = 0; e.untarget = false; A.ph = 'land'; A.pt = 0; for (let i = 0; i < 10; i++) this.shootE(e.x, e.y, i / 10 * TAU, 150, bd * 0.7, { col: col }); } }
+          if (A.ph === 'crouch' && A.pt > 0.3) { A.ph = 'air'; A.pt = 0; A.sx = e.x; A.sy = e.y; A.tx = P.x; A.ty = P.y; e.untarget = true; this.tele.push({ k: 'circle', x: P.x, y: P.y, r: Math.min(95, e.r * 1.85), t: 0, delay: 1.0, dmg: e.dmg * 1.1, vis: 1, shock: 1 }); }
+          else if (A.ph === 'air') { const k = Math.min(1, A.pt / 1.0); e.x = B.lerp(A.sx, A.tx, k); e.y = B.lerp(A.sy, A.ty, k); e.z = Math.sin(k * Math.PI) * 120; if (k >= 1) { e.z = 0; e.untarget = false; A.ph = 'land'; A.pt = 0; for (let i = 0; i < 10; i++) this.shootE(e.x, e.y, i / 10 * TAU, 150, bd * 0.7, { col: col }); } }
           else if (A.ph === 'land' && A.pt > 0.4) { A.n++; if (A.n >= n) end(); else A.ph = 'crouch', A.pt = 0; }
           break;
         }
@@ -1093,7 +1105,7 @@
         }
         case 'roar':
           if (!A.done) { A.done = 1; this.tele.push({ k: 'circle', x: e.x, y: e.y, r: 400, t: 0, delay: 0.8, vis: 1, roar: 1, dmg: 0 }); }
-          if (A.t > 0.8 && !A.rr) { A.rr = 1; if (B.dist2(e.x, e.y, P.x, P.y) < 400 * 400) { P.slowF = 0.45; P.slowT = 2.5; } if (this.F) { this.F.shake(14); this.F.sfx('roar'); } }
+          if (A.t > 0.8 && !A.rr) { A.rr = 1; if (B.dist2(e.x, e.y, P.x, P.y) < 400 * 400) { P.slowF = 0.3; P.slowT = 1.6; } if (this.F) { this.F.shake(14); this.F.sfx('roar'); } }
           if (A.t > 1.1) end();
           break;
         case 'darken':

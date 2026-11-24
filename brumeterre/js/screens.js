@@ -176,13 +176,14 @@
       const y = H - 70 - ri * RH_;
       const can = (d.pos.r + 1 === ri) && next.indexOf(i) >= 0;
       const cur = d.pos.r === ri && d.pos.i === i;
-      const t = n.t === 'event' && !reveal ? 'event' : n.t;
+      const t = n.t;
+      const evIcon = n.t === 'event' && reveal && !n.vis ? run.previewEvent(n).i : null;
       const cls = 'mapnode' + (can ? ' can' : '') + (n.done || (n.vis && !cur) ? ' done' : '') + (cur ? ' cur' : '') + (n.t === 'boss' || n.t === 'guard' ? ' boss' : '') + (n.surv && !n.done ? ' surv' : '') + (!can && !n.vis && ri > d.pos.r + 1 ? ' far' : '');
-      nodes += '<button class="' + cls + '" style="left:' + (n.x * W) + '%;top:' + y + 'px" data-a="node" data-r="' + ri + '" data-i="' + i + '" aria-label="' + NAME[n.t] + '">' + (n.t === 'boss' ? '<span style="filter:drop-shadow(0 0 8px #ff5a3c)">' + ICON[t] + '</span>' : ICON[t]) + '</button>';
+      nodes += '<button class="' + cls + '" style="left:' + (n.x * W) + '%;top:' + y + 'px" data-a="node" data-r="' + ri + '" data-i="' + i + '" aria-label="' + NAME[n.t] + '">' + (n.t === 'boss' ? '<span style="filter:drop-shadow(0 0 8px #ff5a3c)">' + ICON[t] + '</span>' : evIcon || ICON[t]) + (n.v && !n.done ? '<i class="nvar">' + B.VARIANTS.find(v => v.id === n.v).i + '</i>' : '') + (cur ? '<i class="here">🏮</i>' : '') + '</button>';
     }));
     const potBtn = d.potions.length ? '<button class="btn sm" data-a="pots">🧪 ' + d.potions.length + '</button>' : '';
     const html = '<div class="top" style="flex-wrap:wrap;gap:8px"><button class="back" data-a="menu">☰</button><div style="flex:1;min-width:0"><div class="row" style="gap:8px"><b style="font-family:var(--title);font-size:17px;color:var(--gold)">' + B.BIOMES[d.biome].n + '</b>' + (d.deep ? '<span class="tag">🌫️ ' + d.deep + '</span>' : '') + (d.mode === 'daily' || d.mode === 'weekly' ? '<span class="tag">⭐ Défi</span>' : '') + '</div>' +
-      '<div class="row tiny" style="gap:10px;margin-top:3px"><span>❤️ ' + Math.ceil(RH.hp) + '/' + st.hp + '</span><span>Niv. ' + RH.lvl + '</span><span>🪙 ' + d.gold + '</span><span>🔥 ' + B.fmt(d.loot.braise) + '</span></div><div style="margin-top:4px;width:100%">' + U.bar(RH.hp / st.hp) + '</div></div>' + potBtn + '<button class="btn sm" data-a="pw">✨ Pouvoirs</button></div>' +
+      '<div class="row tiny" style="gap:10px;margin-top:3px"><span>❤️ ' + Math.ceil(RH.hp) + '/' + st.hp + '</span><span>Niv. ' + RH.lvl + '</span><span>🪙 ' + d.gold + '</span><span>🔥 ' + B.fmt(d.loot.braise) + '</span></div><div style="margin-top:4px;width:100%">' + U.bar(RH.hp / st.hp) + '</div></div>' + potBtn + '<button class="btn sm" data-a="pw">✨</button><button class="btn sm" data-a="legend">?</button></div>' +
       '<div class="scroll grow mapscroll"><div class="mapwrap" style="height:' + H + 'px;margin:0 22px"><svg style="position:absolute;inset:0;width:100%;height:100%;overflow:visible">' + svg + '</svg>' + nodes + '</div></div>' +
       '<div class="center tiny mut" style="padding:6px 0 calc(8px + var(--sab))">Touchez un cercle doré pour avancer' + (RH.curses.length ? ' · <span class="bad">Malédictions : ' + RH.curses.map(c => B.CURSES[c].n).join(', ') + '</span>' : '') + '</div>';
     const el = U.show('map', html, {
@@ -194,7 +195,8 @@
         t.style.transform = 'scale(1.3)';
         setTimeout(() => Gm().enterNode(n), 180);
       },
-      pw: () => S.myPowers(), menu: () => S.runMenu(), pots: () => S.potionMenu()
+      pw: () => S.myPowers(), menu: () => S.runMenu(), pots: () => S.potionMenu(),
+      legend: () => { const m = U.modal('<div class="panel col" style="gap:6px"><h2 class="center">La carte</h2>' + Object.keys(ICON).filter(k => k !== 'survivor').map(k => '<div class="small">' + ICON[k] + ' <b>' + NAME[k] + '</b></div>').join('') + '<div class="small">🙋 <b>Survivant</b> à libérer pendant le combat</div><div class="sep"></div><div class="tiny mut">Particularités de salle :</div>' + B.VARIANTS.map(v => '<div class="small">' + v.i + ' <b>' + v.n + '</b> — <span class="mut">' + v.d + '</span></div>').join('') + '<button class="btn" data-a="close" style="margin-top:6px">OK</button></div>', { close: () => U.close(m) }, { closeOnBg: true }); }
     });
     const sc = el.querySelector('.mapscroll');
     const cy = H - 70 - Math.max(0, d.pos.r + 1) * RH_;
@@ -202,7 +204,7 @@
   };
   S.nodeInfo = function (n, NAME, ICON) {
     const D = { fight: 'Un combat contre les créatures de la brume.', elite: 'Un monstre d\'élite et ses serviteurs. Il lâche un coffre.', event: 'Une rencontre étrange… Bonne ou mauvaise ?', treasure: 'Or, objets et parfois un pouvoir.', shop: 'Dépensez votre or : pouvoirs, soins, objets.', camp: 'Reposez-vous ou entraînez un pouvoir.', guard: 'Le gardien du biome. Coriace !', boss: 'Le maître de ce biome. Le battre débloque la suite.', survivor: 'Un survivant est piégé ici. Libérez-le pendant le combat !' };
-    U.toast(ICON[n.t] + ' <b>' + NAME[n.t] + '</b> — ' + D[n.t] + (n.surv && !n.done ? '<br>🙋 ' + B.SURVIVORS.find(s => s.id === n.surv).n : ''), 2600);
+    U.toast(ICON[n.t] + ' <b>' + NAME[n.t] + '</b> — ' + D[n.t] + (n.surv && !n.done ? '<br>🙋 ' + B.SURVIVORS.find(s => s.id === n.surv).n : '') + (n.ev ? '<br>' + B.EVENTS.find(e => e.id === n.ev).i + ' ' + B.EVENTS.find(e => e.id === n.ev).n : '') + (n.v ? '<br>' + B.VARIANTS.find(v => v.id === n.v).i + ' <b>' + B.VARIANTS.find(v => v.id === n.v).n + '</b> : ' + B.VARIANTS.find(v => v.id === n.v).d : ''), 3200);
   };
   S.runMenu = function () {
     const m = U.modal('<div class="panel col" style="gap:10px"><h2 class="center">Expédition</h2><button class="btn" data-a="pw">✨ Mes pouvoirs</button><button class="btn" data-a="set">⚙️ Paramètres</button><button class="btn" data-a="vil">🏠 Retour au titre (sauvegardé)</button><button class="btn red" data-a="quit">🏳️ Abandonner l\'expédition</button><button class="btn ghost" data-a="close">Fermer</button></div>', {

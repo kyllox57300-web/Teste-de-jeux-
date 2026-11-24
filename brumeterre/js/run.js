@@ -94,6 +94,8 @@
         if (!cand.length) break;
         const nd = r.pick(cand); nd.t = 'survivor'; nd.surv = s.id;
       }
+      // particularités de salle
+      if (B.P && B.P.st.runs >= 2 && d.mode !== 'tutorial') rows.forEach((row, ri) => { if (ri < 1) return; row.forEach(nd => { if ((nd.t === 'fight' || nd.t === 'elite' || nd.t === 'survivor') && r.chance(0.32)) nd.v = r.pick(B.VARIANTS).id; }); });
       return { rows: rows };
     }
     nodeType(ri, N, G) {
@@ -120,6 +122,17 @@
       const k = kind || (d.mode === 'endless' ? 'endless' : !n ? 'fight' : n.t === 'survivor' ? 'survivor' : n.t);
       const row = d.mode === 'endless' ? 0 : Math.max(0, d.pos.r) * (d.mods.shortMap ? 1.4 : 1);
       const o = { RH: d.RH, biome: d.biome, kind: d.mode === 'endless' ? 'endless' : d.mode === 'tutorial' && k === 'fight' ? 'tutorial' : k, row: Math.min(11, row), mods: Object.assign({}, d.mods), rng: B.rng(this.rng.int(1, 1e9)) };
+      if (n && n.v && (k === 'fight' || k === 'elite' || k === 'survivor')) {
+        const m = o.mods; o.variant = n.v;
+        if (n.v === 'moon') { m.lightMul = (m.lightMul || 1) * 1.4; m.xpMul = (m.xpMul || 1) * 1.2; }
+        if (n.v === 'gold') m.goldDrop = 3;
+        if (n.v === 'horde') { m.spawnMul = (m.spawnMul || 1) * 1.55; m.hpMul = (m.hpMul || 1) * 0.72; m.xpMul = (m.xpMul || 1) * 1.25; }
+        if (n.v === 'storm') m.storm = 1;
+        if (n.v === 'fog') { m.lightMul = (m.lightMul || 1) * 0.7; m.lootMul = (m.lootMul || 1) * 1.5; }
+        if (n.v === 'blood') m.dmgMul = (m.dmgMul || 1) * 1.25;
+        if (n.v === 'chests') m.chests = 2;
+        if (n.v === 'rift') m.rift = 1;
+      }
       if (k === 'survivor' && n && n.surv) o.survivorName = B.SURVIVORS.find(s => s.id === n.surv).n;
       if (d.mode === 'tutorial' && k === 'guard') { o.mods.hpMul = 0.45; o.mods.dmgMul = 0.6; }
       if (d.next.lightMul) o.mods.lightMul = (o.mods.lightMul || 1) * d.next.lightMul;
@@ -144,11 +157,14 @@
       if (c.bossKilled) { d.bossKills = d.bossKills || {}; d.bossKills[c.bossKilled] = (d.bossKills[c.bossKilled] || 0) + 1; }
       if (c.over !== 'win') return { lost: true };
       d.loot.essence += c.kind === 'fight' || c.kind === 'survivor' ? 1 : 0;
+      if (c.o.variant === 'storm') d.loot.essence += 2;
+      if (c.o.variant === 'rift') d.loot.essence += 3;
+      const bloodItem = c.o.variant === 'blood' ? this.addItem(this.rollItem(1)) : null;
       d.loot.bois += 3 + Math.floor(Math.max(0, d.pos.r) / 2) + (c.kind === 'elite' ? 4 : 0) + (c.kind === 'boss' ? 4 + d.biome * 2 : c.kind === 'guard' ? 2 + d.biome : 0);
       if (c.dmgTaken === 0 && c.t > 15) d.st.noHit++;
       if (fl.postHeal) { const S = B.computeStats(RH); RH.hp = Math.min(S.hp, RH.hp + S.hp * 0.04 * fl.postHeal); }
       const n = this.node();
-      const res = { rescued: null, boss: c.bossKilled };
+      const res = { rescued: null, boss: c.bossKilled, item: bloodItem };
       if (c.kind === 'survivor' && c.survivor && c.survivor.done && n && n.surv) {
         if (B.Meta.rescue(n.surv)) { d.rescued.push(n.surv); res.rescued = n.surv; }
       }
@@ -314,8 +330,18 @@
       return out;
     }
     // ───── Événement ─────
+    // événement prévu pour une salle (affiché sur la carte quand elle est révélée)
+    previewEvent(n) {
+      if (n.ev) return B.EVENTS.find(e => e.id === n.ev);
+      const d = this.d, taken = d.map.rows.flat().filter(x => x.ev).map(x => x.ev);
+      let list = B.EVENTS.filter(e => d.evSeen.indexOf(e.id) < 0 && taken.indexOf(e.id) < 0);
+      if (!list.length) list = B.EVENTS;
+      const e = list[Math.floor(Math.random() * list.length)]; n.ev = e.id; return e;
+    }
     pickEvent() {
       const d = this.d;
+      const n = this.node();
+      if (n && n.ev) { const e = B.EVENTS.find(x => x.id === n.ev); d.evSeen.push(e.id); d.st.events++; return e; }
       let list = B.EVENTS.filter(e => d.evSeen.indexOf(e.id) < 0);
       if (!list.length) list = B.EVENTS;
       if (Object.keys(B.P.survivors).length >= B.SURVIVORS.length) list = list.filter(e => e.id !== 'wounded') || list;
