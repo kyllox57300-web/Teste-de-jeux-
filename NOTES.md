@@ -110,8 +110,8 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
 - `depenses-noel/` : dépenses de Noël partagées (outil, créé le 26/11/2026). Groupe de personnes, tickets pris en photo
   (réduite < 650 Ko, gardée dans IndexedDB), montant, payé par, partagé entre (tous ou certains), bilan par personne,
   remboursements (le moins de virements possible), envoi du bilan en texte, sauvegarde/import par fichier `.json`.
-  - Synchro en ligne (26/11) : Firebase Firestore gratuit, `FIREBASE_CONFIG` en haut du script (**encore à remplir** :
-    l'utilisateur doit créer le projet Firebase). Groupe = code `NOEL-XXXXXXXX` (lien `?g=CODE`).
+  - Synchro en ligne (26/11) : Firebase Firestore gratuit, `FIREBASE_CONFIG` en haut du script (projet Firebase
+    `depenses-noel`, compte kyllox57300, offre gratuite Spark ; règles publiées le 26/11). Groupe = code `NOEL-XXXXXXXX` (lien `?g=CODE`).
     Données : `groups/<code>/people|tickets|photos/<id>`, la modif la plus récente gagne, même prénom = même personne
     (fusion `mergedInto`). Règles de sécurité : `depenses-noel/firestore.rules`. Test local avec l'émulateur : `?emu=8080`.
   - Idées : lecture auto du montant sur la photo.
