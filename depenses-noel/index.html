@@ -107,6 +107,11 @@
   .view.on{display:block}
   .cloud{margin-top:8px;font-size:.85rem;opacity:.85;font-weight:700}
   .code{font-family:ui-monospace,Menlo,monospace;font-size:1.6rem;font-weight:800;letter-spacing:.06em;text-align:center;background:#fff;border:2px dashed var(--gold);border-radius:14px;padding:12px;margin-top:6px;user-select:all}
+  .ro-note{background:#f3e9d7;border-radius:12px;padding:10px 12px;font-weight:700;font-size:.92rem;margin-top:4px}
+  .sheet.ro .chips{pointer-events:none}
+  .sheet.ro .chip:not(.on){display:none}
+  .sheet.ro input:disabled{background:#f7f1e6;color:var(--ink);opacity:1;-webkit-text-fill-color:var(--ink)}
+  .lock{font-size:.8rem;margin-left:4px;opacity:.7}
   .split-note{font-size:.85rem;color:var(--muted);margin-top:6px}
 </style>
 </head>
@@ -178,6 +183,11 @@
         <button class="btn" id="addPerson">Ajouter</button>
       </div>
       <ul class="people" id="people"></ul>
+      <div id="meBox" hidden>
+        <label class="lbl">Sur cet appareil, je suis :</label>
+        <div class="chips" id="meChips"></div>
+        <p class="hint" style="margin-top:6px">Tu peux modifier seulement tes tickets (ceux que tu as payés ou ajoutés).</p>
+      </div>
     </div>
     <div class="card">
       <h2>Sauvegarde par fichier</h2>
@@ -187,7 +197,7 @@
         <label class="btn light full" style="display:block;text-align:center;cursor:pointer">📥 Importer un fichier reçu<input type="file" id="importFile" accept=".json,application/json" hidden></label>
       </div>
     </div>
-    <div class="card">
+    <div class="card" id="resetCard">
       <h2>Tout effacer</h2>
       <p class="hint">Après Noël, quand tout le monde est remboursé. Si vous êtes en groupe, ça efface les tickets pour tout le monde.</p>
       <button class="btn light full" style="margin-top:10px;color:var(--red)" id="resetBtn">🗑️ Effacer tous les tickets</button>
@@ -208,10 +218,12 @@
   <div class="sheet">
     <div class="top"><h2 id="sheetTitle" style="margin:0">Nouveau ticket</h2><button id="sheetClose">✕</button></div>
 
+    <p class="ro-note" id="roNote" hidden></p>
     <label class="lbl">Photo du ticket</label>
     <div class="photo-zone" id="photoZone">
       <label><span class="i">📷</span>Prendre en photo<input type="file" accept="image/*" capture="environment" id="camIn"></label>
     </div>
+    <p class="hint" id="noPhoto" hidden>Pas de photo.</p>
     <p class="hint" id="photoWait" hidden>⏳ Photo en cours de téléchargement…</p>
     <div class="preview" id="preview" hidden><img id="previewImg" alt="Ticket"><button id="photoDel">Retirer</button></div>
 
@@ -235,6 +247,15 @@
       <button class="btn green full" id="saveBtn">✅ Enregistrer</button>
       <button class="btn ghost" id="delBtn" hidden style="color:var(--red)">Supprimer ce ticket</button>
     </div>
+  </div>
+</div>
+
+<!-- Qui es-tu ? -->
+<div class="sheet-bg" id="meBg">
+  <div class="sheet">
+    <div class="top"><h2 style="margin:0">Qui es-tu ?</h2><button id="meClose">✕</button></div>
+    <p class="hint">Choisis-toi (ou ta famille). On ne te le redemandera plus sur cet appareil. Tu pourras modifier seulement tes tickets.</p>
+    <div class="chips" id="meAsk" style="margin-top:14px"></div>
   </div>
 </div>
 
@@ -300,12 +321,16 @@ const tPut = t => tx('tickets','readwrite', s => s.put(t));
                updatedAt, deleted, photoAt (0 = pas de photo), photo: Blob (local), havePhotoAt, photoPushedAt} */
 let peopleAll = [], people = [];
 let tickets = [];
-let filterPayer = null, lastPayer = null;
+let filterPayer = null, lastPayer = null, me = null;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
 const live = () => tickets.filter(t => !t.deleted);
 const person = id => people.find(p => p.id === id);
 const pname = id => (peopleAll.find(p => p.id === id) || {name:'?'}).name;
 function refreshPeople(){ people = peopleAll.filter(p => !p.deleted); }
+// Qui utilise cet appareil (choisi une fois, gardé sur l'appareil)
+const myId = () => { const id = me ? resolveId(me) : null; return id && person(id) ? id : null; };
+// On peut modifier un ticket si on l'a payé ou si on l'a ajouté
+const canEdit = t => !!myId() && (t.payer === myId() || (t.by && t.by === myId()));
 
 /* ---------- Argent ---------- */
 const fmt = c => (c/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
@@ -382,7 +407,7 @@ function renderTickets(){
     const sp = t.split && t.split.length && t.split.length < people.length ? ' · pour ' + t.split.map(pname).join(', ') : '';
     return `<button class="ticket" data-id="${esc(t.id)}">
       <span class="thumb" style="${u?`background-image:url('${u}')`:''}">${u?'':waiting?'⏳':'🧾'}</span>
-      <span class="mid"><b>${esc(t.desc || 'Ticket')}</b><small>${esc(pname(t.payer))}${d?' · '+d:''}${esc(sp)}</small></span>
+      <span class="mid"><b>${esc(t.desc || 'Ticket')}${myId() && !canEdit(t) ? '<span class="lock">🔒</span>' : ''}</b><small>${esc(pname(t.payer))}${d?' · '+d:''}${esc(sp)}</small></span>
       <span class="amt">${fmt(t.amount)}</span></button>`;
   }).join('');
 }
@@ -396,7 +421,26 @@ function renderBilan(c){
     !c.moves.length ? '<div class="ok">🎉 Tout le monde est à égalité, personne ne doit rien !</div>' :
     c.moves.map(m => `<div class="transfer">${dot(person(m.from))} ${esc(pname(m.from))} <span class="arrow">donne à</span> ${dot(person(m.to))} ${esc(pname(m.to))} <span class="money">${fmt(m.v)}</span></div>`).join('');
 }
+function renderMe(){
+  $('#meBox').hidden = !people.length;
+  $('#meChips').innerHTML = people.map(p => `<button class="chip ${myId()===p.id?'on':''}" data-me="${esc(p.id)}">${esc(p.name)}</button>`).join('');
+}
+async function setMe(id){ me = id; await kvSet('me', id); render(); }
+let meCb = null;
+function askMe(cb){
+  meCb = cb || null;
+  $('#meAsk').innerHTML = people.map(p => `<button class="chip" data-me="${esc(p.id)}">${esc(p.name)}</button>`).join('');
+  $('#meBg').classList.add('show');
+}
+$('#meChips').onclick = e => { const b = e.target.closest('[data-me]'); if (b) setMe(b.dataset.me); };
+$('#meAsk').onclick = async e => {
+  const b = e.target.closest('[data-me]'); if (!b) return;
+  await setMe(b.dataset.me); $('#meBg').classList.remove('show');
+  toast('Bonjour ' + pname(b.dataset.me) + ' 👋'); const cb = meCb; meCb = null; if (cb) cb();
+};
+$('#meClose').onclick = () => { $('#meBg').classList.remove('show'); meCb = null; };
 function renderPeople(){
+  renderMe();
   $('#people').innerHTML = people.map(p => `<li>${dot(p)}<span class="pn">${esc(p.name)}</span><button data-ren="${esc(p.id)}" aria-label="Renommer">✏️</button><button data-del="${esc(p.id)}" aria-label="Retirer">✕</button></li>`).join('');
 }
 
@@ -441,16 +485,26 @@ $('#people').onclick = async e => {
 /* ---------- Fiche ticket ---------- */
 let editing = null, fPhoto = null, fPhotoChanged = false, fPayer = null, fSplit = [], prevURL = null;
 function openSheet(t){
+  if (!myId()) return askMe(() => openSheet(t));
   editing = t || null;
+  const ro = !!t && !canEdit(t);
+  document.querySelector('#sheetBg .sheet').classList.toggle('ro', ro);
+  ['#fAmount','#fDesc','#fDate'].forEach(q => $(q).disabled = ro);
+  $('#roNote').hidden = !ro;
+  if (ro){ const who = [...new Set([t.payer, t.by].filter(Boolean))].map(pname).join(' ou ');
+    $('#roNote').textContent = `🔒 Tu peux regarder ce ticket, mais seul ${who} peut le modifier.`; }
+  $('#saveBtn').hidden = ro;
   $('#sheetTitle').textContent = t ? 'Modifier le ticket' : 'Nouveau ticket';
   fPhoto = t ? t.photo : null; fPhotoChanged = false;
-  fPayer = t ? t.payer : (lastPayer && person(lastPayer) ? lastPayer : null);
+  fPayer = t ? t.payer : myId();
   fSplit = t && t.split && t.split.length ? t.split.filter(id=>person(id)) : people.map(p=>p.id);
   $('#fAmount').value = t ? (t.amount/100).toFixed(2).replace('.', ',') : '';
   $('#fDesc').value = t ? t.desc : '';
   $('#fDate').value = t ? t.date : new Date().toISOString().slice(0,10);
-  $('#delBtn').hidden = !t;
+  $('#delBtn').hidden = !t || ro;
   drawPhoto(); drawChips();
+  if (ro){ $('#sheetTitle').textContent = 'Ticket'; $('#photoZone').hidden = true; $('#photoDel').hidden = true; $('#noPhoto').hidden = !!fPhoto || !!t.photoAt; }
+  else { $('#photoDel').hidden = false; $('#noPhoto').hidden = true; }
   $('#sheetBg').classList.add('show');
 }
 function closeSheet(){ $('#sheetBg').classList.remove('show'); if (prevURL){ URL.revokeObjectURL(prevURL); prevURL=null; } editing = null; }
@@ -474,7 +528,7 @@ $('#fSplit').onclick = e => { const b = e.target.closest('[data-s]'); if (!b) re
   fSplit = fSplit.includes(id) ? fSplit.filter(x=>x!==id) : people.map(p=>p.id).filter(x => x===id || fSplit.includes(x)); drawChips(); };
 $('#sheetClose').onclick = closeSheet;
 $('#sheetBg').onclick = e => { if (e.target === $('#sheetBg')) closeSheet(); };
-$('#fab').onclick = () => openSheet(null);
+$('#fab').onclick = () => openSheet(null);  // demande « Qui es-tu ? » la première fois
 $('#ticketList').onclick = e => { const b = e.target.closest('[data-id]'); if (b) openSheet(tickets.find(t => t.id === b.dataset.id)); };
 $('#filter').onclick = e => { const b = e.target.closest('[data-f]'); if (b){ filterPayer = b.dataset.f || null; renderTickets(); } };
 $('#photoDel').onclick = () => { fPhoto = null; fPhotoChanged = true; drawPhoto(); };
@@ -513,8 +567,9 @@ $('#saveBtn').onclick = async () => {
   if (!amount) { $('#fAmount').focus(); return toast('Écris le montant (ex. : 24,90)'); }
   if (!fPayer) return toast('Choisis qui a payé');
   if (!fSplit.length) return toast('Choisis entre qui on partage');
+  if (editing && !canEdit(editing)) return toast('Ce ticket n\'est pas à toi');
   const isNew = !editing;
-  const t = editing || {id:uid(), photoAt:0, havePhotoAt:0, photoPushedAt:0};
+  const t = editing || {id:uid(), photoAt:0, havePhotoAt:0, photoPushedAt:0, by:myId()};
   Object.assign(t, {amount, payer:fPayer, desc:$('#fDesc').value.trim(), date:$('#fDate').value,
     split: fSplit.length === people.length ? [] : fSplit.slice(), updatedAt:Date.now(), deleted:false});
   if (fPhotoChanged){ t.photo = fPhoto; t.photoAt = fPhoto ? Date.now() : 0; t.havePhotoAt = t.photoAt; dropURL(t.id); }
@@ -525,7 +580,7 @@ $('#saveBtn').onclick = async () => {
   pushTicket(t);
 };
 $('#delBtn').onclick = async () => {
-  if (!editing || !confirm('Supprimer ce ticket ?')) return;
+  if (!editing || !canEdit(editing) || !confirm('Supprimer ce ticket ?')) return;
   const t = editing;
   Object.assign(t, {deleted:true, photo:null, photoAt:0, havePhotoAt:0, updatedAt:Date.now()});
   dropURL(t.id); await tPut(t); closeSheet(); render(); toast('Ticket supprimé');
@@ -547,7 +602,7 @@ $('#viewerClose').onclick = () => $('#viewer').classList.remove('show');
    Chaque appareil garde tout en local ; à chaque changement on envoie, et on reçoit
    les changements des autres. En cas de conflit, la modification la plus récente gagne.
    ===================================================================== */
-let groupCode = null;
+let groupCode = null, groupOwner = null;  // groupOwner = code du groupe créé sur cet appareil
 let S = null;              // {fs, api, unsubs:[]}
 let syncState = 'off';     // off | connecting | ok | pending | offline | error
 const params = new URLSearchParams(location.search);
@@ -566,6 +621,7 @@ function renderSync(){
   $('#syncState').textContent = txt;
   $('#cloud').hidden = !groupCode;
   $('#cloud').textContent = txt.split(':')[0];
+  $('#resetCard').hidden = !!groupCode && groupOwner !== groupCode;
 }
 function setState(s){ if (syncState !== s){ syncState = s; renderSync(); } }
 
@@ -611,7 +667,7 @@ function stopSync(){ if (S){ S.unsubs.forEach(u => u()); S = null; } setState('o
 
 const pPublic = p => ({id:p.id, name:p.name, color:p.color, updatedAt:p.updatedAt||0, deleted:!!p.deleted, mergedInto:p.mergedInto||''});
 const tPublic = t => ({id:t.id, amount:t.amount, payer:t.payer, desc:t.desc||'', date:t.date||'', split:t.split||[],
-  updatedAt:t.updatedAt||0, deleted:!!t.deleted, photoAt:t.photoAt||0});
+  updatedAt:t.updatedAt||0, deleted:!!t.deleted, photoAt:t.photoAt||0, by:t.by||''});
 
 function pushPerson(p){
   if (!S) return;
@@ -673,9 +729,9 @@ async function fixRefs(){
   let ch = false;
   for (const t of tickets){
     if (t.deleted) continue;
-    const payer = resolveId(t.payer), split = (t.split||[]).map(resolveId).filter((x,i,a) => a.indexOf(x) === i);
-    if (payer !== t.payer || split.join() !== (t.split||[]).join()){
-      Object.assign(t, {payer, split, updatedAt:Date.now()}); await tPut(t); pushTicket(t); ch = true;
+    const payer = resolveId(t.payer), split = (t.split||[]).map(resolveId).filter((x,i,a) => a.indexOf(x) === i), by = t.by ? resolveId(t.by) : t.by;
+    if (payer !== t.payer || by !== t.by || split.join() !== (t.split||[]).join()){
+      Object.assign(t, {payer, split, by, updatedAt:Date.now()}); await tPut(t); pushTicket(t); ch = true;
     }
   }
   if (lastPayer) lastPayer = resolveId(lastPayer);
@@ -727,7 +783,7 @@ async function joinGroup(code){
   stopSync(); groupCode = code; await kvSet('group', code);
   render(); await startSync();
 }
-$('#createGroup').onclick = async () => { await joinGroup(newCode()); toast('Groupe créé ✅ Invite la famille !'); };
+$('#createGroup').onclick = async () => { const c = newCode(); groupOwner = c; await kvSet('groupOwner', c); await joinGroup(c); toast('Groupe créé ✅ Invite la famille !'); };
 $('#joinGroup').onclick = async () => {
   const code = $('#joinCode').value.trim().toUpperCase().replace(/\s/g,'');
   if (!CODE_RE.test(code)) return toast('Le code ressemble à NOEL-ABCD1234');
@@ -836,6 +892,10 @@ function toast(m){ const t = $('#toast'); t.textContent = m; t.classList.add('sh
   // Anciens tickets (avant la synchro) : on complète les champs photo
   for (const t of tickets) if (t.photoAt === undefined){ t.photoAt = t.photo ? (t.updatedAt || 1) : 0; t.havePhotoAt = t.photoAt; t.photoPushedAt = 0; await tPut(t); }
   groupCode = await kvGet('group') || null;
+  groupOwner = await kvGet('groupOwner') || null;
+  me = await kvGet('me') || null;
+  // Appareils déjà dans un groupe avant l'arrivée de « Qui es-tu ? » : ils gardent le droit de tout effacer
+  if (!(await kvGet('v2'))){ if (groupCode && !groupOwner){ groupOwner = groupCode; await kvSet('groupOwner', groupCode); } await kvSet('v2', 1); }
   // Lien d'invitation : ?g=NOEL-XXXXXXXX
   const g = (params.get('g') || '').toUpperCase();
   if (CONFIG && CODE_RE.test(g) && g !== groupCode){

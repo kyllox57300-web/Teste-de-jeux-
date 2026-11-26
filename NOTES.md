@@ -114,6 +114,9 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
     `depenses-noel`, compte kyllox57300, offre gratuite Spark ; règles publiées le 26/11). Groupe = code `NOEL-XXXXXXXX` (lien `?g=CODE`).
     Données : `groups/<code>/people|tickets|photos/<id>`, la modif la plus récente gagne, même prénom = même personne
     (fusion `mergedInto`). Règles de sécurité : `depenses-noel/firestore.rules`. Test local avec l'émulateur : `?emu=8080`.
+  - « Qui es-tu ? » (26/11) : chaque appareil choisit sa famille une fois (gardé sur l'appareil). On ne peut modifier/supprimer
+    que ses tickets (payés ou ajoutés, champ `by`) ; les autres sont en lecture seule (🔒). « Tout effacer » visible seulement
+    sur l'appareil qui a créé le groupe. Ce n'est pas une vraie sécurité (on peut choisir un autre nom), ça évite les erreurs.
   - Idées : lecture auto du montant sur la photo.
 
 ## À faire
