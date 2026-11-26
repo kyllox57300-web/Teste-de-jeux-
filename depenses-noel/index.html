@@ -51,6 +51,7 @@
   .people li{display:flex;align-items:center;gap:10px;background:#fff;border:2px solid #efe5d1;border-radius:14px;padding:8px 8px 8px 12px}
   .dot{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;font-weight:800;font-size:.9rem}
   .people li span{flex:1;font-weight:700}
+  .people li .dot{flex:none}
   .people li button{background:#f3e9d7;color:var(--muted);width:40px;height:40px;border-radius:12px}
   .tickets{display:grid;gap:10px}
   .ticket{display:flex;gap:12px;align-items:center;background:#fff;border:2px solid #efe5d1;border-radius:16px;padding:10px;text-align:left;width:100%}
@@ -105,6 +106,8 @@
   [hidden]{display:none!important}
   .view{display:none}
   .view.on{display:block}
+  .cloud{margin-top:8px;font-size:.85rem;opacity:.85;font-weight:700}
+  .code{font-family:ui-monospace,Menlo,monospace;font-size:1.6rem;font-weight:800;letter-spacing:.06em;text-align:center;background:#fff;border:2px dashed var(--gold);border-radius:14px;padding:12px;margin-top:6px;user-select:all}
   .split-note{font-size:.85rem;color:var(--muted);margin-top:6px}
 </style>
 </head>
@@ -114,6 +117,7 @@
   <header>
     <h1>Dépenses de <span>Noël</span> 🎄</h1>
     <div class="total">Total : <b id="hdrTotal">0,00 €</b></div>
+    <div class="cloud" id="cloud" hidden></div>
   </header>
 
   <!-- TICKETS -->
@@ -141,6 +145,32 @@
 
   <!-- GROUPE -->
   <section class="view" id="v-groupe">
+    <div class="card" id="syncCard">
+      <h2>☁️ Synchro en ligne</h2>
+      <div id="syncOff" hidden>
+        <p class="hint">La synchro en ligne n'est pas encore activée sur ce site. En attendant, les tickets restent sur cet appareil.</p>
+      </div>
+      <div id="syncNoGroup" hidden>
+        <p class="hint">Mets tout le monde dans le même groupe : les tickets, les photos et les personnes apparaissent alors sur tous les téléphones et PC, tout seuls.</p>
+        <div class="stack" style="margin-top:12px">
+          <button class="btn green full" id="createGroup">✨ Créer le groupe de la famille</button>
+          <p class="hint" style="text-align:center">ou, si quelqu'un l'a déjà créé :</p>
+          <div class="row">
+            <input type="text" id="joinCode" placeholder="NOEL-XXXXXXXX" maxlength="13" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase">
+            <button class="btn" id="joinGroup">Rejoindre</button>
+          </div>
+        </div>
+      </div>
+      <div id="syncGroup" hidden>
+        <p class="hint">Code du groupe :</p>
+        <div class="code" id="groupCode"></div>
+        <p class="hint" id="syncState" style="text-align:center;margin-top:6px"></p>
+        <div class="stack" style="margin-top:12px">
+          <button class="btn green full" id="inviteBtn">📨 Inviter la famille (envoyer le lien)</button>
+          <button class="btn ghost" id="leaveGroup">Quitter le groupe sur cet appareil</button>
+        </div>
+      </div>
+    </div>
     <div class="card">
       <h2>Le groupe</h2>
       <p class="hint">Ajoute toutes les personnes qui participent aux dépenses.</p>
@@ -151,8 +181,8 @@
       <ul class="people" id="people"></ul>
     </div>
     <div class="card">
-      <h2>Partager avec les autres</h2>
-      <p class="hint">Les tickets sont gardés sur ce téléphone. Pour que tout le monde ait la même liste : envoie le fichier aux autres, ils l'ouvrent avec « Importer ». Les tickets sont <b>ajoutés</b> à ceux déjà présents, sans doublons.</p>
+      <h2>Sauvegarde par fichier</h2>
+      <p class="hint">Sans internet ou pour garder une copie : « Envoyer » crée un fichier avec tous les tickets, « Importer » les <b>ajoute</b> à ceux déjà présents, sans doublons.</p>
       <div class="stack" style="margin-top:12px">
         <button class="btn green full" id="exportBtn">📦 Envoyer tous les tickets</button>
         <label class="btn light full" style="display:block;text-align:center;cursor:pointer">📥 Importer un fichier reçu<input type="file" id="importFile" accept=".json,application/json" hidden></label>
@@ -160,7 +190,7 @@
     </div>
     <div class="card">
       <h2>Tout effacer</h2>
-      <p class="hint">Après Noël, quand tout le monde est remboursé.</p>
+      <p class="hint">Après Noël, quand tout le monde est remboursé. Si vous êtes en groupe, ça efface les tickets pour tout le monde.</p>
       <button class="btn light full" style="margin-top:10px;color:var(--red)" id="resetBtn">🗑️ Effacer tous les tickets</button>
     </div>
   </section>
@@ -183,6 +213,7 @@
     <div class="photo-zone" id="photoZone">
       <label><span class="i">📷</span>Prendre en photo<input type="file" accept="image/*" capture="environment" id="camIn"></label>
     </div>
+    <p class="hint" id="photoWait" hidden>⏳ Photo en cours de téléchargement…</p>
     <div class="preview" id="preview" hidden><img id="previewImg" alt="Ticket"><button id="photoDel">Retirer</button></div>
 
     <label class="lbl" for="fAmount">Montant</label>
@@ -219,10 +250,18 @@
 <script>
 (() => {
 'use strict';
+/* =====================================================================
+   Synchro en ligne (Firebase / Firestore, offre gratuite)
+   Colle ici la config de ton projet Firebase (Paramètres du projet > Vos applications).
+   Cette config n'est pas secrète : elle est faite pour être dans la page.
+   ===================================================================== */
+const FIREBASE_CONFIG = null;
+const FB_VERSION = '12.19.0';
+
 const $ = s => document.querySelector(s);
 const COLORS = ['#c8323c','#2e7d4f','#d08a1e','#3767b5','#8e44ad','#16a085','#d35400','#7f8c8d','#c0392b','#27ae60'];
 
-/* ---------- Stockage (IndexedDB, pour garder les photos) ---------- */
+/* ---------- Stockage local (IndexedDB, pour garder les photos) ---------- */
 let db;
 function openDB(){
   return new Promise((res, rej) => {
@@ -245,23 +284,27 @@ function tx(store, mode, fn){
 }
 const kvGet = k => tx('kv','readonly', s => s.get(k));
 const kvSet = (k,v) => tx('kv','readwrite', s => s.put(v,k));
+const kvDel = k => tx('kv','readwrite', s => s.delete(k));
 const tAll = () => tx('tickets','readonly', s => s.getAll());
 const tPut = t => tx('tickets','readwrite', s => s.put(t));
-const tClear = () => tx('tickets','readwrite', s => s.clear());
 
-/* ---------- État ---------- */
-let people = [];   // {id, name, color}
-let tickets = [];  // {id, amount (centimes), payer, desc, date, split:[ids], photo:Blob|null, updatedAt, deleted}
-let filterPayer = null;
+/* ---------- État ----------
+   personne : {id, name, color, updatedAt, deleted}
+   ticket   : {id, amount (centimes), payer, desc, date, split:[ids] ([] = tout le monde),
+               updatedAt, deleted, photoAt (0 = pas de photo), photo: Blob (local), havePhotoAt, photoPushedAt} */
+let peopleAll = [], people = [];
+let tickets = [];
+let filterPayer = null, lastPayer = null;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
 const live = () => tickets.filter(t => !t.deleted);
 const person = id => people.find(p => p.id === id);
-const pname = id => (person(id) || {name:'?'}).name;
+const pname = id => (peopleAll.find(p => p.id === id) || {name:'?'}).name;
+function refreshPeople(){ people = peopleAll.filter(p => !p.deleted); }
 
 /* ---------- Argent ---------- */
 const fmt = c => (c/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
 function parseAmount(str){
-  let s = String(str).replace(/\s|€/g,'').replace(',', '.');
+  const s = String(str).replace(/\s|€/g,'').replace(',', '.');
   if (!/^\d*\.?\d{0,2}$/.test(s) || s === '' || s === '.') return null;
   const c = Math.round(parseFloat(s) * 100);
   return c > 0 ? c : null;
@@ -292,14 +335,15 @@ function compute(){
     const m = Math.min(debt[i].v, cred[j].v);
     if (m > 0) moves.push({from:debt[i].id, to:cred[j].id, v:m});
     debt[i].v -= m; cred[j].v -= m;
-    if (debt[i].v === 0) i++; if (cred[j].v === 0) j++;
+    if (debt[i].v === 0) i++;
+    if (cred[j].v === 0) j++;
   }
   return {paid, owe, bal, total, moves};
 }
 
 /* ---------- Affichage ---------- */
-function dot(p){ return `<span class="dot" style="background:${p.color}">${esc(p.name[0]||'?').toUpperCase()}</span>`; }
 function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function dot(p){ p = p || {name:'?', color:'#999'}; return `<span class="dot" style="background:${esc(p.color)}">${esc((p.name[0]||'?').toUpperCase())}</span>`; }
 const urls = new Map();
 function photoURL(t){
   if (!t.photo) return null;
@@ -311,26 +355,28 @@ function dropURL(id){ if (urls.has(id)){ URL.revokeObjectURL(urls.get(id)); urls
 function render(){
   const c = compute();
   $('#hdrTotal').textContent = fmt(c.total);
-  renderTickets(); renderBilan(c); renderPeople();
+  renderTickets(); renderBilan(c); renderPeople(); renderSync();
+  $('#fab').style.display = $('#v-tickets').classList.contains('on') && people.length ? '' : 'none';
 }
 function renderTickets(){
   const f = $('#filter');
   const list = live();
+  if (filterPayer && !person(filterPayer)) filterPayer = null;
   f.innerHTML = people.length > 1 && list.length ? [`<button class="chip ${filterPayer?'':'on'}" data-f="">Tous</button>`]
-    .concat(people.map(p => `<button class="chip ${filterPayer===p.id?'on':''}" data-f="${p.id}">${esc(p.name)}</button>`)).join('') : '';
+    .concat(people.map(p => `<button class="chip ${filterPayer===p.id?'on':''}" data-f="${esc(p.id)}">${esc(p.name)}</button>`)).join('') : '';
   const el = $('#ticketList');
-  if (!people.length){ el.innerHTML = `<div class="empty"><span class="big">👨‍👩‍👧‍👦</span>Commence par ajouter les personnes du groupe.<br><br><button class="btn" onclick="document.querySelector('[data-v=groupe]').click()">Ajouter le groupe</button></div>`; return; }
+  if (!people.length){ el.innerHTML = `<div class="empty"><span class="big">👨‍👩‍👧‍👦</span>Commence par ajouter les personnes du groupe.<br><br><button class="btn" data-go="groupe">Ajouter le groupe</button></div>`; return; }
   const shown = list.filter(t => !filterPayer || t.payer === filterPayer)
     .sort((a,b) => (b.date||'').localeCompare(a.date||'') || b.updatedAt - a.updatedAt);
   if (!shown.length){ el.innerHTML = `<div class="empty"><span class="big">🧾</span>Aucun ticket pour l'instant.<br>Touche « Ajouter un ticket » en bas.</div>`; return; }
   el.innerHTML = shown.map(t => {
     const u = photoURL(t);
-    const p = person(t.payer);
+    const waiting = !u && t.photoAt;
     const d = t.date ? new Date(t.date+'T12:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) : '';
     const sp = t.split && t.split.length && t.split.length < people.length ? ' · pour ' + t.split.map(pname).join(', ') : '';
-    return `<button class="ticket" data-id="${t.id}">
-      <span class="thumb" style="${u?`background-image:url('${u}')`:''}">${u?'':'🧾'}</span>
-      <span class="mid"><b>${esc(t.desc || 'Ticket')}</b><small>${p?esc(p.name):'?'}${d?' · '+d:''}${esc(sp)}</small></span>
+    return `<button class="ticket" data-id="${esc(t.id)}">
+      <span class="thumb" style="${u?`background-image:url('${u}')`:''}">${u?'':waiting?'⏳':'🧾'}</span>
+      <span class="mid"><b>${esc(t.desc || 'Ticket')}</b><small>${esc(pname(t.payer))}${d?' · '+d:''}${esc(sp)}</small></span>
       <span class="amt">${fmt(t.amount)}</span></button>`;
   }).join('');
 }
@@ -345,7 +391,7 @@ function renderBilan(c){
     c.moves.map(m => `<div class="transfer">${dot(person(m.from))} ${esc(pname(m.from))} <span class="arrow">donne à</span> ${dot(person(m.to))} ${esc(pname(m.to))} <span class="money">${fmt(m.v)}</span></div>`).join('');
 }
 function renderPeople(){
-  $('#people').innerHTML = people.map(p => `<li>${dot(p)}<span>${esc(p.name)}</span><button data-ren="${p.id}" aria-label="Renommer">✏️</button><button data-del="${p.id}" aria-label="Retirer">✕</button></li>`).join('');
+  $('#people').innerHTML = people.map(p => `<li>${dot(p)}<span>${esc(p.name)}</span><button data-ren="${esc(p.id)}" aria-label="Renommer">✏️</button><button data-del="${esc(p.id)}" aria-label="Retirer">✕</button></li>`).join('');
 }
 
 /* ---------- Navigation ---------- */
@@ -356,39 +402,42 @@ function show(v){
   window.scrollTo(0,0);
 }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => show(b.dataset.v));
+document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) show(g.dataset.go); });
 
-/* ---------- Groupe ---------- */
-async function savePeople(){ await kvSet('people', people); }
+/* ---------- Groupe (personnes) ---------- */
+async function savePeople(){ await kvSet('people', peopleAll); refreshPeople(); }
 $('#addPerson').onclick = async () => {
   const n = $('#newName').value.trim(); if (!n) return;
   if (people.some(p => p.name.toLowerCase() === n.toLowerCase())) return toast('Ce prénom est déjà dans la liste');
   const used = people.map(p=>p.color);
-  people.push({id:uid(), name:n, color: COLORS.find(c => !used.includes(c)) || COLORS[people.length % COLORS.length]});
+  const p = {id:uid(), name:n, color: COLORS.find(c => !used.includes(c)) || COLORS[people.length % COLORS.length], updatedAt:Date.now(), deleted:false};
+  peopleAll.push(p);
   $('#newName').value = ''; $('#newName').focus();
-  await savePeople(); render();
+  await savePeople(); render(); pushPerson(p);
 };
 $('#newName').addEventListener('keydown', e => { if (e.key === 'Enter') $('#addPerson').click(); });
 $('#people').onclick = async e => {
   const ren = e.target.closest('[data-ren]'), del = e.target.closest('[data-del]');
   if (ren){
     const p = person(ren.dataset.ren); const n = prompt('Nouveau prénom', p.name);
-    if (n && n.trim()){ p.name = n.trim(); await savePeople(); render(); }
+    if (n && n.trim() && people.some(x => x !== p && x.name.toLowerCase() === n.trim().toLowerCase())) return toast('Ce prénom est déjà dans la liste');
+    if (n && n.trim()){ p.name = n.trim(); p.updatedAt = Date.now(); await savePeople(); render(); pushPerson(p); }
   }
   if (del){
     const id = del.dataset.del;
     if (live().some(t => t.payer === id)) return toast('Impossible : cette personne a des tickets. Supprime-les d\'abord.');
     if (!confirm(`Retirer ${pname(id)} du groupe ?`)) return;
-    people = people.filter(p => p.id !== id);
-    await savePeople(); render();
+    const p = person(id); p.deleted = true; p.updatedAt = Date.now();
+    await savePeople(); render(); pushPerson(p);
   }
 };
 
 /* ---------- Fiche ticket ---------- */
-let editing = null, fPhoto = null, fPayer = null, fSplit = [];
+let editing = null, fPhoto = null, fPhotoChanged = false, fPayer = null, fSplit = [], prevURL = null;
 function openSheet(t){
   editing = t || null;
   $('#sheetTitle').textContent = t ? 'Modifier le ticket' : 'Nouveau ticket';
-  fPhoto = t ? t.photo : null;
+  fPhoto = t ? t.photo : null; fPhotoChanged = false;
   fPayer = t ? t.payer : (lastPayer && person(lastPayer) ? lastPayer : null);
   fSplit = t && t.split && t.split.length ? t.split.filter(id=>person(id)) : people.map(p=>p.id);
   $('#fAmount').value = t ? (t.amount/100).toFixed(2).replace('.', ',') : '';
@@ -398,16 +447,17 @@ function openSheet(t){
   drawPhoto(); drawChips();
   $('#sheetBg').classList.add('show');
 }
-function closeSheet(){ $('#sheetBg').classList.remove('show'); if (prevURL){ URL.revokeObjectURL(prevURL); prevURL=null; } }
-let prevURL = null;
+function closeSheet(){ $('#sheetBg').classList.remove('show'); if (prevURL){ URL.revokeObjectURL(prevURL); prevURL=null; } editing = null; }
 function drawPhoto(){
   if (prevURL){ URL.revokeObjectURL(prevURL); prevURL = null; }
-  $('#preview').hidden = !fPhoto; $('#photoZone').hidden = !!fPhoto;
+  const waiting = !fPhoto && editing && editing.photoAt && !fPhotoChanged;
+  $('#preview').hidden = !fPhoto; $('#photoZone').hidden = !!fPhoto || waiting;
+  $('#photoWait').hidden = !waiting;
   if (fPhoto){ prevURL = URL.createObjectURL(fPhoto); $('#previewImg').src = prevURL; }
 }
 function drawChips(){
-  $('#fPayer').innerHTML = people.map(p => `<button class="chip ${fPayer===p.id?'on':''}" data-p="${p.id}">${esc(p.name)}</button>`).join('');
-  $('#fSplit').innerHTML = people.map(p => `<button class="chip ${fSplit.includes(p.id)?'on':''}" data-s="${p.id}">${esc(p.name)}</button>`).join('');
+  $('#fPayer').innerHTML = people.map(p => `<button class="chip ${fPayer===p.id?'on':''}" data-p="${esc(p.id)}">${esc(p.name)}</button>`).join('');
+  $('#fSplit').innerHTML = people.map(p => `<button class="chip ${fSplit.includes(p.id)?'on':''}" data-s="${esc(p.id)}">${esc(p.name)}</button>`).join('');
   const a = parseAmount($('#fAmount').value);
   $('#splitNote').textContent = fSplit.length === people.length ? 'Tout le monde paie sa part.' :
     fSplit.length ? `Seulement ${fSplit.length} personne${fSplit.length>1?'s':''}${a?` : ${fmt(Math.round(a/fSplit.length))} chacun environ`:''}.` : 'Choisis au moins une personne.';
@@ -421,49 +471,59 @@ $('#sheetBg').onclick = e => { if (e.target === $('#sheetBg')) closeSheet(); };
 $('#fab').onclick = () => openSheet(null);
 $('#ticketList').onclick = e => { const b = e.target.closest('[data-id]'); if (b) openSheet(tickets.find(t => t.id === b.dataset.id)); };
 $('#filter').onclick = e => { const b = e.target.closest('[data-f]'); if (b){ filterPayer = b.dataset.f || null; renderTickets(); } };
-$('#photoDel').onclick = () => { fPhoto = null; drawPhoto(); };
+$('#photoDel').onclick = () => { fPhoto = null; fPhotoChanged = true; drawPhoto(); };
 $('#previewImg').onclick = () => openViewer(fPhoto, $('#fDesc').value || 'Ticket');
 
-async function onPick(e){
+$('#camIn').onchange = async e => {
   const file = e.target.files[0]; e.target.value = ''; if (!file) return;
-  try { fPhoto = await shrink(file); drawPhoto(); }
+  try { fPhoto = await shrink(file); fPhotoChanged = true; drawPhoto(); }
   catch(err){ toast('Impossible de lire cette image'); }
-}
-$('#camIn').onchange = onPick;
-// Réduit la photo (max 1600 px) pour ne pas remplir le téléphone, tout en gardant le ticket lisible
+};
+// Réduit la photo pour ne pas remplir le téléphone (et pour l'envoi en ligne, < 650 Ko), en gardant le ticket lisible
 function shrink(file){
+  const enc = (img, max, q) => new Promise((res, rej) => {
+    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth*k); c.height = Math.round(img.naturalHeight*k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    c.toBlob(b => b ? res(b) : rej(), 'image/jpeg', q);
+  });
   return new Promise((res, rej) => {
     const img = new Image(); const u = URL.createObjectURL(file);
-    img.onload = () => {
-      const max = 1600, k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
-      const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth*k); c.height = Math.round(img.naturalHeight*k);
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(u);
-      c.toBlob(b => b ? res(b) : rej(), 'image/jpeg', 0.8);
+    img.onload = async () => {
+      URL.revokeObjectURL(u);
+      try {
+        for (const [max, q] of [[1600,.8],[1600,.65],[1300,.6],[1000,.55],[800,.5]]){
+          const b = await enc(img, max, q); if (b.size < 650000 || max === 800) return res(b);
+        }
+      } catch(e){ rej(e); }
     };
     img.onerror = () => { URL.revokeObjectURL(u); rej(); };
     img.src = u;
   });
 }
 
-let lastPayer = null;
 $('#saveBtn').onclick = async () => {
   const amount = parseAmount($('#fAmount').value);
   if (!amount) { $('#fAmount').focus(); return toast('Écris le montant (ex. : 24,90)'); }
   if (!fPayer) return toast('Choisis qui a payé');
   if (!fSplit.length) return toast('Choisis entre qui on partage');
-  const t = editing || {id:uid()};
+  const isNew = !editing;
+  const t = editing || {id:uid(), photoAt:0, havePhotoAt:0, photoPushedAt:0};
   Object.assign(t, {amount, payer:fPayer, desc:$('#fDesc').value.trim(), date:$('#fDate').value,
-    split: fSplit.length === people.length ? [] : fSplit.slice(), photo:fPhoto, updatedAt:Date.now(), deleted:false});
-  dropURL(t.id);
+    split: fSplit.length === people.length ? [] : fSplit.slice(), updatedAt:Date.now(), deleted:false});
+  if (fPhotoChanged){ t.photo = fPhoto; t.photoAt = fPhoto ? Date.now() : 0; t.havePhotoAt = t.photoAt; dropURL(t.id); }
   try { await tPut(t); } catch(err){ return toast('Erreur d\'enregistrement (mémoire pleine ?)'); }
-  if (!editing) tickets.push(t);
+  if (isNew) tickets.push(t);
   lastPayer = fPayer; kvSet('lastPayer', fPayer);
-  closeSheet(); render(); toast(editing ? 'Ticket modifié ✅' : 'Ticket ajouté ✅');
+  closeSheet(); render(); toast(isNew ? 'Ticket ajouté ✅' : 'Ticket modifié ✅');
+  pushTicket(t);
 };
 $('#delBtn').onclick = async () => {
   if (!editing || !confirm('Supprimer ce ticket ?')) return;
-  Object.assign(editing, {deleted:true, photo:null, updatedAt:Date.now()});
-  dropURL(editing.id); await tPut(editing); closeSheet(); render(); toast('Ticket supprimé');
+  const t = editing;
+  Object.assign(t, {deleted:true, photo:null, photoAt:0, havePhotoAt:0, updatedAt:Date.now()});
+  dropURL(t.id); await tPut(t); closeSheet(); render(); toast('Ticket supprimé');
+  pushTicket(t);
 };
 
 /* ---------- Visionneuse ---------- */
@@ -475,7 +535,212 @@ function openViewer(blob, title){
 }
 $('#viewerClose').onclick = () => $('#viewer').classList.remove('show');
 
-/* ---------- Partage ---------- */
+/* =====================================================================
+   SYNCHRO
+   Firestore : groups/<CODE>/people/<id>, groups/<CODE>/tickets/<id>, groups/<CODE>/photos/<id>
+   Chaque appareil garde tout en local ; à chaque changement on envoie, et on reçoit
+   les changements des autres. En cas de conflit, la modification la plus récente gagne.
+   ===================================================================== */
+let groupCode = null;
+let S = null;              // {fs, api, unsubs:[]}
+let syncState = 'off';     // off | connecting | ok | pending | offline | error
+const params = new URLSearchParams(location.search);
+const EMU = params.get('emu');  // pour les tests : ?emu=8080
+const CONFIG = EMU ? {projectId:'demo-noel', apiKey:'demo', appId:'demo'} : FIREBASE_CONFIG;
+const CODE_RE = /^NOEL-[A-Z0-9]{8}$/;
+const base = () => `groups/${groupCode}`;
+
+function renderSync(){
+  const has = !!CONFIG;
+  $('#syncOff').hidden = has;
+  $('#syncNoGroup').hidden = !has || !!groupCode;
+  $('#syncGroup').hidden = !has || !groupCode;
+  if (groupCode) $('#groupCode').textContent = groupCode;
+  const txt = {connecting:'⏳ Connexion…', ok:'☁️ Synchronisé', pending:'⏳ Envoi en cours…', offline:'📴 Hors ligne : ça se synchronisera au retour d\'internet', error:'⚠️ Synchro impossible pour le moment'}[syncState] || '';
+  $('#syncState').textContent = txt;
+  $('#cloud').hidden = !groupCode;
+  $('#cloud').textContent = txt.split(':')[0];
+}
+function setState(s){ if (syncState !== s){ syncState = s; renderSync(); } }
+
+async function loadApi(){
+  const u = `https://www.gstatic.com/firebasejs/${FB_VERSION}/`;
+  const [app, fs] = await Promise.all([import(u+'firebase-app.js'), import(u+'firebase-firestore.js')]);
+  return {...app, ...fs};
+}
+async function startSync(){
+  if (!CONFIG || !groupCode || S) return;
+  setState('connecting');
+  try {
+    const api = await loadApi();
+    const app = api.getApps().length ? api.getApp() : api.initializeApp(CONFIG);
+    const fs = api.getFirestore(app);
+    if (EMU) { try { api.connectFirestoreEmulator(fs, '127.0.0.1', +EMU); } catch(e){} }
+    S = {fs, api, unsubs:[]};
+    const {collection, getDocs} = api;
+    // 1) Premier échange : on fusionne ce que le groupe a et ce que cet appareil a
+    const [rp, rt] = await Promise.all([getDocs(collection(fs, base()+'/people')), getDocs(collection(fs, base()+'/tickets'))]);
+    await mergePeople(rp.docs.map(d => d.data()), true);
+    await mergeTickets(rt.docs.map(d => d.data()), true);
+    setState('ok'); render();
+    // 2) Ensuite on écoute les changements des autres en direct
+    S.unsubs.push(api.onSnapshot(collection(fs, base()+'/people'), async snap => {
+      const ch = snap.docChanges().filter(c => c.type !== 'removed').map(c => c.doc.data());
+      if (ch.length && await mergePeople(ch, false)) render();
+    }, onSyncError));
+    S.unsubs.push(api.onSnapshot(collection(fs, base()+'/tickets'), {includeMetadataChanges:true}, async snap => {
+      setState(snap.metadata.hasPendingWrites ? 'pending' : snap.metadata.fromCache ? 'offline' : 'ok');
+      const ch = snap.docChanges().filter(c => c.type !== 'removed').map(c => c.doc.data());
+      if (ch.length && await mergeTickets(ch, false)) render();
+    }, onSyncError));
+  } catch(e){ onSyncError(e); }
+}
+function onSyncError(e){
+  console.error('Synchro :', e);
+  setState('error');
+  if (S){ S.unsubs.forEach(u => u()); S = null; }
+  clearTimeout(onSyncError.t); onSyncError.t = setTimeout(startSync, 20000); // nouvel essai dans 20 s
+}
+function stopSync(){ if (S){ S.unsubs.forEach(u => u()); S = null; } setState('off'); }
+
+const pPublic = p => ({id:p.id, name:p.name, color:p.color, updatedAt:p.updatedAt||0, deleted:!!p.deleted, mergedInto:p.mergedInto||''});
+const tPublic = t => ({id:t.id, amount:t.amount, payer:t.payer, desc:t.desc||'', date:t.date||'', split:t.split||[],
+  updatedAt:t.updatedAt||0, deleted:!!t.deleted, photoAt:t.photoAt||0});
+
+function pushPerson(p){
+  if (!S) return;
+  const {doc, setDoc} = S.api;
+  setDoc(doc(S.fs, base()+'/people/'+p.id), pPublic(p)).catch(onSyncError);
+}
+const blobToData = b => new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(b); });
+async function pushTicket(t){
+  if (!S) return;
+  const {doc, setDoc, deleteDoc} = S.api;
+  try {
+    // La photo d'abord, pour que les autres la trouvent quand le ticket arrive
+    if (t.photoAt && t.photo && t.photoPushedAt !== t.photoAt){
+      await setDoc(doc(S.fs, base()+'/photos/'+t.id), {data: await blobToData(t.photo), at:t.photoAt});
+      t.photoPushedAt = t.photoAt; tPut(t);
+    } else if (!t.photoAt && t.photoPushedAt){
+      await deleteDoc(doc(S.fs, base()+'/photos/'+t.id));
+      t.photoPushedAt = 0; tPut(t);
+    }
+    await setDoc(doc(S.fs, base()+'/tickets/'+t.id), tPublic(t));
+  } catch(e){ onSyncError(e); }
+}
+
+// Personnes : la version la plus récente gagne. Au premier échange, même prénom = même personne.
+async function mergePeople(remote, first){
+  let changed = false; const toPush = [];
+  const rIds = new Set(remote.map(r => r.id));
+  for (const r of remote){
+    const lp = peopleAll.find(p => p.id === r.id);
+    if (!lp){ peopleAll.push({...r}); changed = true; }
+    else if ((r.updatedAt||0) > (lp.updatedAt||0)){ Object.assign(lp, r); changed = true; }
+    else if (first && (lp.updatedAt||0) > (r.updatedAt||0)) toPush.push(lp);
+  }
+  if (first) peopleAll.filter(p => !rIds.has(p.id)).forEach(p => toPush.push(p));
+  if (changed) await savePeople();
+  toPush.forEach(pushPerson);
+  if (await dedupePeople()) changed = true;
+  if (await fixRefs()) changed = true;
+  return changed;
+}
+// Deux personnes avec le même prénom (créées sur deux appareils) = une seule.
+// Tous les appareils gardent la même (le plus petit identifiant), l'autre est marquée « fusionnée ».
+async function dedupePeople(){
+  const keep = {}; let ch = false;
+  for (const p of people.slice().sort((a,b) => a.id < b.id ? -1 : 1)){
+    const k = p.name.trim().toLowerCase();
+    if (!keep[k]){ keep[k] = p; continue; }
+    Object.assign(p, {deleted:true, mergedInto:keep[k].id, updatedAt:Date.now()}); pushPerson(p); ch = true;
+  }
+  if (ch) await savePeople();
+  return ch;
+}
+// Les tickets qui pointent vers une personne fusionnée passent sur la bonne personne
+function resolveId(id){
+  for (let i = 0; i < 6; i++){ const p = peopleAll.find(x => x.id === id); if (!p || !p.mergedInto) break; id = p.mergedInto; }
+  return id;
+}
+async function fixRefs(){
+  let ch = false;
+  for (const t of tickets){
+    if (t.deleted) continue;
+    const payer = resolveId(t.payer), split = (t.split||[]).map(resolveId).filter((x,i,a) => a.indexOf(x) === i);
+    if (payer !== t.payer || split.join() !== (t.split||[]).join()){
+      Object.assign(t, {payer, split, updatedAt:Date.now()}); await tPut(t); pushTicket(t); ch = true;
+    }
+  }
+  if (lastPayer) lastPayer = resolveId(lastPayer);
+  return ch;
+}
+// Tickets : la version la plus récente gagne ; les photos manquantes sont téléchargées
+async function mergeTickets(remote, first){
+  let changed = false;
+  const rIds = new Set(remote.map(r => r.id));
+  for (const r of remote){
+    let t = tickets.find(x => x.id === r.id);
+    if (!t){ t = {...r, photo:null, havePhotoAt:0, photoPushedAt:r.photoAt}; tickets.push(t); await tPut(t); changed = true; }
+    else if ((r.updatedAt||0) > (t.updatedAt||0)){
+      Object.assign(t, r); t.photoPushedAt = r.photoAt;
+      if (!r.photoAt || r.deleted){ t.photo = null; t.havePhotoAt = 0; dropURL(t.id); }
+      await tPut(t); changed = true;
+    }
+    else if (first && (t.updatedAt||0) > (r.updatedAt||0)) pushTicket(t);
+    if (!t.deleted && t.photoAt && t.havePhotoAt !== t.photoAt) fetchPhoto(t);
+  }
+  if (first) tickets.filter(t => !rIds.has(t.id)).forEach(pushTicket);
+  if (await fixRefs()) changed = true;
+  return changed;
+}
+const fetching = new Set();
+async function fetchPhoto(t){
+  if (!S || fetching.has(t.id)) return;
+  fetching.add(t.id);
+  try {
+    const snap = await S.api.getDoc(S.api.doc(S.fs, base()+'/photos/'+t.id));
+    if (snap.exists()){
+      const d = snap.data();
+      if (d.at === t.photoAt){
+        t.photo = await (await fetch(d.data)).blob(); t.havePhotoAt = d.at; t.photoPushedAt = d.at;
+        dropURL(t.id); await tPut(t); renderTickets();
+        if (editing === t && !fPhotoChanged){ fPhoto = t.photo; drawPhoto(); }
+      }
+    }
+  } catch(e){ console.warn('Photo', e); }
+  fetching.delete(t.id);
+}
+
+/* ---------- Créer / rejoindre / quitter un groupe ---------- */
+function newCode(){
+  const A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; const r = crypto.getRandomValues(new Uint8Array(8));
+  return 'NOEL-' + Array.from(r, x => A[x % A.length]).join('');
+}
+async function joinGroup(code){
+  stopSync(); groupCode = code; await kvSet('group', code);
+  render(); await startSync();
+}
+$('#createGroup').onclick = async () => { await joinGroup(newCode()); toast('Groupe créé ✅ Invite la famille !'); };
+$('#joinGroup').onclick = async () => {
+  const code = $('#joinCode').value.trim().toUpperCase().replace(/\s/g,'');
+  if (!CODE_RE.test(code)) return toast('Le code ressemble à NOEL-ABCD1234');
+  $('#joinCode').value = '';
+  await joinGroup(code); toast('Tu as rejoint le groupe ✅');
+};
+$('#leaveGroup').onclick = async () => {
+  if (!confirm('Quitter le groupe sur cet appareil ? Les tickets déjà là restent, mais ne se mettront plus à jour.')) return;
+  stopSync(); groupCode = null; await kvDel('group'); render();
+};
+$('#inviteBtn').onclick = async () => {
+  const url = location.origin + location.pathname + '?g=' + groupCode;
+  const text = `🎄 Dépenses de Noël : ouvre ce lien pour ajouter tes tickets dans le groupe de la famille (code ${groupCode}).\n${url}`;
+  if (navigator.share){ try { await navigator.share({text}); return; } catch(e){ if (e.name === 'AbortError') return; } }
+  try { await navigator.clipboard.writeText(text); toast('Lien copié, colle-le dans un message'); }
+  catch(e){ prompt('Copie ce lien :', url); }
+};
+
+/* ---------- Partage du bilan et sauvegarde par fichier ---------- */
 function bilanText(){
   const c = compute();
   let s = `🎄 Dépenses de Noël — total ${fmt(c.total)}\n\n`;
@@ -490,16 +755,14 @@ $('#shareBilan').onclick = async () => {
   try { await navigator.clipboard.writeText(text); toast('Bilan copié, tu peux le coller dans un message'); }
   catch(e){ prompt('Copie ce texte :', text); }
 };
-const toData = b => new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(b); });
-const fromData = async d => (await fetch(d)).blob();
 $('#exportBtn').onclick = async () => {
   toast('Préparation du fichier…');
-  const out = {app:'depenses-noel', v:1, people, tickets:[]};
-  for (const t of tickets) out.tickets.push({...t, photo: t.photo ? await toData(t.photo) : null});
+  const out = {app:'depenses-noel', v:2, people:peopleAll.map(pPublic), tickets:[]};
+  for (const t of tickets) out.tickets.push({...tPublic(t), photo: t.photo ? await blobToData(t.photo) : null});
   const name = `depenses-noel-${new Date().toISOString().slice(0,10)}.json`;
   const file = new File([JSON.stringify(out)], name, {type:'application/json'});
   if (navigator.canShare && navigator.canShare({files:[file]})){
-    try { await navigator.share({files:[file], title:'Dépenses de Noël', text:'Ouvre l\'appli Dépenses de Noël, va dans Groupe puis « Importer » et choisis ce fichier.'}); return; }
+    try { await navigator.share({files:[file], title:'Dépenses de Noël'}); return; }
     catch(e){ if (e.name === 'AbortError') return; }
   }
   const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; a.click();
@@ -512,27 +775,34 @@ $('#importFile').onchange = async e => {
   // Personnes : même identifiant, ou même prénom → même personne
   const map = {};
   for (const p of data.people || []){
-    let mine = person(p.id) || people.find(x => x.name.toLowerCase() === String(p.name).toLowerCase());
-    if (!mine){ mine = {id:p.id, name:p.name, color:p.color || COLORS[people.length % COLORS.length]}; people.push(mine); }
+    if (p.deleted) continue;
+    let mine = peopleAll.find(x => x.id === p.id) || people.find(x => x.name.toLowerCase() === String(p.name).toLowerCase());
+    if (!mine){ mine = {id:p.id, name:String(p.name), color:p.color || COLORS[people.length % COLORS.length], updatedAt:Date.now(), deleted:false}; peopleAll.push(mine); pushPerson(mine); }
     map[p.id] = mine.id;
   }
   await savePeople();
   let added = 0, updated = 0;
-  for (const t of data.tickets || []){
-    const nt = {...t, payer: map[t.payer] || t.payer, split:(t.split||[]).map(id => map[id] || id), photo: t.photo ? await fromData(t.photo) : null};
-    const cur = tickets.find(x => x.id === t.id);
-    if (!cur){ if (nt.deleted) { await tPut(nt); tickets.push(nt); continue; } tickets.push(nt); await tPut(nt); added++; }
-    else if ((nt.updatedAt||0) > (cur.updatedAt||0)){ Object.assign(cur, nt); dropURL(cur.id); await tPut(cur); updated++; }
+  for (const r of data.tickets || []){
+    const photo = r.photo ? await (await fetch(r.photo)).blob() : null;
+    const photoAt = photo ? (r.photoAt || r.updatedAt || Date.now()) : 0;
+    const nt = {...r, payer: map[r.payer] || r.payer, split:(r.split||[]).map(id => map[id] || id), photo, photoAt, havePhotoAt:photoAt, photoPushedAt:0};
+    const cur = tickets.find(x => x.id === r.id);
+    if (!cur){ tickets.push(nt); await tPut(nt); if (!nt.deleted) added++; pushTicket(nt); }
+    else if ((nt.updatedAt||0) > (cur.updatedAt||0)){ Object.assign(cur, nt); dropURL(cur.id); await tPut(cur); updated++; pushTicket(cur); }
   }
   render();
   toast(added || updated ? `${added} ticket${added>1?'s':''} ajouté${added>1?'s':''}${updated?`, ${updated} mis à jour`:''} ✅` : 'Rien de nouveau, tout était déjà là');
 };
 $('#resetBtn').onclick = async () => {
   if (!live().length) return toast('Il n\'y a aucun ticket');
-  if (!confirm('Effacer TOUS les tickets de ce téléphone ? (le groupe est gardé)')) return;
+  const who = groupCode ? 'pour TOUT le groupe' : 'de cet appareil';
+  if (!confirm(`Effacer TOUS les tickets ${who} ? (les personnes sont gardées)`)) return;
   if (!confirm('Sûr ? On ne pourra pas les récupérer.')) return;
-  urls.forEach(u => URL.revokeObjectURL(u)); urls.clear();
-  await tClear(); tickets = []; render(); toast('Tickets effacés');
+  for (const t of live()){
+    Object.assign(t, {deleted:true, photo:null, photoAt:0, havePhotoAt:0, updatedAt:Date.now()});
+    dropURL(t.id); await tPut(t); pushTicket(t);
+  }
+  render(); toast('Tickets effacés');
 };
 
 /* ---------- Divers ---------- */
@@ -552,10 +822,23 @@ function toast(m){ const t = $('#toast'); t.textContent = m; t.classList.add('sh
   try { db = await openDB(); }
   catch(e){ document.body.insertAdjacentHTML('beforeend','<p style="color:#fff;text-align:center;padding:20px">Ce navigateur bloque l\'enregistrement (navigation privée ?).</p>'); return; }
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
-  people = (await kvGet('people')) || [];
+  peopleAll = (await kvGet('people')) || [];
+  peopleAll.forEach(p => { if (p.updatedAt === undefined){ p.updatedAt = 1; p.deleted = false; } });
+  refreshPeople();
   lastPayer = await kvGet('lastPayer');
   tickets = (await tAll()) || [];
-  render(); show(people.length ? 'tickets' : 'groupe');
+  // Anciens tickets (avant la synchro) : on complète les champs photo
+  for (const t of tickets) if (t.photoAt === undefined){ t.photoAt = t.photo ? (t.updatedAt || 1) : 0; t.havePhotoAt = t.photoAt; t.photoPushedAt = 0; await tPut(t); }
+  groupCode = await kvGet('group') || null;
+  // Lien d'invitation : ?g=NOEL-XXXXXXXX
+  const g = (params.get('g') || '').toUpperCase();
+  if (CONFIG && CODE_RE.test(g) && g !== groupCode){
+    if (!groupCode || confirm(`Rejoindre le groupe ${g} ? (tu quittes le groupe ${groupCode})`)){ groupCode = g; await kvSet('group', g); toast('Tu as rejoint le groupe de la famille ✅'); }
+  }
+  if (g){ params.delete('g'); history.replaceState(null, '', location.pathname + (params.toString() ? '?' + params : '')); }
+  render(); show(people.length || groupCode ? 'tickets' : 'groupe');
+  if (groupCode) startSync();
+  window.addEventListener('online', () => { if (groupCode && !S) startSync(); });
 })();
 })();
 </script>

@@ -108,10 +108,13 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
 - `snake/` : snake simple.
 - `roue-noel/` : roue du Père Noël secret (outil, pas un jeu).
 - `depenses-noel/` : dépenses de Noël partagées (outil, créé le 26/11/2026). Groupe de personnes, tickets pris en photo
-  (réduite à 1600 px, gardée dans IndexedDB), montant, payé par, partagé entre (tous ou certains), bilan par personne
-  et remboursements (le moins de virements possible), envoi du bilan en texte. Données sur le téléphone : partage entre
-  téléphones par fichier `.json` (Envoyer / Importer, fusion sans doublons, suppressions transmises).
-  Idées : lecture auto du montant sur la photo, synchro en ligne automatique.
+  (réduite < 650 Ko, gardée dans IndexedDB), montant, payé par, partagé entre (tous ou certains), bilan par personne,
+  remboursements (le moins de virements possible), envoi du bilan en texte, sauvegarde/import par fichier `.json`.
+  - Synchro en ligne (26/11) : Firebase Firestore gratuit, `FIREBASE_CONFIG` en haut du script (**encore à remplir** :
+    l'utilisateur doit créer le projet Firebase). Groupe = code `NOEL-XXXXXXXX` (lien `?g=CODE`).
+    Données : `groups/<code>/people|tickets|photos/<id>`, la modif la plus récente gagne, même prénom = même personne
+    (fusion `mergedInto`). Règles de sécurité : `depenses-noel/firestore.rules`. Test local avec l'émulateur : `?emu=8080`.
+  - Idées : lecture auto du montant sur la photo.
 
 ## À faire
 
