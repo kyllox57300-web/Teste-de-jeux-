@@ -86,7 +86,7 @@
   @keyframes up{from{transform:translateY(40px);opacity:.4}}
   .sheet .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
   .sheet .top button{background:#f3e9d7;width:42px;height:42px;border-radius:12px;color:var(--muted);font-size:1.1rem}
-  .photo-zone{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .photo-zone{display:grid;gap:8px}
   .photo-zone label{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:#fff;border:2px dashed #d9c9a8;border-radius:16px;padding:16px 8px;font-weight:800;cursor:pointer;text-align:center;min-height:90px}
   .photo-zone label .i{font-size:1.8rem}
   .photo-zone input{display:none}
@@ -182,7 +182,6 @@
     <label class="lbl">Photo du ticket</label>
     <div class="photo-zone" id="photoZone">
       <label><span class="i">📷</span>Prendre en photo<input type="file" accept="image/*" capture="environment" id="camIn"></label>
-      <label><span class="i">🖼️</span>Choisir une image<input type="file" accept="image/*" id="galIn"></label>
     </div>
     <div class="preview" id="preview" hidden><img id="previewImg" alt="Ticket"><button id="photoDel">Retirer</button></div>
 
@@ -430,7 +429,7 @@ async function onPick(e){
   try { fPhoto = await shrink(file); drawPhoto(); }
   catch(err){ toast('Impossible de lire cette image'); }
 }
-$('#camIn').onchange = onPick; $('#galIn').onchange = onPick;
+$('#camIn').onchange = onPick;
 // Réduit la photo (max 1600 px) pour ne pas remplir le téléphone, tout en gardant le ticket lisible
 function shrink(file){
   return new Promise((res, rej) => {
