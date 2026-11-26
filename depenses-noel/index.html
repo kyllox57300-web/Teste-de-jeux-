@@ -75,7 +75,7 @@
   .transfer .money{margin-left:auto;background:var(--gold);color:#3a2a07;border-radius:999px;padding:4px 12px;font-weight:800}
   .ok{background:#e9f3ec;border:2px solid #cfe5d6;color:var(--green);border-radius:14px;padding:14px;font-weight:800;text-align:center;margin-top:8px}
   nav{position:fixed;left:0;right:0;bottom:0;z-index:5;background:rgba(10,30,22,.94);backdrop-filter:blur(8px);border-top:1px solid rgba(255,255,255,.1);padding:8px 8px calc(8px + env(safe-area-inset-bottom));display:flex;justify-content:center;gap:6px}
-  nav button{flex:1;max-width:170px;background:transparent;color:#b9cbbf;padding:8px 4px;border-radius:12px;font-size:.82rem;display:flex;flex-direction:column;align-items:center;gap:2px}
+  nav button{flex:1;max-width:130px;background:transparent;color:#b9cbbf;padding:8px 4px;border-radius:12px;font-size:.82rem;display:flex;flex-direction:column;align-items:center;gap:2px}
   nav button .i{font-size:1.4rem}
   nav button.on{background:rgba(232,180,74,.16);color:var(--gold)}
   .fab{position:fixed;z-index:6;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));width:min(492px,calc(100% - 28px));padding:16px;font-size:1.1rem}
@@ -112,6 +112,16 @@
   .sheet.ro .chip:not(.on){display:none}
   .sheet.ro input:disabled{background:#f7f1e6;color:var(--ink);opacity:1;-webkit-text-fill-color:var(--ink)}
   .lock{font-size:.8rem;margin-left:4px;opacity:.7}
+  .meal-cat{margin-top:14px}
+  .meal-cat:first-of-type{margin-top:4px}
+  .meal-cat h3{font-size:1rem;font-weight:800;display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .meal-cat h3 .n{margin-left:auto;font-size:.8rem;color:var(--muted);font-weight:700}
+  .dish{display:flex;align-items:center;gap:10px;background:#fff;border:2px solid #efe5d1;border-radius:14px;padding:10px 12px;width:100%;text-align:left;margin-bottom:8px}
+  .dish .mid{flex:1;min-width:0}
+  .dish .mid b{display:block;font-size:1rem;overflow-wrap:anywhere}
+  .dish .mid small{color:var(--muted);font-size:.85rem}
+  .dish.mine{border-color:#cfe5d6;background:#f4faf6}
+  .nobody{color:var(--muted);font-size:.9rem;font-style:italic;padding:2px 2px 6px}
   .split-note{font-size:.85rem;color:var(--muted);margin-top:6px}
 </style>
 </head>
@@ -131,6 +141,17 @@
       <div class="chips filter" id="filter"></div>
       <div class="tickets" id="ticketList"></div>
     </div>
+  </section>
+
+  <!-- REPAS -->
+  <section class="view" id="v-repas">
+    <div class="card">
+      <h2>Le repas de Noël 🍽️</h2>
+      <p class="hint">Chacun note ce qu'il apporte. Tout le monde voit la liste, pour éviter trois bûches et zéro apéro !</p>
+      <button class="btn green full" id="addDish" style="margin-top:12px">➕ J'apporte quelque chose</button>
+      <div id="mealList" style="margin-top:6px"></div>
+    </div>
+    <button class="btn light full" id="shareMeal">📤 Envoyer la liste du repas</button>
   </section>
 
   <!-- BILAN -->
@@ -209,6 +230,7 @@
 
 <nav>
   <button class="on" data-v="tickets"><span class="i">🧾</span>Tickets</button>
+  <button data-v="repas"><span class="i">🍽️</span>Repas</button>
   <button data-v="bilan"><span class="i">💰</span>Bilan</button>
   <button data-v="groupe"><span class="i">👨‍👩‍👧‍👦</span>Groupe</button>
 </nav>
@@ -246,6 +268,24 @@
     <div class="stack" style="margin-top:18px">
       <button class="btn green full" id="saveBtn">✅ Enregistrer</button>
       <button class="btn ghost" id="delBtn" hidden style="color:var(--red)">Supprimer ce ticket</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fiche plat -->
+<div class="sheet-bg" id="dishBg">
+  <div class="sheet">
+    <div class="top"><h2 id="dishTitle" style="margin:0">J'apporte…</h2><button id="dishClose">✕</button></div>
+    <p class="ro-note" id="dishRo" hidden></p>
+    <label class="lbl">C'est pour</label>
+    <div class="chips" id="dCat"></div>
+    <label class="lbl" for="dName">Quoi ?</label>
+    <input type="text" id="dName" placeholder="Ex. : bûche au chocolat" maxlength="60" autocomplete="off">
+    <label class="lbl" for="dNote">Précision <span style="color:var(--muted);font-weight:600">(facultatif)</span></label>
+    <input type="text" id="dNote" placeholder="Ex. : pour 12 personnes, sans gluten…" maxlength="80" autocomplete="off">
+    <div class="stack" style="margin-top:18px">
+      <button class="btn green full" id="dSave">✅ Enregistrer</button>
+      <button class="btn ghost" id="dDel" hidden style="color:var(--red)">Retirer de la liste</button>
     </div>
   </div>
 </div>
@@ -321,6 +361,9 @@ const tPut = t => tx('tickets','readwrite', s => s.put(t));
                updatedAt, deleted, photoAt (0 = pas de photo), photo: Blob (local), havePhotoAt, photoPushedAt} */
 let peopleAll = [], people = [];
 let tickets = [];
+let dishes = [];   // plat : {id, cat, name, note, by, updatedAt, deleted}
+const CATS = [['apero','🥂','Apéro'],['entree','🥗','Entrée'],['plat','🍗','Plat'],['fromage','🧀','Fromage'],['dessert','🍰','Dessert'],['boissons','🍷','Boissons'],['autre','🎁','Autre']];
+const saveDishes = () => kvSet('dishes', dishes);
 let filterPayer = null, lastPayer = null, me = null;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
 const live = () => tickets.filter(t => !t.deleted);
@@ -386,7 +429,7 @@ function dropURL(id){ if (urls.has(id)){ URL.revokeObjectURL(urls.get(id)); urls
 function render(){
   const c = compute();
   $('#hdrTotal').textContent = fmt(c.total);
-  renderTickets(); renderBilan(c); renderPeople(); renderSync();
+  renderTickets(); renderMeal(); renderBilan(c); renderPeople(); renderSync();
   $('#fab').style.display = $('#v-tickets').classList.contains('on') && people.length ? '' : 'none';
 }
 function renderTickets(){
@@ -443,6 +486,70 @@ function renderPeople(){
   renderMe();
   $('#people').innerHTML = people.map(p => `<li>${dot(p)}<span class="pn">${esc(p.name)}</span><button data-ren="${esc(p.id)}" aria-label="Renommer">✏️</button><button data-del="${esc(p.id)}" aria-label="Retirer">✕</button></li>`).join('');
 }
+
+/* ---------- Repas de Noël ---------- */
+function renderMeal(){
+  const live = dishes.filter(d => !d.deleted);
+  $('#mealList').innerHTML = CATS.map(([k, ico, label]) => {
+    const ds = live.filter(d => (d.cat || 'autre') === k).sort((a,b) => a.updatedAt - b.updatedAt);
+    if (k === 'autre' && !ds.length) return '';
+    return `<div class="meal-cat"><h3>${ico} ${label}<span class="n">${ds.length || ''}</span></h3>${
+      ds.length ? ds.map(d => `<button class="dish ${d.by && d.by === myId() ? 'mine' : ''}" data-dish="${esc(d.id)}">
+        <span class="mid"><b>${esc(d.name)}</b><small>${esc(pname(d.by))}${d.note ? ' · ' + esc(d.note) : ''}</small></span>
+        ${myId() && d.by !== myId() ? '<span class="lock">🔒</span>' : ''}</button>`).join('')
+      : '<div class="nobody">Personne pour l\'instant</div>'}</div>`;
+  }).join('');
+}
+let dEditing = null, dCat = 'plat';
+function openDish(d){
+  if (!myId()) return askMe(() => openDish(d));
+  dEditing = d || null;
+  const ro = !!d && d.by !== myId();
+  dCat = d ? (d.cat || 'autre') : dCat;
+  $('#dishTitle').textContent = !d ? 'J\'apporte…' : ro ? 'Au menu' : 'Modifier';
+  $('#dName').value = d ? d.name : ''; $('#dNote').value = d ? (d.note || '') : '';
+  $('#dName').disabled = $('#dNote').disabled = ro;
+  $('#dishRo').hidden = !ro; if (ro) $('#dishRo').textContent = `🔒 C'est ${pname(d.by)} qui apporte ça : seul ${pname(d.by)} peut le changer.`;
+  $('#dSave').hidden = ro; $('#dDel').hidden = !d || ro;
+  document.querySelector('#dishBg .sheet').classList.toggle('ro', ro);
+  drawCats(); $('#dishBg').classList.add('show');
+  if (!d) setTimeout(() => $('#dName').focus(), 250);
+}
+function drawCats(){ $('#dCat').innerHTML = CATS.map(([k, ico, label]) => `<button class="chip ${dCat===k?'on':''}" data-cat="${k}">${ico} ${label}</button>`).join(''); }
+$('#dCat').onclick = e => { const b = e.target.closest('[data-cat]'); if (b){ dCat = b.dataset.cat; drawCats(); } };
+$('#addDish').onclick = () => openDish(null);
+$('#mealList').onclick = e => { const b = e.target.closest('[data-dish]'); if (b) openDish(dishes.find(d => d.id === b.dataset.dish)); };
+$('#dishClose').onclick = () => $('#dishBg').classList.remove('show');
+$('#dishBg').onclick = e => { if (e.target === $('#dishBg')) $('#dishBg').classList.remove('show'); };
+$('#dName').addEventListener('keydown', e => { if (e.key === 'Enter') $('#dSave').click(); });
+$('#dSave').onclick = async () => {
+  const name = $('#dName').value.trim();
+  if (!name){ $('#dName').focus(); return toast('Écris ce que tu apportes'); }
+  if (dEditing && dEditing.by !== myId()) return;
+  const d = dEditing || {id:uid(), by:myId()};
+  Object.assign(d, {cat:dCat, name, note:$('#dNote').value.trim(), updatedAt:Date.now(), deleted:false});
+  if (!dEditing) dishes.push(d);
+  await saveDishes(); $('#dishBg').classList.remove('show'); render(); pushDish(d);
+  toast(dEditing ? 'Modifié ✅' : 'Ajouté au repas ✅');
+};
+$('#dDel').onclick = async () => {
+  if (!dEditing || dEditing.by !== myId() || !confirm('Retirer « ' + dEditing.name + ' » de la liste ?')) return;
+  Object.assign(dEditing, {deleted:true, updatedAt:Date.now()});
+  await saveDishes(); $('#dishBg').classList.remove('show'); render(); pushDish(dEditing);
+};
+$('#shareMeal').onclick = async () => {
+  const live = dishes.filter(d => !d.deleted);
+  let text = '🎄 Repas de Noël — qui apporte quoi\n';
+  CATS.forEach(([k, ico, label]) => {
+    const ds = live.filter(d => (d.cat || 'autre') === k);
+    if (k === 'autre' && !ds.length) return;
+    text += `\n${ico} ${label} :\n` + (ds.length ? ds.map(d => `• ${d.name} (${pname(d.by)})${d.note ? ' — ' + d.note : ''}`).join('\n') : '• personne pour l\'instant');
+    text += '\n';
+  });
+  if (navigator.share){ try { await navigator.share({text}); return; } catch(e){ if (e.name === 'AbortError') return; } }
+  try { await navigator.clipboard.writeText(text); toast('Liste copiée, colle-la dans un message'); }
+  catch(e){ prompt('Copie ce texte :', text); }
+};
 
 /* ---------- Navigation ---------- */
 function show(v){
@@ -644,6 +751,15 @@ async function startSync(){
     const [rp, rt] = await Promise.all([getDocs(collection(fs, base()+'/people')), getDocs(collection(fs, base()+'/tickets'))]);
     await mergePeople(rp.docs.map(d => d.data()), true);
     await mergeTickets(rt.docs.map(d => d.data()), true);
+    // Le repas (à part : si ça coince, les tickets marchent quand même)
+    try {
+      const rd = await getDocs(collection(fs, base()+'/dishes'));
+      await mergeDishes(rd.docs.map(d => d.data()), true);
+      S.unsubs.push(api.onSnapshot(collection(fs, base()+'/dishes'), async snap => {
+        const ch = snap.docChanges().filter(c => c.type !== 'removed').map(c => c.doc.data());
+        if (ch.length && await mergeDishes(ch, false)) render();
+      }, e => console.warn('Repas :', e)));
+    } catch(e){ console.warn('Repas :', e); }
     setState('ok'); render();
     // 2) Ensuite on écoute les changements des autres en direct
     S.unsubs.push(api.onSnapshot(collection(fs, base()+'/people'), async snap => {
@@ -673,6 +789,25 @@ function pushPerson(p){
   if (!S) return;
   const {doc, setDoc} = S.api;
   setDoc(doc(S.fs, base()+'/people/'+p.id), pPublic(p)).catch(onSyncError);
+}
+const dPublic = d => ({id:d.id, cat:d.cat||'autre', name:d.name||'', note:d.note||'', by:d.by||'', updatedAt:d.updatedAt||0, deleted:!!d.deleted});
+function pushDish(d){
+  if (!S) return;
+  S.api.setDoc(S.api.doc(S.fs, base()+'/dishes/'+d.id), dPublic(d)).catch(e => console.warn('Repas :', e));
+}
+async function mergeDishes(remote, first){
+  let changed = false;
+  const rIds = new Set(remote.map(r => r.id));
+  for (const r of remote){
+    const d = dishes.find(x => x.id === r.id);
+    if (!d){ dishes.push({...r}); changed = true; }
+    else if ((r.updatedAt||0) > (d.updatedAt||0)){ Object.assign(d, r); changed = true; }
+    else if (first && (d.updatedAt||0) > (r.updatedAt||0)) pushDish(d);
+  }
+  if (first) dishes.filter(d => !rIds.has(d.id)).forEach(pushDish);
+  if (changed) await saveDishes();
+  if (await fixRefs()) changed = true;
+  return changed;
 }
 const blobToData = b => new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(b); });
 async function pushTicket(t){
@@ -734,6 +869,9 @@ async function fixRefs(){
       Object.assign(t, {payer, split, by, updatedAt:Date.now()}); await tPut(t); pushTicket(t); ch = true;
     }
   }
+  let dch = false;
+  for (const d of dishes){ if (d.by && resolveId(d.by) !== d.by){ d.by = resolveId(d.by); d.updatedAt = Date.now(); pushDish(d); dch = true; } }
+  if (dch){ await saveDishes(); ch = true; }
   if (lastPayer) lastPayer = resolveId(lastPayer);
   return ch;
 }
@@ -889,6 +1027,7 @@ function toast(m){ const t = $('#toast'); t.textContent = m; t.classList.add('sh
   refreshPeople();
   lastPayer = await kvGet('lastPayer');
   tickets = (await tAll()) || [];
+  dishes = (await kvGet('dishes')) || [];
   // Anciens tickets (avant la synchro) : on complète les champs photo
   for (const t of tickets) if (t.photoAt === undefined){ t.photoAt = t.photo ? (t.updatedAt || 1) : 0; t.havePhotoAt = t.photoAt; t.photoPushedAt = 0; await tPut(t); }
   groupCode = await kvGet('group') || null;

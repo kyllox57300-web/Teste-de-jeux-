@@ -4,7 +4,7 @@ service cloud.firestore {
     // Un groupe = un code secret (NOEL-XXXXXXXX). Qui connaît le code peut lire et écrire dans ce groupe.
     match /groups/{code}/{coll}/{id} {
       allow read, write: if code.matches('NOEL-[A-Z0-9]{8}')
-                         && coll in ['people', 'tickets', 'photos'];
+                         && coll in ['people', 'tickets', 'photos', 'dishes'];
     }
   }
 }

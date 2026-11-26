@@ -117,6 +117,9 @@ Où on en est, jeu par jeu. Mis à jour à la fin de chaque séance.
   - « Qui es-tu ? » (26/11) : chaque appareil choisit sa famille une fois (gardé sur l'appareil). On ne peut modifier/supprimer
     que ses tickets (payés ou ajoutés, champ `by`) ; les autres sont en lecture seule (🔒). « Tout effacer » visible seulement
     sur l'appareil qui a créé le groupe. Ce n'est pas une vraie sécurité (on peut choisir un autre nom), ça évite les erreurs.
+  - Onglet Repas (26/11) : chaque famille note ce qu'elle apporte (apéro, entrée, plat, fromage, dessert, boissons, autre)
+    + précision. Synchro dans `groups/<code>/dishes` (règle Firebase mise à jour), chacun ne modifie que ses plats,
+    envoi de la liste en texte.
   - Idées : lecture auto du montant sur la photo.
 
 ## À faire
